@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Baby Style - API Documentation | E-commerce para Bebés</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <style>
+        .sidebar { height: calc(100vh - 4rem); }
+        .endpoint { transition: all 0.3s ease; }
+        .endpoint:hover { transform: translateX(4px); }
+        .method-get { @apply bg-green-100 text-green-800 border-green-200; }
+        .method-post { @apply bg-blue-100 text-blue-800 border-blue-200; }
+        .method-put { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .method-delete { @apply bg-red-100 text-red-800 border-red-200; }
+        .auth-jwt { @apply bg-purple-100 text-purple-800 border-purple-200; }
+        .auth-apikey { @apply bg-orange-100 text-orange-800 border-orange-200; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">🍼 Happy Baby Style</h1>
+                    <span class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">API v1.0</span>
+                    <span class="ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">GraphQL + Clean Architecture</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="authToggle" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        Authentication
+                    </button>
+                    <button id="testToggle" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        Test API
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-sm sidebar overflow-y-auto">
+            <nav class="p-4">
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2">GraphQL API</h2>
+                    <div class="space-y-1">
+                        <a href="#graphql" class="block endpoint p-2 rounded bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium">
+                            🎮 GraphQL Playground
+                        </a>
+                        <a href="#schema" class="block endpoint p-2 rounded hover:bg-gray-100 text-gray-700">
+                            📋 Schema Explorer
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2">E-commerce API</h2>
+                    <div class="space-y-1">
+                        <a href="#products" class="block endpoint p-2 rounded hover:bg-gray-100 text-gray-700">
+                            🍼 Productos para Bebés
+                        </a>
+                        <a href="#orders" class="block endpoint p-2 rounded hover:bg-gray-100 text-gray-700">
+                            🛒 Pedidos y Carritos
+                        </a>
+                        <a href="#users" class="block endpoint p-2 rounded hover:bg-gray-100 text-gray-700">
+                            👥 Usuarios y Perfiles
+                        </a>
+                        <a href="#images" class="block endpoint p-2 rounded hover:bg-gray-100 text-gray-700">
+                            🖼️ Imágenes y Media
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-2">Authentication</h2>
+                    <div class="space-y-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 bg-purple-500 rounded-full"></span>
+                            <span class="text-sm text-gray-600">JWT Token</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 bg-orange-500 rounded-full"></span>
+                            <span class="text-sm text-gray-600">API Key</span>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8">
+            <!-- Authentication Modal -->
+            <div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50">
+                <div class="flex items-center justify-center min-h-screen p-4">
+                    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <h3 class="text-lg font-semibold mb-4">Authentication Settings</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">JWT Token</label>
+                                <input type="text" id="jwtToken" placeholder="Bearer token..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                                <input type="text" id="apiKey" placeholder="API key..." 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+                                <input type="text" id="baseUrl" value="http://localhost:3000" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button id="closeAuth" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                            <button id="saveAuth" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Testing Panel -->
+            <div id="testPanel" class="hidden mb-8 bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">API Testing</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Endpoint</label>
+                        <input type="text" id="testEndpoint" placeholder="/api/products" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Method</label>
+                        <select id="testMethod" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Request Body (JSON)</label>
+                    <textarea id="testBody" rows="4" placeholder='{"key": "value"}' 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"></textarea>
+                </div>
+                <div class="mt-4 flex space-x-3">
+                    <button id="sendRequest" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Send Request</button>
+                    <button id="clearTest" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Clear</button>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Response</label>
+                    <pre id="testResponse" class="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto"></pre>
+                </div>
+            </div>
+
+            <!-- Products Section -->
+            <section id="products" class="mb-12">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">📦 Products API</h2>
+                
+                <div class="space-y-6">
+                    <!-- GET /api/products -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <span class="method-get px-2 py-1 text-xs font-semibold rounded">GET</span>
+                            <code class="text-lg font-mono">/api/products</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Get all products with optional filtering and pagination</p>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Query Parameters:</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div><code>category</code> - Filter by category</div>
+                                <div><code>isActive</code> - Filter by active status</div>
+                                <div><code>minPrice</code> - Minimum price filter</div>
+                                <div><code>maxPrice</code> - Maximum price filter</div>
+                                <div><code>inStock</code> - Filter by stock availability</div>
+                                <div><code>search</code> - Search in name/description</div>
+                                <div><code>limit</code> - Number of items (1-100)</div>
+                                <div><code>offset</code> - Pagination offset</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Example Response:</h4>
+                            <pre class="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto"><code>{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Baby Onesie",
+      "description": "Comfortable cotton onesie",
+      "price": 29.99,
+      "category": "clothing",
+      "sizes": ["0-3m", "3-6m"],
+      "colors": ["blue", "pink"],
+      "stock": 50,
+      "sku": "BABY-001",
+      "isActive": true,
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "count": 1,
+  "message": "Products retrieved successfully"
+}</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- POST /api/products -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <span class="method-post px-2 py-1 text-xs font-semibold rounded">POST</span>
+                            <code class="text-lg font-mono">/api/products</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Create a new product</p>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Request Body:</h4>
+                            <pre class="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto"><code>{
+  "name": "Baby Onesie",
+  "description": "Comfortable cotton onesie for babies",
+  "price": 29.99,
+  "category": "clothing",
+  "sizes": ["0-3m", "3-6m", "6-9m"],
+  "colors": ["blue", "pink", "yellow"],
+  "stock": 50,
+  "sku": "BABY-001"
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Orders Section -->
+            <section id="orders" class="mb-12">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">🛒 Orders API</h2>
+                
+                <div class="space-y-6">
+                    <!-- GET /api/orders -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <span class="method-get px-2 py-1 text-xs font-semibold rounded">GET</span>
+                            <code class="text-lg font-mono">/api/orders</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Get all orders</p>
+                    </div>
+
+                    <!-- POST /api/orders -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <span class="method-post px-2 py-1 text-xs font-semibold rounded">POST</span>
+                            <code class="text-lg font-mono">/api/orders</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Create a new order</p>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Request Body:</h4>
+                            <pre class="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto"><code>{
+  "customerEmail": "customer@example.com",
+  "customerName": "John Doe",
+  "customerPhone": "+1234567890",
+  "items": [
+    {
+      "productId": "uuid",
+      "quantity": 2,
+      "size": "3-6m",
+      "color": "blue"
+    }
+  ],
+  "shippingAddress": {
+    "street": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "zipCode": "10001",
+    "country": "USA"
+  }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Users Section -->
+            <section id="users" class="mb-12">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">👥 Users API</h2>
+                
+                <div class="space-y-6">
+                    <!-- GET /api/users -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <span class="method-get px-2 py-1 text-xs font-semibold rounded">GET</span>
+                            <code class="text-lg font-mono">/api/users</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Get all users with filtering and pagination</p>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Query Parameters:</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div><code>limit</code> - Number of items (1-100)</div>
+                                <div><code>offset</code> - Pagination offset</div>
+                                <div><code>role</code> - Filter by role (admin, customer, staff)</div>
+                                <div><code>isActive</code> - Filter by active status</div>
+                                <div><code>search</code> - Search in name/email</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- POST /api/users -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <span class="method-post px-2 py-1 text-xs font-semibold rounded">POST</span>
+                            <code class="text-lg font-mono">/api/users</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Create a new user</p>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Request Body:</h4>
+                            <pre class="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto"><code>{
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "role": "customer",
+  "profile": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "+1234567890",
+    "birthDate": "1990-01-01"
+  }
+}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Images Section -->
+            <section id="images" class="mb-12">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">🖼️ Images API</h2>
+                
+                <div class="space-y-6">
+                    <!-- POST /api/images/upload -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <span class="method-post px-2 py-1 text-xs font-semibold rounded">POST</span>
+                            <code class="text-lg font-mono">/api/images/upload</code>
+                        </div>
+                        <p class="text-gray-600 mb-4">Upload an image (multipart/form-data)</p>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Form Data:</h4>
+                            <div class="grid grid-cols-1 gap-2 text-sm">
+                                <div><code>image</code> - Image file (JPEG, PNG, WEBP, max 5MB)</div>
+                                <div><code>entityType</code> - Type of entity (product, user, etc.)</div>
+                                <div><code>entityId</code> - ID of the entity</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script>
+        // Authentication and API Testing functionality
+        class APIDocumentation {
+            constructor() {
+                this.baseUrl = localStorage.getItem('apiBaseUrl') || 'http://localhost:3000';
+                this.jwtToken = localStorage.getItem('jwtToken') || '';
+                this.apiKey = localStorage.getItem('apiKey') || '';
+                
+                this.initializeEventListeners();
+                this.updateAuthDisplay();
+            }
+
+            initializeEventListeners() {
+                // Auth modal
+                document.getElementById('authToggle').addEventListener('click', () => {
+                    document.getElementById('authModal').classList.remove('hidden');
+                });
+
+                document.getElementById('closeAuth').addEventListener('click', () => {
+                    document.getElementById('authModal').classList.add('hidden');
+                });
+
+                document.getElementById('saveAuth').addEventListener('click', () => {
+                    this.saveAuthSettings();
+                });
+
+                // Test panel
+                document.getElementById('testToggle').addEventListener('click', () => {
+                    const panel = document.getElementById('testPanel');
+                    panel.classList.toggle('hidden');
+                });
+
+                document.getElementById('sendRequest').addEventListener('click', () => {
+                    this.sendTestRequest();
+                });
+
+                document.getElementById('clearTest').addEventListener('click', () => {
+                    this.clearTestForm();
+                });
+
+                // Smooth scrolling for navigation
+                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                    anchor.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        const target = document.querySelector(this.getAttribute('href'));
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    });
+                });
+            }
+
+            saveAuthSettings() {
+                this.baseUrl = document.getElementById('baseUrl').value;
+                this.jwtToken = document.getElementById('jwtToken').value;
+                this.apiKey = document.getElementById('apiKey').value;
+
+                localStorage.setItem('apiBaseUrl', this.baseUrl);
+                localStorage.setItem('jwtToken', this.jwtToken);
+                localStorage.setItem('apiKey', this.apiKey);
+
+                document.getElementById('authModal').classList.add('hidden');
+                this.updateAuthDisplay();
+            }
+
+            updateAuthDisplay() {
+                document.getElementById('baseUrl').value = this.baseUrl;
+                document.getElementById('jwtToken').value = this.jwtToken;
+                document.getElementById('apiKey').value = this.apiKey;
+            }
+
+            async sendTestRequest() {
+                const endpoint = document.getElementById('testEndpoint').value;
+                const method = document.getElementById('testMethod').value;
+                const body = document.getElementById('testBody').value;
+                const responseElement = document.getElementById('testResponse');
+
+                if (!endpoint) {
+                    responseElement.textContent = 'Error: Endpoint is required';
+                    return;
+                }
+
+                try {
+                    const url = `${this.baseUrl}${endpoint}`;
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+
+                    if (this.jwtToken) {
+                        headers['Authorization'] = `Bearer ${this.jwtToken}`;
+                    }
+
+                    if (this.apiKey) {
+                        headers['X-API-Key'] = this.apiKey;
+                    }
+
+                    const options = {
+                        method,
+                        headers,
+                        body: method !== 'GET' && body ? body : undefined
+                    };
+
+                    responseElement.textContent = 'Sending request...';
+                    
+                    const response = await fetch(url, options);
+                    const responseData = await response.text();
+                    
+                    let formattedResponse;
+                    try {
+                        const jsonData = JSON.parse(responseData);
+                        formattedResponse = JSON.stringify(jsonData, null, 2);
+                    } catch {
+                        formattedResponse = responseData;
+                    }
+
+                    responseElement.innerHTML = `<div class="mb-2">
+                        <span class="font-semibold">Status: ${response.status} ${response.statusText}</span>
+                    </div>
+                    <pre><code class="language-json">${formattedResponse}</code></pre>`;
+
+                    Prism.highlightAll();
+                } catch (error) {
+                    responseElement.textContent = `Error: ${error.message}`;
+                }
+            }
+
+            clearTestForm() {
+                document.getElementById('testEndpoint').value = '';
+                document.getElementById('testBody').value = '';
+                document.getElementById('testResponse').textContent = '';
+            }
+        }
+
+        // Initialize the documentation
+        document.addEventListener('DOMContentLoaded', () => {
+            new APIDocumentation();
+        });
+    </script>
+</body>
+</html> 

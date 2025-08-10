@@ -1,0 +1,31 @@
+overwrite: true
+schema: "src/graphql/schema.ts"
+documents: null
+generates:
+  src/generated/graphql.ts:
+    plugins:
+      - "typescript"
+      - "typescript-resolvers"
+    config:
+      contextType: "../graphql/server#Context"
+      mappers:
+        UserProfile: "@prisma/client#UserProfile"
+        UserAddress: "@prisma/client#UserAddress"
+        Category: "@prisma/client#Category"
+        Product: "@prisma/client#Product"
+        ProductVariant: "@prisma/client#ProductVariant"
+        ShoppingCart: "@prisma/client#ShoppingCart"
+        UserFavorite: "@prisma/client#UserFavorite"
+        Order: "@prisma/client#Order"
+        OrderItem: "@prisma/client#OrderItem"
+        PaymentMethod: "@prisma/client#PaymentMethod"
+      scalars:
+        DateTime: "Date"
+        Decimal: "string"
+        JSON: "any"
+      enumsAsTypes: true
+      avoidOptionals:
+        field: true
+        inputValue: false
+        object: false
+        defaultValue: true 
