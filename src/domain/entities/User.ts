@@ -55,6 +55,7 @@ export interface CreateUserRequest {
     phone?: string;
     birthDate?: Date;
   };
+  isActive?: boolean;
 }
 
 export interface UpdateUserRequest {

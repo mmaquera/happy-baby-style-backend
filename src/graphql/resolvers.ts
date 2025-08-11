@@ -1,6 +1,8 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { Container } from '@shared/container';
 import { GraphQLErrorHandler, handleResolverError } from './error-handler';
+import { ResponseFactory } from '@shared/factories/ResponseFactory';
+import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
 import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUseCase';
 import { GetProductByIdUseCase } from '@application/use-cases/product/GetProductByIdUseCase';
 import { CreateProductUseCase } from '@application/use-cases/product/CreateProductUseCase';
@@ -415,7 +417,11 @@ export const resolvers = {
     },
 
     // Product queries
-    products: async (_: any, { filter, pagination }: any) => {
+    products: async (_: any, { filter, pagination }: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `get-products-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         
@@ -423,37 +429,210 @@ export const resolvers = {
           filters: filter,
           pagination: pagination || { limit: 10, offset: 0 }
         });
+
+        const duration = Date.now() - startTime;
         
-        return {
-          products: result.products.map(transformProduct),
-          total: result.total,
-          hasMore: result.hasMore
-        };
+        // Calcular información de paginación
+        const limit = pagination?.limit || 10;
+        const offset = pagination?.offset || 0;
+        const currentPage = Math.floor(offset / limit) + 1;
+        const totalPages = Math.ceil(result.total / limit);
+        
+        return ResponseFactory.createPaginatedResponse(
+          result.products.map(transformProduct),
+          {
+            total: result.total,
+            limit,
+            offset,
+            hasMore: result.hasMore,
+            currentPage,
+            totalPages
+          },
+          'Products retrieved successfully',
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
       } catch (error: any) {
-        throw new Error(`Failed to fetch products: ${error.message || 'Unknown error'}`);
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('GetProducts resolver error:', {
+          error: error.message,
+          filter,
+          pagination,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch products: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { filter, pagination, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    product: async (_: any, { id }: { id: string }) => {
+    product: async (_: any, { id }: { id: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `get-product-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         if (!id) {
-          throw new Error('Product ID is required');
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'Product ID is required',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
+            { id },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
         }
+
         const getProductByIdUseCase = container.get<GetProductByIdUseCase>('getProductByIdUseCase');
         const product = await getProductByIdUseCase.execute({ id });
-        return product ? transformProduct(product) : null;
+        
+        if (!product) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'Product not found',
+            RESPONSE_CODES.RESOURCE_NOT_FOUND,
+            { id },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          { entity: transformProduct(product) },
+          'Product retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
       } catch (error: any) {
-        throw new Error(`Failed to fetch product: ${error.message || 'Unknown error'}`);
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('GetProduct resolver error:', {
+          error: error.message,
+          id,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch product: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { id, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    productBySku: async (_: any, { sku }: { sku: string }) => {
-      const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
-      const result = await getProductsUseCase.execute({
-        filters: { sku },
-        pagination: { limit: 1, offset: 0 }
-      });
-      return result.products[0] ? transformProduct(result.products[0]) : null;
+    productBySku: async (_: any, { sku }: { sku: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `get-product-by-sku-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        if (!sku) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'Product SKU is required',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
+            { sku },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
+        const result = await getProductsUseCase.execute({
+          filters: { sku },
+          pagination: { limit: 1, offset: 0 }
+        });
+
+        if (!result.products[0]) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'Product not found',
+            RESPONSE_CODES.RESOURCE_NOT_FOUND,
+            { sku },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          { entity: transformProduct(result.products[0]) },
+          'Product retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('GetProductBySku resolver error:', {
+          error: error.message,
+          sku,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch product by SKU: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { sku, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     // Search products - IMPLEMENTED
@@ -903,7 +1082,7 @@ export const resolvers = {
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({
-          filters: { categoryId },
+          filters: { category: categoryId },
           pagination: pagination || { limit: 10, offset: 0 }
         });
         
@@ -1739,22 +1918,75 @@ export const resolvers = {
 
   Mutation: {
     // Product mutations
-    createProduct: async (_: any, { input }: { input: any }) => {
-      const createProductUseCase = container.get<CreateProductUseCase>('createProductUseCase');
-      const product = await createProductUseCase.execute({
-        categoryId: input.categoryId,
-        name: input.name,
-        description: input.description,
-        price: input.price,
-        salePrice: input.salePrice,
-        sku: input.sku,
-        images: input.images || [],
-        attributes: input.attributes || {},
-        // isActive: input.isActive !== false, // Removed - not in CreateUserRequest
-        stockQuantity: input.stockQuantity || 0,
-        tags: input.tags || []
-      });
-      return transformProduct(product);
+    createProduct: async (_: any, { input }: { input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `create-product-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const createProductUseCase = container.get<CreateProductUseCase>('createProductUseCase');
+        const product = await createProductUseCase.execute({
+          categoryId: input.categoryId,
+          name: input.name,
+          description: input.description,
+          price: input.price,
+          salePrice: input.salePrice,
+          sku: input.sku,
+          images: input.images || [],
+          attributes: input.attributes || {},
+          stockQuantity: input.stockQuantity || 0,
+          tags: input.tags || []
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createCreateResponse(
+          transformProduct(product),
+          product.id,
+          product.createdAt.toISOString(),
+          'Product created successfully',
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('CreateProduct resolver error:', {
+          error: error.message,
+          input,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        let errorMessage = error.message || 'Failed to create product';
+        
+        if (error.message?.includes('SKU already exists') || error.message?.includes('already exists')) {
+          errorCode = RESPONSE_CODES.RESOURCE_ALREADY_EXISTS;
+        } else if (error.message?.includes('required') || error.message?.includes('Validation failed')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        } else if (error.message?.includes('not found')) {
+          errorCode = RESPONSE_CODES.RESOURCE_NOT_FOUND;
+        }
+        
+        return ResponseFactory.createErrorResponse(
+          errorMessage,
+          errorCode as any,
+          { input, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     updateProduct: async (_: any, { id, input }: { id: string; input: any }) => {
@@ -1814,21 +2046,72 @@ export const resolvers = {
     },
 
     // User mutations
-    createUser: async (_: any, { input }: { input: any }) => {
-      const createUserUseCase = container.get<CreateUserUseCase>('createUserUseCase');
-      const user = await createUserUseCase.execute({
-        email: input.email,
-        password: input.password,
-        role: input.role,
-        isActive: input.isActive !== undefined ? input.isActive : true,
-        profile: input.profile ? {
-          firstName: input.profile.firstName,
-          lastName: input.profile.lastName,
-          phone: input.profile.phone,
-          birthDate: input.profile.birthDate
-        } : undefined
-      });
-      return transformUser(user);
+    createUser: async (_: any, { input }: { input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `create-user-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const createUserUseCase = container.get<CreateUserUseCase>('createUserUseCase');
+        const user = await createUserUseCase.execute({
+          email: input.email,
+          password: input.password,
+          role: input.role,
+          isActive: input.isActive !== undefined ? input.isActive : true,
+          profile: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+            birthDate: input.dateOfBirth
+          }
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return {
+          success: true,
+          message: 'User created successfully',
+          code: 'CREATED',
+          timestamp: new Date().toISOString(),
+          data: {
+            entity: transformUser(user),
+            id: user.id,
+            createdAt: user.createdAt?.toISOString() || new Date().toISOString()
+          },
+          metadata: {
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date().toISOString()
+          }
+        };
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('CreateUser resolver error:', {
+          error: error.message,
+          input,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return {
+          success: false,
+          message: error.message || 'Failed to create user',
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString(),
+          data: null,
+          metadata: {
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date().toISOString()
+          }
+        };
+      }
     },
 
     updateUser: async (_: any, { id, input }: { id: string; input: any }) => {
@@ -2184,10 +2467,6 @@ export const resolvers = {
     },
 
     // Placeholder mutations (to be implemented)
-    deleteUserProfile: () => ({ success: true, message: 'User profile deleted successfully' }),
-    createUserAddress: () => null,
-    updateUserAddress: () => null,
-    deleteUserAddress: () => ({ success: true, message: 'Address deleted successfully' }),
     createCategory: () => null,
     updateCategory: () => null,
     deleteCategory: () => ({ success: true, message: 'Category deleted successfully' }),
@@ -2198,8 +2477,6 @@ export const resolvers = {
     updateCartItem: () => null,
     removeFromCart: () => ({ success: true, message: 'Item removed from cart' }),
     clearUserCart: () => ({ success: true, message: 'Cart cleared successfully' }),
-    addToFavorites: () => null,
-    removeFromFavorites: () => ({ success: true, message: 'Removed from favorites' }),
     cancelOrder: () => null,
     shipOrder: () => null,
     deliverOrder: () => null,

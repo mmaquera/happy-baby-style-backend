@@ -1252,6 +1252,88 @@ export const typeDefs = gql`
     hasMore: Boolean!
   }
 
+  # Base Response Types for Standardized API Responses
+  type BaseResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    metadata: ResponseMetadata
+  }
+
+  type ResponseMetadata {
+    requestId: String
+    traceId: String
+    duration: Int
+    timestamp: String!
+  }
+
+  type CreateUserResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: CreateUserData
+    metadata: ResponseMetadata
+  }
+
+  type CreateUserData {
+    entity: User!
+    id: ID!
+    createdAt: String!
+  }
+
+  type CreateProductResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: CreateProductData
+    metadata: ResponseMetadata
+  }
+
+  type CreateProductData {
+    entity: Product!
+    id: ID!
+    createdAt: String!
+  }
+
+  type GetProductsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GetProductsData
+    metadata: ResponseMetadata
+  }
+
+  type GetProductsData {
+    items: [Product!]!
+    pagination: ProductPaginationInfo!
+  }
+
+  type ProductPaginationInfo {
+    total: Int!
+    limit: Int!
+    offset: Int!
+    hasMore: Boolean!
+    currentPage: Int!
+    totalPages: Int!
+  }
+
+  type GetProductResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GetProductData
+    metadata: ResponseMetadata
+  }
+
+  type GetProductData {
+    entity: Product!
+  }
+
   type AuthResponse {
     success: Boolean!
     user: User
@@ -1360,9 +1442,9 @@ export const typeDefs = gql`
     categoryBySlug(slug: String!): Category
     
     # Product queries
-    products(filter: ProductFilterInput, pagination: PaginationInput): PaginatedProducts!
-    product(id: ID!): Product
-    productBySku(sku: String!): Product
+    products(filter: ProductFilterInput, pagination: PaginationInput): GetProductsResponse!
+    product(id: ID!): GetProductResponse!
+    productBySku(sku: String!): GetProductResponse!
     productsByCategory(categoryId: ID!, pagination: PaginationInput): PaginatedProducts!
     searchProducts(query: String!, filter: ProductFilterInput, pagination: PaginationInput): PaginatedProducts!
     
@@ -1469,7 +1551,7 @@ export const typeDefs = gql`
     refreshToken(refreshToken: String!): AuthResponse!
     
     # User mutations
-    createUser(input: CreateUserProfileInput!): User!
+    createUser(input: CreateUserProfileInput!): CreateUserResponse!
     updateUser(id: ID!, input: UpdateUserInput!): User!
     deleteUser(id: ID!): SuccessResponse!
     activateUser(id: ID!): User!
@@ -1504,7 +1586,7 @@ export const typeDefs = gql`
     deleteCategory(id: ID!): SuccessResponse!
     
     # Product mutations
-    createProduct(input: CreateProductInput!): Product!
+    createProduct(input: CreateProductInput!): CreateProductResponse!
     updateProduct(id: ID!, input: UpdateProductInput!): Product!
     deleteProduct(id: ID!): SuccessResponse!
     
