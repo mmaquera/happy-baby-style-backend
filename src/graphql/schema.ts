@@ -1157,6 +1157,11 @@ export const typeDefs = gql`
     emailVerified: Boolean
   }
 
+  input CategoryFilterInput {
+    isActive: Boolean
+    search: String
+  }
+
   input UserOrderHistoryFilter {
     status: OrderStatus
     startDate: DateTime
@@ -1334,6 +1339,89 @@ export const typeDefs = gql`
     entity: Product!
   }
 
+  type GetCategoriesResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GetCategoriesData
+    metadata: ResponseMetadata
+  }
+
+  type GetCategoriesData {
+    items: [Category!]!
+    pagination: CategoryPaginationInfo!
+  }
+
+  type CategoryPaginationInfo {
+    total: Int!
+    limit: Int!
+    offset: Int!
+    hasMore: Boolean!
+    currentPage: Int!
+    totalPages: Int!
+  }
+
+  type GetCategoryResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GetCategoryData
+    metadata: ResponseMetadata
+  }
+
+  type GetCategoryData {
+    entity: Category!
+  }
+
+  # Category Response Types
+  type CreateCategoryResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: CreateCategoryData
+    metadata: ResponseMetadata
+  }
+
+  type CreateCategoryData {
+    entity: Category!
+    id: ID!
+    createdAt: String!
+  }
+
+  type UpdateCategoryResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UpdateCategoryData
+    metadata: ResponseMetadata
+  }
+
+  type UpdateCategoryData {
+    entity: Category!
+    id: ID!
+    updatedAt: String!
+    changes: [String!]!
+  }
+
+  type DeleteCategoryResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: DeleteCategoryData
+    metadata: ResponseMetadata
+  }
+
+  type DeleteCategoryData {
+    id: ID!
+    deletedAt: String!
+    softDelete: Boolean!
+  }
+
   type AuthResponse {
     success: Boolean!
     user: User
@@ -1437,9 +1525,9 @@ export const typeDefs = gql`
     userSessionAnalytics(userId: ID!): [UserSessionAnalytics!]!
     
     # Category queries
-    categories: [Category!]!
-    category(id: ID!): Category
-    categoryBySlug(slug: String!): Category
+    categories(filters: CategoryFilterInput, pagination: PaginationInput): GetCategoriesResponse!
+    category(id: ID!): GetCategoryResponse!
+    categoryBySlug(slug: String!): GetCategoryResponse!
     
     # Product queries
     products(filter: ProductFilterInput, pagination: PaginationInput): GetProductsResponse!
@@ -1581,9 +1669,9 @@ export const typeDefs = gql`
     setDefaultAddress(userId: ID!, addressId: ID!): SuccessResponse!
     
     # Category mutations
-    createCategory(input: CreateCategoryInput!): Category!
-    updateCategory(id: ID!, input: UpdateCategoryInput!): Category!
-    deleteCategory(id: ID!): SuccessResponse!
+    createCategory(input: CreateCategoryInput!): CreateCategoryResponse!
+    updateCategory(id: ID!, input: UpdateCategoryInput!): UpdateCategoryResponse!
+    deleteCategory(id: ID!): DeleteCategoryResponse!
     
     # Product mutations
     createProduct(input: CreateProductInput!): CreateProductResponse!

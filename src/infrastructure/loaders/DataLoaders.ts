@@ -3,7 +3,9 @@ import { Container } from '@shared/container';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
 import { IOrderRepository } from '@domain/repositories/IOrderRepository';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
+import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 import { ProductEntity } from '@domain/entities/Product';
+import { CategoryEntity } from '@domain/entities/Product';
 import { Order } from '@domain/entities/Order';
 
 export class DataLoaders {
@@ -20,6 +22,9 @@ export class DataLoaders {
   
   // User loaders
   public readonly userLoader: DataLoader<string, any | null>;
+  
+  // Category loaders
+  public readonly categoryLoader: DataLoader<string, CategoryEntity | null>;
 
   constructor() {
     this.container = Container.getInstance();
@@ -54,6 +59,12 @@ export class DataLoaders {
     // Initialize user loaders
     this.userLoader = new DataLoader(
       async (ids: readonly string[]) => this.batchLoadUsers(ids),
+      { cache: true, maxBatchSize: 100 }
+    );
+
+    // Initialize category loaders
+    this.categoryLoader = new DataLoader(
+      async (ids: readonly string[]) => this.batchLoadCategories(ids),
       { cache: true, maxBatchSize: 100 }
     );
   }
@@ -196,6 +207,27 @@ export class DataLoaders {
     }
   }
 
+  // Category batch loaders
+  private async batchLoadCategories(ids: readonly string[]): Promise<(CategoryEntity | null)[]> {
+    try {
+      const categoryRepository = this.container.get<ICategoryRepository>('categoryRepository');
+      
+      const categoryMap = new Map<string, CategoryEntity>();
+      
+      for (const id of ids) {
+        const category = await categoryRepository.findById(id);
+        if (category) {
+          categoryMap.set(id, category);
+        }
+      }
+
+      return ids.map(id => categoryMap.get(id) || null);
+    } catch (error) {
+      console.error('Error in batchLoadCategories:', error);
+      return ids.map(() => null);
+    }
+  }
+
   // Clear all caches (useful for testing or when data changes)
   clearAll(): void {
     this.productLoader.clearAll();
@@ -204,6 +236,7 @@ export class DataLoaders {
     this.orderLoader.clearAll();
     this.ordersByUserLoader.clearAll();
     this.userLoader.clearAll();
+    this.categoryLoader.clearAll();
   }
 
   // Clear specific cache entry

@@ -23,6 +23,13 @@ import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUs
 import { GetUserOrderHistoryUseCase } from '@application/use-cases/user/GetUserOrderHistoryUseCase';
 import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUserPasswordUseCase';
 import { UploadImageUseCase } from '@application/use-cases/image/UploadImageUseCase';
+import { CreateCategoryUseCase } from '@application/use-cases/category/CreateCategoryUseCase';
+import { UpdateCategoryUseCase } from '@application/use-cases/category/UpdateCategoryUseCase';
+import { DeleteCategoryUseCase } from '@application/use-cases/category/DeleteCategoryUseCase';
+import { transformCategory } from './transformers/categoryTransformer';
+import { GetCategoriesUseCase } from '@application/use-cases/category/GetCategoriesUseCase';
+import { GetCategoryByIdUseCase } from '@application/use-cases/category/GetCategoryByIdUseCase';
+import { GetCategoryBySlugUseCase } from '@application/use-cases/category/GetCategoryBySlugUseCase';
 
 // Initialize container
 const container = Container.getInstance();
@@ -227,6 +234,134 @@ export const resolvers = {
   DateTime: dateTimeScalar,
   Decimal: decimalScalar,
   JSON: jsonScalar,
+
+  // Type resolvers for relationships
+  Category: {
+    products: async (parent: any, _: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `category-products-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        // Usar DataLoaders del contexto
+        if (context.dataloaders?.productsByCategoryLoader) {
+          const products = await context.dataloaders.productsByCategoryLoader.load(parent.id);
+          const duration = Date.now() - startTime;
+          
+          console.log('Category.products resolver success (DataLoader)', {
+            categoryId: parent.id,
+            productsCount: products.length,
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date()
+          });
+          
+          return products;
+        } else {
+          // Fallback: usar el repositorio directamente
+          const productRepository = container.get('productRepository') as any;
+          const products = await productRepository.findByCategory(parent.id);
+          const duration = Date.now() - startTime;
+          
+          console.log('Category.products resolver success (Repository fallback)', {
+            categoryId: parent.id,
+            productsCount: products.length,
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date()
+          });
+          
+          return products.map(transformProduct);
+        }
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        
+        console.error('Category.products resolver error:', {
+          error: error instanceof Error ? error.message : String(error),
+          categoryId: parent.id,
+          requestId,
+          traceId,
+          duration,
+          timestamp: new Date()
+        });
+        
+        return [];
+      }
+    }
+  },
+
+  Product: {
+    category: async (parent: any, _: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `product-category-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        if (!parent.categoryId) {
+          const duration = Date.now() - startTime;
+          
+          console.log('Product.category resolver success (no category)', {
+            productId: parent.id,
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date()
+          });
+          
+          return null;
+        }
+        
+        if (context.dataloaders?.categoryLoader) {
+          const category = await context.dataloaders.categoryLoader.load(parent.categoryId);
+          const duration = Date.now() - startTime;
+          
+          console.log('Product.category resolver success (DataLoader)', {
+            productId: parent.id,
+            categoryId: parent.categoryId,
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date()
+          });
+          
+          return category;
+        } else {
+          // Fallback: usar el repositorio directamente
+          const categoryRepository = container.get('categoryRepository') as any;
+          const category = await categoryRepository.findById(parent.categoryId);
+          const duration = Date.now() - startTime;
+          
+          console.log('Product.category resolver success (Repository fallback)', {
+            productId: parent.id,
+            categoryId: parent.categoryId,
+            categoryFound: !!category,
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date()
+          });
+          
+          return category ? transformCategory(category) : null;
+        }
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        
+        console.error('Product.category resolver error:', {
+          error: error instanceof Error ? error.message : String(error),
+          productId: parent.id,
+          categoryId: parent.categoryId,
+          requestId,
+          traceId,
+          duration,
+          timestamp: new Date()
+        });
+        
+        return null;
+      }
+    }
+  },
 
   Query: {
     health: () => 'GraphQL server is running with clean architecture!',
@@ -1006,76 +1141,159 @@ export const resolvers = {
     },
 
     // Placeholder queries with mock data for testing
-    categories: async () => {
-      return [
-        {
-          id: 'cat-1',
-          name: 'Baby Clothing',
-          description: 'Comfortable and stylish clothing for babies',
-          slug: 'baby-clothing',
-          image: 'https://example.com/baby-clothing.jpg',
-          isActive: true,
-          sortOrder: 1,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: 'cat-2',
-          name: 'Baby Accessories',
-          description: 'Essential accessories for your little one',
-          slug: 'baby-accessories',
-          image: 'https://example.com/baby-accessories.jpg',
-          isActive: true,
-          sortOrder: 2,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        {
-          id: 'cat-3',
-          name: 'Feeding & Nursing',
-          description: 'Everything you need for feeding time',
-          slug: 'feeding-nursing',
-          image: 'https://example.com/feeding.jpg',
-          isActive: true,
-          sortOrder: 3,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
+    categories: async (_: any, { filters, pagination }: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `get-categories-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const getCategoriesUseCase = container.get<GetCategoriesUseCase>('getCategoriesUseCase');
+        const result = await getCategoriesUseCase.execute({
+          filters: filters || {},
+          pagination: pagination || { limit: 50, offset: 0 }
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createPaginatedResponse(
+          result.categories.map(transformCategory),
+          {
+            total: result.total,
+            limit: pagination?.limit || 50,
+            offset: pagination?.offset || 0,
+            hasMore: result.hasMore,
+            currentPage: Math.floor((pagination?.offset || 0) / (pagination?.limit || 50)) + 1,
+            totalPages: Math.ceil(result.total / (pagination?.limit || 50))
+          },
+          'Categories retrieved successfully',
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        console.error('GetCategories resolver error:', {
+          error: errorResponse,
+          filters,
+          pagination,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          (errorResponse.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    category: async (_: any, { id }: { id: string }) => {
-      const categories = [
-        {
-          id: 'cat-1',
-          name: 'Baby Clothing',
-          description: 'Comfortable and stylish clothing for babies',
-          slug: 'baby-clothing',
-          image: 'https://example.com/baby-clothing.jpg',
-          isActive: true,
-          sortOrder: 1,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-      return categories.find(cat => cat.id === id) || null;
+    category: async (_: any, { id }: { id: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `get-category-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const getCategoryByIdUseCase = container.get<GetCategoryByIdUseCase>('getCategoryByIdUseCase');
+        const category = await getCategoryByIdUseCase.execute({ id });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          transformCategory(category),
+          'Category retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        console.error('GetCategoryById resolver error:', {
+          error: errorResponse,
+          categoryId: id,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          (errorResponse.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    categoryBySlug: async (_: any, { slug }: { slug: string }) => {
-      const categories = [
-        {
-          id: 'cat-1',
-          name: 'Baby Clothing',
-          description: 'Comfortable and stylish clothing for babies',
-          slug: 'baby-clothing',
-          image: 'https://example.com/baby-clothing.jpg',
-          isActive: true,
-          sortOrder: 1,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-      return categories.find(cat => cat.slug === slug) || null;
+    categoryBySlug: async (_: any, { slug }: { slug: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `get-category-by-slug-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const getCategoryBySlugUseCase = container.get<GetCategoryBySlugUseCase>('getCategoryBySlugUseCase');
+        const category = await getCategoryBySlugUseCase.execute({ slug });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          transformCategory(category),
+          'Category retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        console.error('GetCategoryBySlug resolver error:', {
+          error: errorResponse,
+          slug,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          (errorResponse.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     productsByCategory: async (_: any, { categoryId, pagination }: any) => {
@@ -2466,10 +2684,179 @@ export const resolvers = {
       }
     },
 
-    // Placeholder mutations (to be implemented)
-    createCategory: () => null,
-    updateCategory: () => null,
-    deleteCategory: () => ({ success: true, message: 'Category deleted successfully' }),
+    createCategory: async (_: any, { input }: { input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `create-category-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const createCategoryUseCase = container.get<CreateCategoryUseCase>('createCategoryUseCase');
+        const category = await createCategoryUseCase.execute({
+          name: input.name,
+          description: input.description,
+          slug: input.slug,
+          imageUrl: input.imageUrl,
+          isActive: input.isActive !== undefined ? input.isActive : true,
+          sortOrder: input.sortOrder || 0
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformCategory(category),
+            id: category.id,
+            createdAt: category.createdAt.toISOString()
+          },
+          'Category created successfully',
+          RESPONSE_CODES.CREATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        console.error('CreateCategory resolver error:', {
+          error: errorResponse,
+          input,
+          context: { requestId: context?.requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          (errorResponse.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
+    updateCategory: async (_: any, { id, input }: { id: string, input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `update-category-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const updateCategoryUseCase = container.get<UpdateCategoryUseCase>('updateCategoryUseCase');
+        const result = await updateCategoryUseCase.execute({
+          id,
+          name: input.name,
+          description: input.description,
+          slug: input.slug,
+          imageUrl: input.image,
+          isActive: input.isActive,
+          sortOrder: input.sortOrder
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformCategory(result.category),
+            id: result.category.id,
+            updatedAt: result.category.updatedAt.toISOString(),
+            changes: result.changes
+          },
+          'Category updated successfully',
+          RESPONSE_CODES.UPDATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        console.error('UpdateCategory resolver error:', {
+          error: errorResponse,
+          categoryId: id,
+          input,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          (errorResponse.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
+    deleteCategory: async (_: any, { id }: { id: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `delete-category-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const deleteCategoryUseCase = container.get<DeleteCategoryUseCase>('deleteCategoryUseCase');
+        const result = await deleteCategoryUseCase.execute({
+          id,
+          forceDelete: false // Por defecto soft delete
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            id: result.id,
+            deletedAt: result.deletedAt.toISOString(),
+            softDelete: result.softDelete
+          },
+          'Category deleted successfully',
+          RESPONSE_CODES.DELETED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        console.error('DeleteCategory resolver error:', {
+          error: errorResponse,
+          categoryId: id,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          (errorResponse.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
     createProductVariant: () => null,
     updateProductVariant: () => null,
     deleteProductVariant: () => ({ success: true, message: 'Product variant deleted successfully' }),

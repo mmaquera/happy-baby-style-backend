@@ -21,8 +21,100 @@ export class GraphQLPlayground {
     {
       id: 'categories',
       title: '📂 Categories',
-      description: 'Retrieve product categories',
-      query: '{ categories { id name slug isActive sortOrder } }'
+      description: 'Retrieve product categories with pagination',
+      query: `{ 
+        categories(filters: { isActive: true }, pagination: { limit: 10, offset: 0 }) { 
+          success 
+          message 
+          code 
+          timestamp 
+          data { 
+            items { 
+              id 
+              name 
+              slug 
+              isActive 
+              sortOrder 
+              description 
+            } 
+            pagination { 
+              total 
+              limit 
+              offset 
+              hasMore 
+              currentPage 
+              totalPages 
+            } 
+          } 
+          metadata { 
+            requestId 
+            traceId 
+            duration 
+          } 
+        } 
+      }`
+    },
+    {
+      id: 'categoryById',
+      title: '🔍 Category by ID',
+      description: 'Get a specific category by ID',
+      query: `{ 
+        category(id: "category-id-here") { 
+          success 
+          message 
+          code 
+          timestamp 
+          data { 
+            entity { 
+              id 
+              name 
+              slug 
+              isActive 
+              sortOrder 
+              description 
+              image 
+              createdAt 
+              updatedAt 
+            } 
+          } 
+          metadata { 
+            requestId 
+            traceId 
+            duration 
+          } 
+        } 
+      }`
+    },
+    {
+      id: 'categoryBySlug',
+      title: '🔍 Category by Slug',
+      description: 'Get a specific category by slug',
+      query: `{ 
+        categoryBySlug(slug: "baby-clothing") { 
+          success 
+          message 
+          code 
+          timestamp 
+          data { 
+            entity { 
+              id 
+              name 
+              slug 
+              isActive 
+              sortOrder 
+              description 
+              image 
+              createdAt 
+              updatedAt 
+            } 
+          } 
+          metadata { 
+            requestId 
+            traceId 
+            duration 
+          } 
+        } 
+      }`
     },
     {
       id: 'products',
@@ -52,7 +144,19 @@ export class GraphQLPlayground {
       id: 'createCategory',
       title: '➕ Create Category',
       description: 'Create a new product category',
-      query: 'mutation { createCategory(input: { name: "Test Category" slug: "test-category" isActive: true sortOrder: 1 }) { id name slug } }'
+      query: 'mutation { createCategory(input: { name: "Test Category" slug: "test-category" isActive: true sortOrder: 1 }) { success message code data { entity { id name slug } id createdAt } metadata { requestId traceId duration } } }'
+    },
+    {
+      id: 'updateCategory',
+      title: '✏️ Update Category',
+      description: 'Update an existing product category',
+      query: 'mutation { updateCategory(id: "category-id", input: { name: "Updated Category" description: "Updated description" isActive: false }) { success message code data { entity { id name description isActive } id updatedAt changes } metadata { requestId traceId duration } } }'
+    },
+    {
+      id: 'deleteCategory',
+      title: '🗑️ Delete Category',
+      description: 'Delete a product category (soft delete by default)',
+      query: 'mutation { deleteCategory(id: "category-id") { success message code data { id deletedAt softDelete } metadata { requestId traceId duration } } }'
     }
   ];
 
