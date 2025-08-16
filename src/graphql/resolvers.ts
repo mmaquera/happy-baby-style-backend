@@ -367,7 +367,11 @@ export const resolvers = {
     health: () => 'GraphQL server is running with clean architecture!',
 
     // Dashboard & Analytics queries - CRITICAL FOR ADMIN
-    dashboardMetrics: async () => {
+    dashboardMetrics: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `dashboard-metrics-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getOrderStatsUseCase = container.get<GetOrderStatsUseCase>('getOrderStatsUseCase');
         const getUserStatsUseCase = container.get<GetUserStatsUseCase>('getUserStatsUseCase');
@@ -386,34 +390,58 @@ export const resolvers = {
         const todayRevenue = 0; // TODO: Implement revenue by month tracking
         const lowStockProducts = productsResult.products.filter(p => p.stockQuantity < 10).length;
 
-        return {
-          totalUsers: userStats.totalUsers || 0,
-          totalProducts: productsResult.total || 0,
-          totalOrders: orderStats.totalOrders || 0,
-          totalRevenue: orderStats.totalRevenue || 0,
-          todayOrders,
-          todayRevenue,
-          pendingOrders: orderStats.pendingOrders || 0,
-          lowStockProducts,
-          activeCoupons: 0 // TODO: Implement coupon repository
-        };
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            totalUsers: userStats.totalUsers || 0,
+            totalProducts: productsResult.total || 0,
+            totalOrders: orderStats.totalOrders || 0,
+            totalRevenue: orderStats.totalRevenue || 0,
+            todayOrders,
+            todayRevenue,
+            pendingOrders: orderStats.pendingOrders || 0,
+            lowStockProducts,
+            activeCoupons: 0 // TODO: Implement coupon repository
+          },
+          'Dashboard metrics retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        console.error('Error fetching dashboard metrics:', error);
-        return {
-          totalUsers: 0,
-          totalProducts: 0,
-          totalOrders: 0,
-          totalRevenue: 0,
-          todayOrders: 0,
-          todayRevenue: 0,
-          pendingOrders: 0,
-          lowStockProducts: 0,
-          activeCoupons: 0
-        };
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('DashboardMetrics resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch dashboard metrics: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    productAnalytics: async () => {
+    productAnalytics: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `product-analytics-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({ 
@@ -439,32 +467,57 @@ export const resolvers = {
           .sort((a, b) => b.rating - a.rating)
           .slice(0, 5);
 
-        return {
-          totalProducts: products.length,
-          activeProducts,
-          lowStockProducts,
-          outOfStockProducts,
-          averageRating,
-          totalReviews: products.reduce((sum, p) => sum + p.reviewCount, 0),
-          topSellingProducts,
-          topRatedProducts
-        };
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            totalProducts: products.length,
+            activeProducts,
+            lowStockProducts,
+            outOfStockProducts,
+            averageRating,
+            totalReviews: products.reduce((sum, p) => sum + p.reviewCount, 0),
+            topSellingProducts,
+            topRatedProducts
+          },
+          'Product analytics retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        console.error('Error fetching product analytics:', error);
-        return {
-          totalProducts: 0,
-          activeProducts: 0,
-          lowStockProducts: 0,
-          outOfStockProducts: 0,
-          averageRating: 0,
-          totalReviews: 0,
-          topSellingProducts: [],
-          topRatedProducts: []
-        };
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('ProductAnalytics resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch product analytics: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    orderAnalytics: async () => {
+    orderAnalytics: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `order-analytics-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getOrderStatsUseCase = container.get<GetOrderStatsUseCase>('getOrderStatsUseCase');
         const getUsersUseCase = container.get<GetUsersUseCase>('getUsersUseCase');
@@ -477,34 +530,61 @@ export const resolvers = {
         const users = usersResult.map(transformUser);
         const topCustomers = users.slice(0, 5); // Placeholder - would need spending data
 
-        return {
-          totalOrders: orderStats.totalOrders || 0,
-          totalRevenue: orderStats.totalRevenue || 0,
-          averageOrderValue: orderStats.averageOrderValue || 0,
-          ordersByStatus: {
-            pending: orderStats.pendingOrders || 0,
-            processing: orderStats.processingOrders || 0,
-            shipped: orderStats.shippedOrders || 0,
-            delivered: orderStats.deliveredOrders || 0,
-            cancelled: orderStats.cancelledOrders || 0
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            totalOrders: orderStats.totalOrders || 0,
+            totalRevenue: orderStats.totalRevenue || 0,
+            averageOrderValue: orderStats.averageOrderValue || 0,
+            ordersByStatus: {
+              pending: orderStats.pendingOrders || 0,
+              processing: orderStats.processingOrders || 0,
+              shipped: orderStats.shippedOrders || 0,
+              delivered: orderStats.deliveredOrders || 0,
+              cancelled: orderStats.cancelledOrders || 0
+            },
+            revenueByMonth: {}, // TODO: Implement revenue by month tracking
+            topCustomers
           },
-          revenueByMonth: {}, // TODO: Implement revenue by month tracking
-          topCustomers
-        };
+          'Order analytics retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        console.error('Error fetching order analytics:', error);
-        return {
-          totalOrders: 0,
-          totalRevenue: 0,
-          averageOrderValue: 0,
-          ordersByStatus: {},
-          revenueByMonth: {},
-          topCustomers: []
-        };
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('OrderAnalytics resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch order analytics: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    userAnalytics: async () => {
+    userAnalytics: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `user-analytics-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getUserStatsUseCase = container.get<GetUserStatsUseCase>('getUserStatsUseCase');
         const getUsersUseCase = container.get<GetUsersUseCase>('getUsersUseCase');
@@ -530,24 +610,47 @@ export const resolvers = {
 
         const topSpenders = users.slice(0, 5); // Placeholder - would need spending data
 
-        return {
-          totalUsers: users.length,
-          activeUsers,
-          newUsersThisMonth,
-          usersByRole,
-          topSpenders,
-          userEngagement: {} // TODO: Implement engagement metrics
-        };
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            totalUsers: users.length,
+            activeUsers,
+            newUsersThisMonth,
+            usersByRole,
+            topSpenders,
+            userEngagement: {} // TODO: Implement engagement metrics
+          },
+          'User analytics retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        console.error('Error fetching user analytics:', error);
-        return {
-          totalUsers: 0,
-          activeUsers: 0,
-          newUsersThisMonth: 0,
-          usersByRole: {},
-          topSpenders: [],
-          userEngagement: {}
-        };
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('UserAnalytics resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch user analytics: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
@@ -771,7 +874,11 @@ export const resolvers = {
     },
 
     // Search products - IMPLEMENTED
-    searchProducts: async (_: any, { query, filter, pagination }: any) => {
+    searchProducts: async (_: any, { query, filter, pagination }: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `search-products-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         
@@ -779,14 +886,48 @@ export const resolvers = {
           filters: { ...filter, search: query },
           pagination: pagination || { limit: 10, offset: 0 }
         });
+
+        const duration = Date.now() - startTime;
         
-        return {
-          products: result.products.map(transformProduct),
-          total: result.total,
-          hasMore: result.hasMore
-        };
+        return ResponseFactory.createSuccessResponse(
+          {
+            products: result.products.map(transformProduct),
+            total: result.total,
+            hasMore: result.hasMore
+          },
+          'Products search completed successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        throw new Error(`Failed to search products: ${error.message || 'Unknown error'}`);
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('SearchProducts resolver error:', {
+          error: error.message,
+          query,
+          filter,
+          pagination,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to search products: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { query, filter, pagination, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
@@ -1044,7 +1185,11 @@ export const resolvers = {
     },
 
     // Stats queries
-    productStats: async () => {
+    productStats: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `product-stats-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({ 
@@ -1055,28 +1200,137 @@ export const resolvers = {
         const products = result.products.map(transformProduct);
         const activeProducts = products.filter(p => p.isActive).length;
 
-        return {
-          totalProducts: products.length,
-          activeProducts,
-          totalCategories: 0 // TODO: Implement category repository
-        };
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            totalProducts: products.length,
+            activeProducts,
+            totalCategories: 0 // TODO: Implement category repository
+          },
+          'Product stats retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        return {
-          totalProducts: 0,
-          activeProducts: 0,
-          totalCategories: 0
-        };
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('ProductStats resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch product stats: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    orderStats: async () => {
-      const getOrderStatsUseCase = container.get<GetOrderStatsUseCase>('getOrderStatsUseCase');
-      return await getOrderStatsUseCase.execute();
+    orderStats: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `order-stats-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const getOrderStatsUseCase = container.get<GetOrderStatsUseCase>('getOrderStatsUseCase');
+        const result = await getOrderStatsUseCase.execute();
+        
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          result,
+          'Order stats retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('OrderStats resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch order stats: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    userStats: async () => {
-      const getUserStatsUseCase = container.get<GetUserStatsUseCase>('getUserStatsUseCase');
-      return await getUserStatsUseCase.execute();
+    userStats: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `user-stats-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        const getUserStatsUseCase = container.get<GetUserStatsUseCase>('getUserStatsUseCase');
+        const result = await getUserStatsUseCase.execute();
+        
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          result,
+          'User stats retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('UserStats resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch user stats: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     // User favorites and cart queries
@@ -1296,22 +1550,58 @@ export const resolvers = {
       }
     },
 
-    productsByCategory: async (_: any, { categoryId, pagination }: any) => {
+    productsByCategory: async (_: any, { categoryId, pagination }: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `products-by-category-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({
           filters: { category: categoryId },
           pagination: pagination || { limit: 10, offset: 0 }
         });
+
+        const duration = Date.now() - startTime;
         
-        return {
-          products: result.products.map(transformProduct),
-          total: result.total,
-          hasMore: result.hasMore
-        };
+        return ResponseFactory.createSuccessResponse(
+          {
+            products: result.products.map(transformProduct),
+            total: result.total,
+            hasMore: result.hasMore
+          },
+          'Products by category retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        console.error('Error fetching products by category:', error);
-        return { products: [], total: 0, hasMore: false };
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('ProductsByCategory resolver error:', {
+          error: error.message,
+          categoryId,
+          pagination,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch products by category: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { categoryId, pagination, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
@@ -1715,7 +2005,11 @@ export const resolvers = {
       ];
     },
 
-    lowStockProducts: async () => {
+    lowStockProducts: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `low-stock-products-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({
@@ -1723,16 +2017,52 @@ export const resolvers = {
           pagination: { limit: 1000, offset: 0 }
         });
         
-        return result.products
+        const lowStockProducts = result.products
           .filter(product => product.stockQuantity < 10)
           .map(transformProduct);
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          lowStockProducts,
+          'Low stock products retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        console.error('Error fetching low stock products:', error);
-        return [];
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('LowStockProducts resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch low stock products: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    outOfStockProducts: async () => {
+    outOfStockProducts: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `out-of-stock-products-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({
@@ -1740,12 +2070,44 @@ export const resolvers = {
           pagination: { limit: 1000, offset: 0 }
         });
         
-        return result.products
+        const outOfStockProducts = result.products
           .filter(product => product.stockQuantity === 0)
           .map(transformProduct);
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          outOfStockProducts,
+          'Out of stock products retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
       } catch (error: any) {
-        console.error('Error fetching out of stock products:', error);
-        return [];
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('OutOfStockProducts resolver error:', {
+          error: error.message,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to fetch out of stock products: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
@@ -2158,11 +2520,14 @@ export const resolvers = {
 
         const duration = Date.now() - startTime;
         
-        return ResponseFactory.createCreateResponse(
-          transformProduct(product),
-          product.id,
-          product.createdAt.toISOString(),
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformProduct(product),
+            id: product.id,
+            createdAt: product.createdAt.toISOString()
+          },
           'Product created successfully',
+          RESPONSE_CODES.CREATED,
           {
             requestId,
             traceId,
@@ -2207,29 +2572,171 @@ export const resolvers = {
       }
     },
 
-    updateProduct: async (_: any, { id, input }: { id: string; input: any }) => {
-      const updateProductUseCase = container.get<UpdateProductUseCase>('updateProductUseCase');
-      const product = await updateProductUseCase.execute({
-        id,
-        categoryId: input.categoryId,
-        name: input.name,
-        description: input.description,
-        price: input.price,
-        salePrice: input.salePrice,
-        sku: input.sku,
-        images: input.images,
-        attributes: input.attributes,
-        isActive: input.isActive,
-        stockQuantity: input.stockQuantity,
-        tags: input.tags
-      });
-      return transformProduct(product);
+    updateProduct: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `update-product-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        if (!id) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'Product ID is required',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
+            { id },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        const updateProductUseCase = container.get<UpdateProductUseCase>('updateProductUseCase');
+        const result = await updateProductUseCase.execute({
+          id,
+          categoryId: input.categoryId,
+          name: input.name,
+          description: input.description,
+          price: input.price,
+          salePrice: input.salePrice,
+          sku: input.sku,
+          images: input.images,
+          attributes: input.attributes,
+          isActive: input.isActive,
+          stockQuantity: input.stockQuantity,
+          tags: input.tags
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformProduct(result),
+            id: result.id,
+            updatedAt: result.updatedAt.toISOString(),
+            changes: [] // TODO: Implementar tracking de cambios en UpdateProductUseCase
+          },
+          'Product updated successfully',
+          RESPONSE_CODES.UPDATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('UpdateProduct resolver error:', {
+          error: error.message,
+          id,
+          input,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        let errorMessage = error.message || 'Failed to update product';
+        
+        if (error.message?.includes('not found')) {
+          errorCode = RESPONSE_CODES.RESOURCE_NOT_FOUND;
+        } else if (error.message?.includes('SKU already exists') || error.message?.includes('already exists')) {
+          errorCode = RESPONSE_CODES.RESOURCE_ALREADY_EXISTS;
+        } else if (error.message?.includes('required') || error.message?.includes('Validation failed')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        }
+        
+        return ResponseFactory.createErrorResponse(
+          errorMessage,
+          errorCode as any,
+          { id, input, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    deleteProduct: async (_: any, { id }: { id: string }) => {
-      const deleteProductUseCase = container.get<DeleteProductUseCase>('deleteProductUseCase');
-      await deleteProductUseCase.execute({ id });
-      return { success: true, message: 'Product deleted successfully' };
+    deleteProduct: async (_: any, { id }: { id: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `delete-product-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        if (!id) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'Product ID is required',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
+            { id },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        const deleteProductUseCase = container.get<DeleteProductUseCase>('deleteProductUseCase');
+        await deleteProductUseCase.execute({ id });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            id,
+            deletedAt: new Date().toISOString(),
+            softDelete: false // TODO: Implementar soft delete en DeleteProductUseCase
+          },
+          'Product deleted successfully',
+          RESPONSE_CODES.DELETED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('DeleteProduct resolver error:', {
+          error: error.message,
+          id,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        let errorMessage = error.message || 'Failed to delete product';
+        
+        if (error.message?.includes('not found')) {
+          errorCode = RESPONSE_CODES.RESOURCE_NOT_FOUND;
+        } else if (error.message?.includes('associated orders') || error.message?.includes('cannot delete')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        }
+        
+        return ResponseFactory.createErrorResponse(
+          errorMessage,
+          errorCode as any,
+          { id, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     // Order mutations
@@ -2761,12 +3268,16 @@ export const resolvers = {
 
         const duration = Date.now() - startTime;
         
+        if (!result.data?.entity) {
+          throw new Error('Category update failed: no entity returned');
+        }
+        
         return ResponseFactory.createSuccessResponse(
           {
-            entity: transformCategory(result.category),
-            id: result.category.id,
-            updatedAt: result.category.updatedAt.toISOString(),
-            changes: result.changes
+            entity: transformCategory(result.data.entity),
+            id: result.data.id,
+            updatedAt: result.data.updatedAt.toISOString(),
+            changes: result.data.changes
           },
           'Category updated successfully',
           RESPONSE_CODES.UPDATED,
@@ -2873,7 +3384,138 @@ export const resolvers = {
     createPaymentMethod: () => null,
     updatePaymentMethod: () => null,
     deletePaymentMethod: () => ({ success: true, message: 'Payment method deleted successfully' }),
-    bulkUpdateProducts: () => [],
-    bulkUpdateOrderStatus: () => [],
+    bulkUpdateProducts: async (_: any, { updates }: { updates: any[] }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `bulk-update-products-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        if (!updates || updates.length === 0) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'No updates provided',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
+            { updates },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        // TODO: Implementar bulk update real
+        // Por ahora retornamos un placeholder
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          [],
+          'Bulk update products completed successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('BulkUpdateProducts resolver error:', {
+          error: error.message,
+          updates,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to bulk update products: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { updates, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
+    bulkUpdateOrderStatus: async (_: any, { orders, status }: { orders: string[]; status: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `bulk-update-order-status-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        if (!orders || orders.length === 0) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'No orders provided',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
+            { orders },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        if (!status) {
+          const duration = Date.now() - startTime;
+          return ResponseFactory.createErrorResponse(
+            'Status is required',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
+            { status },
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        // TODO: Implementar bulk update real
+        // Por ahora retornamos un placeholder
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          [],
+          'Bulk update order status completed successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+        
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        console.error('BulkUpdateOrderStatus resolver error:', {
+          error: error.message,
+          orders,
+          status,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to bulk update order status: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { orders, status, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
   }
 };

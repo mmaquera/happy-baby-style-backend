@@ -1,8 +1,7 @@
 import { PrismaProductRepository } from '@infrastructure/repositories/PrismaProductRepository';
 import { PrismaImageRepository } from '@infrastructure/repositories/PrismaImageRepository';
 import { PrismaOrderRepository } from '@infrastructure/repositories/PrismaOrderRepository';
-import { PrismaUserRepository } from '@infrastructure/repositories/PrismaUserRepository';
-import { InMemoryUserRepository } from '@infrastructure/repositories/InMemoryUserRepository';
+//import { InMemoryUserRepository } from '@infrastructure/repositories/InMemoryUserRepository';
 import { PrismaUserProfileRepository } from '@infrastructure/repositories/PrismaUserProfileRepository';
 import { PrismaCategoryRepository } from '@infrastructure/repositories/PrismaCategoryRepository';
 import { prisma } from '@infrastructure/database/prisma';
@@ -38,7 +37,8 @@ import { GetUserOrderHistoryUseCase } from '@application/use-cases/user/GetUserO
 import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUserPasswordUseCase';
 // Controllers removed - GraphQL only architecture
 import { IProductRepository } from '@domain/repositories/IProductRepository';
-import { IImageRepository, IStorageService } from '@domain/repositories/IImageRepository';
+import { IImageRepository } from '@domain/repositories/IImageRepository';
+import { IStorageService } from '@domain/interfaces/IStorageService';
 import { IOrderRepository } from '@domain/repositories/IOrderRepository';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';

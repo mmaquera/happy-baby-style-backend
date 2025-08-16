@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
-import { createApolloServer } from '@graphql/server';
+import { createApolloServer } from './graphql/server';
 import { Container } from '@shared/container';
 import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
 import { RequestLogger } from '@infrastructure/logging/RequestLogger';

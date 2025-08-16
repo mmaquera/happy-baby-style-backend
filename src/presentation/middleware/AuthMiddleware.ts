@@ -1,6 +1,6 @@
 import { AuthService, AuthUser, Permission, UserRole } from '@application/auth/AuthService';
 import { UnauthorizedError, ForbiddenError } from '@domain/errors/DomainError';
-import { Context } from '@graphql/server';
+import { Context } from '../../graphql/server';
 
 export class AuthMiddleware {
   private authService: AuthService;

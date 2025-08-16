@@ -1,13 +1,19 @@
 export interface UserProfile {
   id: string;
-  userId: string;
+  email: string;
   firstName: string;
   lastName: string;
   phone?: string;
-  birthDate?: Date;
-  avatarUrl?: string;
+  dateOfBirth?: Date;
+  avatar?: string;
+  role: UserRole;
+  emailVerified: boolean;
+  isActive: boolean;
+  lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  addresses: UserAddress[];
+  favoriteProductIds: string[];
 }
 
 export interface UserAddress {
@@ -109,31 +115,43 @@ export interface UserStats {
 export class UserProfileEntity implements UserProfile {
   constructor(
     public id: string,
-    public userId: string,
+    public email: string,
     public firstName: string,
     public lastName: string,
     public phone: string | undefined,
-    public birthDate: Date | undefined,
-    public avatarUrl: string | undefined,
+    public dateOfBirth: Date | undefined,
+    public avatar: string | undefined,
+    public role: UserRole,
+    public emailVerified: boolean,
+    public isActive: boolean,
+    public lastLoginAt: Date | undefined,
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
+    public addresses: UserAddress[],
+    public favoriteProductIds: string[]
   ) {}
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`.trim();
   }
 
-  static create(data: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>): UserProfileEntity {
+  static create(data: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt' | 'addresses' | 'favoriteProductIds'>): UserProfileEntity {
     return new UserProfileEntity(
       crypto.randomUUID(),
-      data.userId,
+      data.email,
       data.firstName,
       data.lastName,
       data.phone,
-      data.birthDate,
-      data.avatarUrl,
+      data.dateOfBirth,
+      data.avatar,
+      data.role,
+      data.emailVerified,
+      data.isActive,
+      data.lastLoginAt,
       new Date(),
-      new Date()
+      new Date(),
+      [],
+      []
     );
   }
 }

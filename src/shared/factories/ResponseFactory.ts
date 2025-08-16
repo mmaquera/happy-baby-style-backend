@@ -1,34 +1,4 @@
-import { RESPONSE_CODES, ResponseCode } from '../constants/ResponseCodes';
-
-export interface ResponseMetadata {
-  requestId?: string;
-  traceId?: string;
-  duration?: number;
-  timestamp: string;
-}
-
-export interface BaseResponse<T = any> {
-  success: boolean;
-  data?: T;
-  message: string;
-  code: string;
-  timestamp: string;
-  metadata?: ResponseMetadata;
-}
-
-export interface PaginationInfo {
-  total: number;
-  limit: number;
-  offset: number;
-  hasMore: boolean;
-  currentPage: number;
-  totalPages: number;
-}
-
-export interface PaginatedData<T> {
-  items: T[];
-  pagination: PaginationInfo;
-}
+import { BaseResponse, ResponseMetadata, PaginatedData, PaginationInfo } from '../types/BaseResponse';
 
 export class ResponseFactory {
   private static generateMetadata(
@@ -47,7 +17,7 @@ export class ResponseFactory {
   static createSuccessResponse<T>(
     data: T,
     message: string,
-    code: ResponseCode = RESPONSE_CODES.SUCCESS,
+    code: string = 'SUCCESS',
     metadata?: Partial<ResponseMetadata>
   ): BaseResponse<T> {
     return {
@@ -65,7 +35,7 @@ export class ResponseFactory {
 
   static createErrorResponse(
     message: string,
-    code: ResponseCode,
+    code: string,
     details?: any,
     metadata?: Partial<ResponseMetadata>
   ): BaseResponse<null> {
@@ -91,53 +61,7 @@ export class ResponseFactory {
     return this.createSuccessResponse(
       { items, pagination },
       message,
-      RESPONSE_CODES.PAGINATED_SUCCESS,
-      metadata
-    );
-  }
-
-  static createCreateResponse<T>(
-    entity: T,
-    id: string,
-    createdAt: string,
-    message: string = 'Resource created successfully',
-    metadata?: Partial<ResponseMetadata>
-  ): BaseResponse<{ entity: T; id: string; createdAt: string }> {
-    return this.createSuccessResponse(
-      { entity, id, createdAt },
-      message,
-      RESPONSE_CODES.CREATED,
-      metadata
-    );
-  }
-
-  static createUpdateResponse<T>(
-    entity: T,
-    id: string,
-    updatedAt: string,
-    changes: string[],
-    message: string = 'Resource updated successfully',
-    metadata?: Partial<ResponseMetadata>
-  ): BaseResponse<{ entity: T; id: string; updatedAt: string; changes: string[] }> {
-    return this.createSuccessResponse(
-      { entity, id, updatedAt, changes },
-      message,
-      RESPONSE_CODES.UPDATED,
-      metadata
-    );
-  }
-
-  static createDeleteResponse(
-    id: string,
-    deletedAt: string,
-    softDelete: boolean = false,
-    message: string = 'Resource deleted successfully',
-    metadata?: Partial<ResponseMetadata>
-  ): BaseResponse<{ id: string; deletedAt: string; softDelete: boolean }> {
-    return this.createSuccessResponse(
-      { id, deletedAt, softDelete },
-      message,
-      RESPONSE_CODES.DELETED,
+      'PAGINATED_SUCCESS',
       metadata
     );
   }

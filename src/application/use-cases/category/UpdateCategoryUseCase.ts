@@ -1,9 +1,11 @@
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
-import { CategoryEntity } from '@domain/entities/Product';
-import { ValidationService } from '@application/validation/ValidationService';
+import { CategoryEntity } from '@domain/entities/Category';
 import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
 import { ILogger } from '@domain/interfaces/ILogger';
 import { NotFoundError, DuplicateError, ValidationError } from '@domain/errors/DomainError';
+import { ResponseFactory } from '@shared/factories/ResponseFactory';
+import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
+import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
 
 export interface UpdateCategoryRequest {
   id: string;
@@ -16,8 +18,21 @@ export interface UpdateCategoryRequest {
 }
 
 export interface UpdateCategoryResult {
-  category: CategoryEntity;
-  changes: string[];
+  success: boolean;
+  data?: {
+    entity: CategoryEntity;
+    id: string;
+    updatedAt: Date;
+    changes: string[];
+  };
+  message: string;
+  code: string;
+  timestamp: string;
+  metadata?: {
+    requestId?: string;
+    traceId?: string;
+    duration?: number;
+  };
 }
 
 export class UpdateCategoryUseCase {
@@ -29,7 +44,14 @@ export class UpdateCategoryUseCase {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('UpdateCategoryUseCase');
   }
 
+  @LoggingDecorator.logUseCase({
+    includeArgs: true,
+    includeResult: true,
+    includeDuration: true,
+    context: { useCase: 'UpdateCategory' }
+  })
   async execute(request: UpdateCategoryRequest): Promise<UpdateCategoryResult> {
+    const startTime = Date.now();
     const traceId = `update-category-${Date.now()}`;
     
     try {
@@ -51,8 +73,8 @@ export class UpdateCategoryUseCase {
       // Validar input usando el servicio de validación
       this.validateInput(request);
 
-      // Preparar datos para actualización
-      const updateData: Partial<CategoryEntity> = {};
+      // Preparar datos para actualización usando un objeto plano
+      const updateData: Record<string, any> = {};
       const changes: string[] = [];
 
       // Validar y procesar cada campo
@@ -118,10 +140,23 @@ export class UpdateCategoryUseCase {
           categoryId: request.id,
           traceId
         });
-        return {
-          category: existingCategory,
-          changes: []
-        };
+        
+        const duration = Date.now() - startTime;
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: existingCategory,
+            id: existingCategory.id,
+            updatedAt: existingCategory.updatedAt,
+            changes: []
+          },
+          'No changes detected for category',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId: undefined,
+            traceId,
+            duration
+          }
+        ) as UpdateCategoryResult;
       }
 
       this.logger.debug('Updating category with changes', {
@@ -133,34 +168,53 @@ export class UpdateCategoryUseCase {
       // Actualizar la categoría
       const updatedCategory = await this.categoryRepository.update(request.id, updateData);
 
+      const duration = Date.now() - startTime;
+
       this.logger.info('Category updated successfully', {
         categoryId: request.id,
         changes,
+        duration,
         traceId
       });
 
-      return {
-        category: updatedCategory,
-        changes
-      };
+      return ResponseFactory.createSuccessResponse(
+        {
+          entity: updatedCategory,
+          id: updatedCategory.id,
+          updatedAt: updatedCategory.updatedAt,
+          changes
+        },
+        'Category updated successfully',
+        RESPONSE_CODES.UPDATED,
+        {
+          requestId: undefined,
+          traceId,
+          duration
+        }
+      ) as UpdateCategoryResult;
 
     } catch (error) {
+      const duration = Date.now() - startTime;
+      
       this.logger.error('Failed to update category', error instanceof Error ? error : new Error(String(error)), {
         categoryId: request.id,
         changes: request,
+        duration,
         traceId
       });
+      
+      // Re-throw para mantener el flujo de errores
       throw error;
     }
   }
 
   private validateInput(request: UpdateCategoryRequest): void {
     // Validar ID
-    ValidationService.validateRequired('id', request.id);
+    this.validateRequired('id', request.id);
 
     // Validar nombre si se proporciona
     if (request.name !== undefined) {
-      ValidationService.validateString('name', request.name, {
+      this.validateString('name', request.name, {
         minLength: 2,
         maxLength: 100
       });
@@ -168,14 +222,14 @@ export class UpdateCategoryUseCase {
 
     // Validar descripción si se proporciona
     if (request.description !== undefined) {
-      ValidationService.validateString('description', request.description, {
+      this.validateString('description', request.description, {
         maxLength: 500
       });
     }
 
     // Validar slug si se proporciona
     if (request.slug !== undefined) {
-      ValidationService.validateString('slug', request.slug, {
+      this.validateString('slug', request.slug, {
         minLength: 2,
         maxLength: 100,
         pattern: /^[a-z0-9-]+$/
@@ -184,18 +238,74 @@ export class UpdateCategoryUseCase {
 
     // Validar URL de imagen si se proporciona
     if (request.imageUrl !== undefined) {
-      ValidationService.validateString('imageUrl', request.imageUrl, {
+      this.validateString('imageUrl', request.imageUrl, {
         pattern: /^https?:\/\/.+/
       });
     }
 
     // Validar orden de clasificación si se proporciona
     if (request.sortOrder !== undefined) {
-      ValidationService.validateNumber('sortOrder', request.sortOrder, {
+      this.validateNumber('sortOrder', request.sortOrder, {
         min: 0,
         max: 999,
         integer: true
       });
+    }
+  }
+
+  // Métodos de validación privados
+  private validateRequired(field: string, value: any): void {
+    if (value === undefined || value === null || 
+        (typeof value === 'string' && value.trim().length === 0)) {
+      throw new ValidationError(`Field '${field}' is required`);
+    }
+  }
+
+  private validateString(field: string, value: any, options?: {
+    minLength?: number;
+    maxLength?: number;
+    pattern?: RegExp;
+  }): void {
+    if (value !== undefined && value !== null) {
+      if (typeof value !== 'string') {
+        throw new ValidationError(`Field '${field}' must be a string`);
+      }
+
+      if (options?.minLength && value.length < options.minLength) {
+        throw new ValidationError(`Field '${field}' must be at least ${options.minLength} characters long`);
+      }
+
+      if (options?.maxLength && value.length > options.maxLength) {
+        throw new ValidationError(`Field '${field}' must not exceed ${options.maxLength} characters`);
+      }
+
+      if (options?.pattern && !options.pattern.test(value)) {
+        throw new ValidationError(`Field '${field}' has an invalid format`);
+      }
+    }
+  }
+
+  private validateNumber(field: string, value: any, options?: {
+    min?: number;
+    max?: number;
+    integer?: boolean;
+  }): void {
+    if (value !== undefined && value !== null) {
+      if (typeof value !== 'number' || isNaN(value)) {
+        throw new ValidationError(`Field '${field}' must be a number`);
+      }
+
+      if (options?.integer && !Number.isInteger(value)) {
+        throw new ValidationError(`Field '${field}' must be an integer`);
+      }
+
+      if (options?.min !== undefined && value < options.min) {
+        throw new ValidationError(`Field '${field}' must be at least ${options.min}`);
+      }
+
+      if (options?.max !== undefined && value > options.max) {
+        throw new ValidationError(`Field '${field}' must not exceed ${options.max}`);
+      }
     }
   }
 }

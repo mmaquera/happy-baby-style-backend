@@ -28,14 +28,20 @@ export class PrismaUserProfileRepository implements IUserRepository {
       updatedAt: prismaUserProfile.updatedAt,
       profile: {
         id: prismaUserProfile.id,
-        userId: prismaUserProfile.id,
+        email: prismaUserProfile.email,
         firstName: prismaUserProfile.firstName,
         lastName: prismaUserProfile.lastName,
         phone: prismaUserProfile.phone,
-        birthDate: prismaUserProfile.dateOfBirth,
-        avatarUrl: prismaUserProfile.avatar,
+        dateOfBirth: prismaUserProfile.dateOfBirth,
+        avatar: prismaUserProfile.avatar,
+        role: prismaUserProfile.role,
+        emailVerified: prismaUserProfile.emailVerified,
+        isActive: prismaUserProfile.isActive,
+        lastLoginAt: prismaUserProfile.lastLoginAt,
         createdAt: prismaUserProfile.createdAt,
-        updatedAt: prismaUserProfile.updatedAt
+        updatedAt: prismaUserProfile.updatedAt,
+        addresses: prismaUserProfile.addresses ? prismaUserProfile.addresses.map(this.mapToUserAddress) : [],
+        favoriteProductIds: []
       },
       addresses: prismaUserProfile.addresses ? prismaUserProfile.addresses.map(this.mapToUserAddress) : []
     };
@@ -63,14 +69,20 @@ export class PrismaUserProfileRepository implements IUserRepository {
   private mapToUserProfile(prismaUserProfile: any): UserProfile {
     return {
       id: prismaUserProfile.id,
-      userId: prismaUserProfile.id,
+      email: prismaUserProfile.email,
       firstName: prismaUserProfile.firstName,
       lastName: prismaUserProfile.lastName,
       phone: prismaUserProfile.phone,
-      birthDate: prismaUserProfile.dateOfBirth,
-      avatarUrl: prismaUserProfile.avatar,
+      dateOfBirth: prismaUserProfile.dateOfBirth,
+      avatar: prismaUserProfile.avatar,
+      role: prismaUserProfile.role,
+      emailVerified: prismaUserProfile.emailVerified,
+      isActive: prismaUserProfile.isActive,
+      lastLoginAt: prismaUserProfile.lastLoginAt,
       createdAt: prismaUserProfile.createdAt,
-      updatedAt: prismaUserProfile.updatedAt
+      updatedAt: prismaUserProfile.updatedAt,
+      addresses: prismaUserProfile.addresses ? prismaUserProfile.addresses.map(this.mapToUserAddress) : [],
+      favoriteProductIds: []
     };
   }
 
@@ -292,8 +304,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
         firstName: profile.firstName,
         lastName: profile.lastName,
         phone: profile.phone,
-        dateOfBirth: profile.birthDate,
-        avatar: profile.avatarUrl
+        dateOfBirth: profile.dateOfBirth,
+        avatar: profile.avatar
       }
     });
 
@@ -314,8 +326,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
     if (profile.firstName !== undefined) updateData.firstName = profile.firstName;
     if (profile.lastName !== undefined) updateData.lastName = profile.lastName;
     if (profile.phone !== undefined) updateData.phone = profile.phone;
-    if (profile.birthDate !== undefined) updateData.dateOfBirth = profile.birthDate;
-    if (profile.avatarUrl !== undefined) updateData.avatar = profile.avatarUrl;
+    if (profile.dateOfBirth !== undefined) updateData.dateOfBirth = profile.dateOfBirth;
+    if (profile.avatar !== undefined) updateData.avatar = profile.avatar;
 
     const updatedUserProfile = await this.prisma.userProfile.update({
       where: { id: userId },

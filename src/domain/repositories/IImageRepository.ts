@@ -19,7 +19,8 @@ export interface ImageFilters {
 }
 
 export interface IStorageService {
-  uploadFile(file: Express.Multer.File, path: string): Promise<string>;
-  deleteFile(path: string): Promise<void>;
-  getPublicUrl(path: string): string;
+  uploadFile(buffer: Buffer, fileName: string, mimeType: string, folder?: string): Promise<string>;
+  deleteFile(fileUrl: string): Promise<void>;
+  getPublicUrl(fileName: string, folder?: string): string;
+  validateFile(fileName: string, mimeType: string, fileSize: number): boolean;
 }

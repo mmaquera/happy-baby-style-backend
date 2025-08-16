@@ -1,5 +1,3 @@
-import { ValidationService, ValidationResult } from './ValidationService';
-
 export interface UserRegistrationData {
   email: string;
   password: string;
@@ -35,7 +33,12 @@ export interface PasswordUpdateData {
   confirmPassword: string;
 }
 
-export class UserValidationService extends ValidationService {
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+export class UserValidationService {
   
   /**
    * Validate user registration data
@@ -287,6 +290,90 @@ export class UserValidationService extends ValidationService {
   }
 
   // ==================== PRIVATE VALIDATION METHODS ====================
+
+  private validateRequired(field: string, value: any): void {
+    if (value === undefined || value === null || 
+        (typeof value === 'string' && value.trim().length === 0)) {
+      throw new Error(`${field} is required`);
+    }
+  }
+
+  private validateString(field: string, value: any, options?: {
+    minLength?: number;
+    maxLength?: number;
+    pattern?: RegExp;
+  }): void {
+    if (value !== undefined && value !== null) {
+      if (typeof value !== 'string') {
+        throw new Error(`${field} must be a string`);
+      }
+
+      if (options?.minLength && value.length < options.minLength) {
+        throw new Error(`${field} must be at least ${options.minLength} characters long`);
+      }
+
+      if (options?.maxLength && value.length > options.maxLength) {
+        throw new Error(`${field} must be less than ${options.maxLength} characters`);
+      }
+
+      if (options?.pattern && !options.pattern.test(value)) {
+        throw new Error(`${field} format is invalid`);
+      }
+    }
+  }
+
+  private validateNumber(field: string, value: any, options?: {
+    min?: number;
+    max?: number;
+    integer?: boolean;
+  }): void {
+    if (value !== undefined && value !== null) {
+      if (typeof value !== 'number' || isNaN(value)) {
+        throw new Error(`${field} must be a number`);
+      }
+
+      if (options?.integer && !Number.isInteger(value)) {
+        throw new Error(`${field} must be an integer`);
+      }
+
+      if (options?.min !== undefined && value < options.min) {
+        throw new Error(`${field} must be at least ${options.min}`);
+      }
+
+      if (options?.max !== undefined && value > options.max) {
+        throw new Error(`${field} must be less than ${options.max}`);
+      }
+    }
+  }
+
+  private validateDate(field: string, value: any, options?: {
+    minDate?: Date;
+    maxDate?: Date;
+  }): void {
+    if (value !== undefined && value !== null) {
+      let date: Date;
+      
+      if (value instanceof Date) {
+        date = value;
+      } else if (typeof value === 'string') {
+        date = new Date(value);
+      } else {
+        throw new Error(`${field} must be a valid date`);
+      }
+
+      if (isNaN(date.getTime())) {
+        throw new Error(`${field} must be a valid date`);
+      }
+
+      if (options?.minDate && date < options.minDate) {
+        throw new Error(`${field} must be after ${options.minDate.toISOString()}`);
+      }
+
+      if (options?.maxDate && date > options.maxDate) {
+        throw new Error(`${field} must be before ${options.maxDate.toISOString()}`);
+      }
+    }
+  }
 
   private isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

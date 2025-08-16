@@ -82,9 +82,10 @@ describe('UpdateCategoryUseCase', () => {
       const result = await updateCategoryUseCase.execute(request);
 
       // Assert
-      expect(result.category.name).toBe('Updated Baby Clothing');
-      expect(result.changes).toContain('name');
-      expect(result.changes).toHaveLength(1);
+      expect(result.success).toBe(true);
+      expect(result.data?.entity.name).toBe('Updated Baby Clothing');
+      expect(result.data?.changes).toContain('name');
+      expect(result.data?.changes).toHaveLength(1);
       expect(mockCategoryRepository.update).toHaveBeenCalledWith('cat-1', { name: 'Updated Baby Clothing' });
     });
 
@@ -117,10 +118,11 @@ describe('UpdateCategoryUseCase', () => {
       const result = await updateCategoryUseCase.execute(request);
 
       // Assert
-      expect(result.changes).toContain('name');
-      expect(result.changes).toContain('description');
-      expect(result.changes).toContain('sortOrder');
-      expect(result.changes).toHaveLength(3);
+      expect(result.success).toBe(true);
+      expect(result.data?.changes).toContain('name');
+      expect(result.data?.changes).toContain('description');
+      expect(result.data?.changes).toContain('sortOrder');
+      expect(result.data?.changes).toHaveLength(3);
     });
 
     it('should return existing category when no changes are made', async () => {
@@ -136,8 +138,9 @@ describe('UpdateCategoryUseCase', () => {
       const result = await updateCategoryUseCase.execute(request);
 
       // Assert
-      expect(result.category).toBe(mockCategory);
-      expect(result.changes).toHaveLength(0);
+      expect(result.success).toBe(true);
+      expect(result.data?.entity).toBe(mockCategory);
+      expect(result.data?.changes).toHaveLength(0);
       expect(mockCategoryRepository.update).not.toHaveBeenCalled();
     });
 
@@ -240,8 +243,9 @@ describe('UpdateCategoryUseCase', () => {
       const result = await updateCategoryUseCase.execute(request);
 
       // Assert
-      expect(result.changes).toContain('name');
-      expect(result.changes).toContain('description');
+      expect(result.success).toBe(true);
+      expect(result.data?.changes).toContain('name');
+      expect(result.data?.changes).toContain('description');
       expect(mockCategoryRepository.update).toHaveBeenCalledWith('cat-1', {
         name: 'Updated Name',
         description: 'Updated Description'

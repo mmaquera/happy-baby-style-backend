@@ -7,9 +7,9 @@
     "dev": "node scripts/dev-server.js",
     "dev:development": "NODE_ENV=development node scripts/dev-server.js",
     "dev:production": "NODE_ENV=production node scripts/dev-server.js",
-    "start": "node -r tsconfig-paths/register dist/index.js",
-    "start:development": "NODE_ENV=development node -r tsconfig-paths/register dist/index.js",
-    "start:production": "NODE_ENV=production node -r tsconfig-paths/register dist/index.js",
+    "start": "TS_NODE_PROJECT=tsconfig.production.json node -r tsconfig-paths/register dist/src/index.js",
+    "start:development": "NODE_ENV=development TS_NODE_PROJECT=tsconfig.production.json node -r tsconfig-paths/register dist/src/index.js",
+    "start:production": "NODE_ENV=production TS_NODE_PROJECT=tsconfig.production.json node -r tsconfig-paths/register dist/src/index.js",
     "build": "rm -rf dist && tsc",
     "build:development": "rm -rf dist && NODE_ENV=development tsc",
     "build:production": "rm -rf dist && NODE_ENV=production tsc",
@@ -54,7 +54,6 @@
   },
   "dependencies": {
     "@prisma/client": "^6.13.0",
-    
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
@@ -67,7 +66,6 @@
     "@apollo/server": "^4.11.2",
     "graphql": "^16.8.1",
     "graphql-tag": "^2.12.6",
-    
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
@@ -87,7 +85,6 @@
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    
     "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.9",

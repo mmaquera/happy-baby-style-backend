@@ -16,14 +16,13 @@
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "types": ["node", "jest"],
-    "baseUrl": "./src",
+    "baseUrl": "./",
     "paths": {
-      "@domain/*": ["domain/*"],
-      "@application/*": ["application/*"],
-      "@infrastructure/*": ["infrastructure/*"],
-      "@presentation/*": ["presentation/*"],
-      "@shared/*": ["shared/*"],
-      "@graphql/*": ["graphql/*"]
+      "@domain/*": ["src/domain/*"],
+      "@application/*": ["src/application/*"],
+      "@infrastructure/*": ["src/infrastructure/*"],
+      "@presentation/*": ["src/presentation/*"],
+      "@shared/*": ["src/shared/*"]
     }
   },
   "include": ["src/**/*", "tests/**/*"],

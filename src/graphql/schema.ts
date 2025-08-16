@@ -1303,6 +1303,37 @@ export const typeDefs = gql`
     createdAt: String!
   }
 
+  type UpdateProductResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UpdateProductData
+    metadata: ResponseMetadata
+  }
+
+  type UpdateProductData {
+    entity: Product!
+    id: ID!
+    updatedAt: String!
+    changes: [String!]!
+  }
+
+  type DeleteProductResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: DeleteProductData
+    metadata: ResponseMetadata
+  }
+
+  type DeleteProductData {
+    id: ID!
+    deletedAt: String!
+    softDelete: Boolean!
+  }
+
   type GetProductsResponse {
     success: Boolean!
     message: String!
@@ -1675,8 +1706,8 @@ export const typeDefs = gql`
     
     # Product mutations
     createProduct(input: CreateProductInput!): CreateProductResponse!
-    updateProduct(id: ID!, input: UpdateProductInput!): Product!
-    deleteProduct(id: ID!): SuccessResponse!
+    updateProduct(id: ID!, input: UpdateProductInput!): UpdateProductResponse!
+    deleteProduct(id: ID!): DeleteProductResponse!
     
     # Product variant mutations
     createProductVariant(input: CreateProductVariantInput!): ProductVariant!

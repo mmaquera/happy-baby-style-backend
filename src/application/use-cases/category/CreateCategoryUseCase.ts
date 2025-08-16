@@ -3,12 +3,12 @@ import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 import { 
   RequiredFieldError, 
   InvalidFormatError, 
+  InvalidRangeError,
   DuplicateError, 
   BusinessLogicError,
   DatabaseError,
   ValidationError 
 } from '@domain/errors/DomainError';
-import { ValidationService } from '@application/validation/ValidationService';
 import { ILogger } from '@domain/interfaces/ILogger';
 import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
 import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
@@ -124,45 +124,46 @@ export class CreateCategoryUseCase {
   }
 
   private validateInput(request: CreateCategoryRequest): void {
-    const validationRules = [
-      {
-        field: 'name' as keyof CreateCategoryRequest,
-        validate: (value: any) => {
-          ValidationService.validateRequired('name', value);
-          ValidationService.validateString('name', value, { minLength: 2, maxLength: 100 });
-        }
-      },
-      {
-        field: 'description' as keyof CreateCategoryRequest,
-        validate: (value: any) => {
-          ValidationService.validateString('description', value, { maxLength: 500 });
-        }
-      },
-      {
-        field: 'imageUrl' as keyof CreateCategoryRequest,
-        validate: (value: any) => {
-          if (value !== undefined) {
-            ValidationService.validateString('imageUrl', value, { minLength: 1 });
-            // Basic URL validation
-            try {
-              new URL(value);
-            } catch {
-              throw new InvalidFormatError('imageUrl', 'valid URL');
-            }
-          }
-        }
-      },
-      {
-        field: 'sortOrder' as keyof CreateCategoryRequest,
-        validate: (value: any) => {
-          if (value !== undefined) {
-            ValidationService.validateNumber('sortOrder', value, { min: 0, max: 999, integer: true });
-          }
-        }
-      }
-    ];
+    // Validación del nombre
+    if (!request.name || request.name.trim().length === 0) {
+      throw new RequiredFieldError('name');
+    }
+    
+    if (request.name.trim().length < 2 || request.name.trim().length > 100) {
+      throw new InvalidRangeError('name', 2, 100);
+    }
 
-    ValidationService.validateBatch(request, validationRules);
+    // Validación de la descripción
+    if (request.description !== undefined && request.description !== null) {
+      if (request.description.trim().length > 500) {
+        throw new InvalidRangeError('description', undefined, 500);
+      }
+    }
+
+    // Validación de la URL de imagen
+    if (request.imageUrl !== undefined && request.imageUrl !== null) {
+      if (request.imageUrl.trim().length === 0) {
+        throw new InvalidFormatError('imageUrl', 'non-empty string');
+      }
+      
+      // Basic URL validation
+      try {
+        new URL(request.imageUrl);
+      } catch {
+        throw new InvalidRangeError('imageUrl', undefined, undefined);
+      }
+    }
+
+    // Validación del orden de clasificación
+    if (request.sortOrder !== undefined && request.sortOrder !== null) {
+      if (typeof request.sortOrder !== 'number' || !Number.isInteger(request.sortOrder)) {
+        throw new InvalidFormatError('sortOrder', 'integer');
+      }
+      
+      if (request.sortOrder < 0 || request.sortOrder > 999) {
+        throw new InvalidRangeError('sortOrder', 0, 999);
+      }
+    }
   }
 
   private generateSlug(name: string): string {

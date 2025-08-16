@@ -1,6 +1,7 @@
 import * as jwt from 'jsonwebtoken';
 import * as bcrypt from 'bcryptjs';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
+import { UserRole } from '../../domain/entities/User';
 
 export interface AuthUser {
   id: string;
@@ -50,20 +51,14 @@ export class JwtAuthService {
 
   async login(credentials: LoginCredentials): Promise<AuthTokens> {
     try {
-      // Find user by email
-      const users = await this.userRepository.findMany({
-        filters: { email: credentials.email },
-        pagination: { limit: 1, offset: 0 }
-      });
+      // Find user by email using the correct repository method
+      const user = await this.userRepository.getUserByEmail(credentials.email);
 
-      if (users.total === 0) {
+      if (!user) {
         throw new Error('Invalid credentials');
       }
 
-      const user = users.users[0];
-
-      // Verify password (assuming you have a password field in your user entity)
-      // Note: You'll need to add password field to your User entity
+      // Verify password using the repository method to get password hash
       const isValidPassword = await this.verifyPassword(credentials.password, user.id);
       
       if (!isValidPassword) {
@@ -98,22 +93,18 @@ export class JwtAuthService {
       // Hash password
       const hashedPassword = await bcrypt.hash(data.password, 12);
 
-      // Create user
-      const user = await this.userRepository.create({
+      // Create user using the correct repository method and structure
+      const user = await this.userRepository.createUser({
         email: data.email,
+        password: hashedPassword,
+        role: UserRole.CUSTOMER,
         profile: {
           firstName: data.firstName,
           lastName: data.lastName,
-          phone: '',
-          dateOfBirth: null,
-          avatar: null
+          phone: undefined,
+          birthDate: undefined
         },
-        role: 'customer',
-        emailVerified: false,
-        // Note: You'll need to handle password storage in your repository
-        metadata: {
-          passwordHash: hashedPassword
-        }
+        isActive: true
       });
 
       const authUser: AuthUser = {
@@ -141,8 +132,8 @@ export class JwtAuthService {
     try {
       const decoded = jwt.verify(token, this.jwtSecret) as any;
       
-      // Verify user still exists
-      const user = await this.userRepository.findById(decoded.id);
+      // Verify user still exists using the correct repository method
+      const user = await this.userRepository.getUserById(decoded.id);
       if (!user) {
         return null;
       }
@@ -163,8 +154,8 @@ export class JwtAuthService {
     try {
       const decoded = jwt.verify(refreshToken, this.jwtSecret) as any;
       
-      // Verify user still exists
-      const user = await this.userRepository.findById(decoded.id);
+      // Verify user still exists using the correct repository method
+      const user = await this.userRepository.getUserById(decoded.id);
       if (!user) {
         throw new Error('User not found');
       }
@@ -198,8 +189,8 @@ export class JwtAuthService {
         role: user.role,
         emailVerified: user.emailVerified
       },
-      this.jwtSecret,
-      { expiresIn: this.jwtExpiration }
+      this.jwtSecret as jwt.Secret,
+      { expiresIn: this.jwtExpiration } as jwt.SignOptions
     );
   }
 
@@ -211,18 +202,24 @@ export class JwtAuthService {
         role: user.role,
         emailVerified: user.emailVerified
       },
-      this.jwtSecret,
-      { expiresIn: this.refreshTokenExpiration }
+      this.jwtSecret as jwt.Secret,
+      { expiresIn: this.refreshTokenExpiration } as jwt.SignOptions
     );
   }
 
   private async verifyPassword(password: string, userId: string): Promise<boolean> {
     try {
-      // This is a simplified implementation
-      // In a real app, you'd store password hashes in the database
-      // For now, we'll use a default password for demo purposes
-      const defaultPassword = 'password123';
-      return password === defaultPassword || await bcrypt.compare(password, defaultPassword);
+      // Get the actual password hash from the repository
+      const passwordHash = await this.userRepository.getUserPasswordHash(userId);
+      
+      if (!passwordHash) {
+        // Fallback to default password for demo purposes
+        const defaultPassword = 'password123';
+        return password === defaultPassword;
+      }
+      
+      // Compare with the actual stored hash
+      return await bcrypt.compare(password, passwordHash);
     } catch (error) {
       console.error('Password verification error:', error);
       return false;

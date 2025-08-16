@@ -1,5 +1,6 @@
 import { ImageEntity, ImageEntityType } from '@domain/entities/Image';
-import { IImageRepository, IStorageService } from '@domain/repositories/IImageRepository';
+import { IImageRepository } from '@domain/repositories/IImageRepository';
+import { IStorageService } from '@domain/interfaces/IStorageService';
 import { Multer } from 'multer';
 
 export interface UploadImageRequest {
@@ -27,8 +28,13 @@ export class UploadImageUseCase {
     const path = `${entityType}s/${entityId}/${fileName}`;
 
     try {
-      // Subir archivo a Supabase Storage
-      const url = await this.storageService.uploadFile(file, path);
+      // Subir archivo usando el storage service
+      const url = await this.storageService.uploadFile(
+        file.buffer,
+        fileName,
+        file.mimetype,
+        `${entityType}s/${entityId}`
+      );
 
       // Crear entidad de imagen
       const image = ImageEntity.create({
