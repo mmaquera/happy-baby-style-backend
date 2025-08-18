@@ -35,6 +35,15 @@ import { AuthenticateUserUseCase } from '@application/use-cases/user/Authenticat
 import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUserFavoritesUseCase';
 import { GetUserOrderHistoryUseCase } from '@application/use-cases/user/GetUserOrderHistoryUseCase';
 import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUserPasswordUseCase';
+import { LogoutUserUseCase } from '@application/use-cases/user/LogoutUserUseCase';
+import { RefreshTokenUseCase } from '@application/use-cases/user/RefreshTokenUseCase';
+import { CreateUserAddressUseCase } from '@application/use-cases/user/CreateUserAddressUseCase';
+import { UpdateUserAddressUseCase } from '@application/use-cases/user/UpdateUserAddressUseCase';
+import { DeleteUserAddressUseCase } from '@application/use-cases/user/DeleteUserAddressUseCase';
+import { GetUserAddressByIdUseCase } from '@application/use-cases/user/GetUserAddressByIdUseCase';
+import { SetDefaultAddressUseCase } from '@application/use-cases/user/SetDefaultAddressUseCase';
+import { SessionService } from '@application/auth/SessionService';
+import { RateLimitService } from '@application/services/RateLimitService';
 // Controllers removed - GraphQL only architecture
 import { IProductRepository } from '@domain/repositories/IProductRepository';
 import { IImageRepository } from '@domain/repositories/IImageRepository';
@@ -121,7 +130,7 @@ export class Container {
     const getUserStatsUseCase = new GetUserStatsUseCase(userRepository);
     
     // Nuevos casos de uso de usuarios
-    const authenticateUserUseCase = new AuthenticateUserUseCase(userRepository);
+    const authenticateUserUseCase = new AuthenticateUserUseCase(userRepository, authRepository, defaultLogger);
     const manageUserFavoritesUseCase = new ManageUserFavoritesUseCase({
       addToFavorites: async () => { throw new Error('Not implemented'); },
       removeFromFavorites: async () => { throw new Error('Not implemented'); },
@@ -142,6 +151,25 @@ export class Container {
       updatePassword: async () => {},
       getUserById: async () => null
     });
+    
+    // Caso de uso de logout
+    const logoutUserUseCase = new LogoutUserUseCase(authRepository, defaultLogger);
+    
+    // Caso de uso de refresh token
+    const refreshTokenUseCase = new RefreshTokenUseCase(authRepository, defaultLogger);
+    
+    // Casos de uso de direcciones de usuario
+    const createUserAddressUseCase = new CreateUserAddressUseCase(userRepository);
+    const updateUserAddressUseCase = new UpdateUserAddressUseCase(userRepository);
+    const deleteUserAddressUseCase = new DeleteUserAddressUseCase(userRepository);
+    const getUserAddressByIdUseCase = new GetUserAddressByIdUseCase(userRepository);
+    const setDefaultAddressUseCase = new SetDefaultAddressUseCase(userRepository);
+    
+    // Servicios de autenticación
+    const sessionService = new SessionService(authRepository, defaultLogger);
+    
+    // Servicios de rate limiting
+    const rateLimitService = new RateLimitService(defaultLogger);
     
     // Controllers removed - GraphQL only architecture
 
@@ -189,6 +217,15 @@ export class Container {
     this.dependencies.set('manageUserFavoritesUseCase', manageUserFavoritesUseCase);
     this.dependencies.set('getUserOrderHistoryUseCase', getUserOrderHistoryUseCase);
     this.dependencies.set('updateUserPasswordUseCase', updateUserPasswordUseCase);
+    this.dependencies.set('createUserAddressUseCase', createUserAddressUseCase);
+    this.dependencies.set('updateUserAddressUseCase', updateUserAddressUseCase);
+    this.dependencies.set('deleteUserAddressUseCase', deleteUserAddressUseCase);
+    this.dependencies.set('getUserAddressByIdUseCase', getUserAddressByIdUseCase);
+    this.dependencies.set('setDefaultAddressUseCase', setDefaultAddressUseCase);
+    this.dependencies.set('logoutUserUseCase', logoutUserUseCase);
+    this.dependencies.set('refreshTokenUseCase', refreshTokenUseCase);
+    this.dependencies.set('sessionService', sessionService);
+    this.dependencies.set('rateLimitService', rateLimitService);
     
     // Controllers removed - GraphQL only architecture
   }

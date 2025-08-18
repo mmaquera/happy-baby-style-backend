@@ -9,6 +9,8 @@ import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
 import { RequestLogger } from '@infrastructure/logging/RequestLogger';
 import { GraphQLPlayground } from '@infrastructure/web/GraphQLPlayground';
 import { StaticFileMiddleware } from '@infrastructure/web/StaticFileMiddleware';
+import { RateLimitMiddleware } from '@presentation/middleware/RateLimitMiddleware';
+import { IRateLimitService } from '@domain/interfaces/IRateLimitService';
 import { environment } from './config/environment';
 
 const app = express();
@@ -61,6 +63,13 @@ if (config.enableCors) {
     credentials: true
   }));
 }
+
+// Rate Limiting Middleware - Critical for security
+const rateLimitService = container.get<IRateLimitService>('rateLimitService');
+const rateLimitMiddleware = new RateLimitMiddleware(rateLimitService, logger);
+
+// Apply rate limiting to all routes
+app.use(rateLimitMiddleware.createGeneralAPIMiddleware());
 
 // Parseo de JSON (necesario para GraphQL)
 app.use(express.json({ limit: '10mb' }));

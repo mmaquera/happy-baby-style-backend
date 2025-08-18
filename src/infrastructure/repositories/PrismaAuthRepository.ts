@@ -428,50 +428,120 @@ export class PrismaAuthRepository implements IAuthRepository {
   }
 
   async refreshUserSession(refreshToken: string): Promise<AuthResult> {
-    const session = await this.prisma.userSession.findUnique({
-      where: { refreshToken },
-      include: {
-        user: {
-          include: {
-            accounts: true
+    try {
+      // Buscar sesión con refresh token
+      const session = await this.prisma.userSession.findUnique({
+        where: { refreshToken },
+        include: {
+          user: {
+            include: {
+              accounts: true
+            }
           }
         }
+      });
+
+      // Validar que la sesión exista y sea válida
+      if (!session) {
+        throw new Error('Session not found');
       }
-    });
 
-    if (!session || !session.isActive || session.expiresAt < new Date()) {
-      throw new Error('Invalid or expired refresh token');
+      if (!session.isActive) {
+        throw new Error('Session is inactive');
+      }
+
+      if (session.expiresAt < new Date()) {
+        throw new Error('Session has expired');
+      }
+
+      // Validar que el usuario exista y esté activo
+      if (!session.user || !session.user.isActive) {
+        throw new Error('User is inactive or not found');
+      }
+
+      // Generar nuevos tokens seguros
+      const tokens = await this.generateTokens(session.userId);
+
+      // Calcular nueva fecha de expiración (30 días)
+      const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      // Actualizar sesión con nuevos tokens
+      await this.updateSession(session.id, {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: newExpiresAt,
+        updatedAt: new Date()
+      });
+
+      // Mapear usuario y determinar proveedor
+      const user = this.mapToUserProfile(session.user);
+      const primaryProvider = session.user.accounts.length > 0 
+        ? session.user.accounts[0].provider as AuthProvider
+        : AuthProvider.EMAIL;
+
+      return {
+        user,
+        tokens,
+        isNewUser: false,
+        provider: primaryProvider
+      };
+
+    } catch (error) {
+      // Log del error para debugging
+      console.error('Error refreshing user session:', {
+        refreshToken: refreshToken ? '[REDACTED]' : 'undefined',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+
+      // Re-lanzar el error para que sea manejado por el use case
+      throw error;
     }
+  }
 
-    // Generate new tokens
-    const tokens = await this.generateTokens(session.userId);
-
-    // Update session
-    await this.updateSession(session.id, {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-    });
-
-    const user = this.mapToUserProfile(session.user);
-    const primaryProvider = session.user.accounts.length > 0 
-      ? session.user.accounts[0].provider as AuthProvider
-      : AuthProvider.EMAIL;
-
-    return {
-      user,
-      tokens,
-      isNewUser: false,
-      provider: primaryProvider
-    };
+  // Logout Management
+  async logoutUser(userId: string, sessionId?: string): Promise<void> {
+    try {
+      if (sessionId) {
+        // Invalidar sesión específica
+        await this.prisma.userSession.update({
+          where: { id: sessionId },
+          data: { 
+            isActive: false, 
+            expiresAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      } else {
+        // Invalidar todas las sesiones del usuario
+        await this.prisma.userSession.updateMany({
+          where: { 
+            userId, 
+            isActive: true 
+          },
+          data: { 
+            isActive: false, 
+            expiresAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      }
+    } catch (error) {
+      throw new Error(`Failed to logout user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Helper methods
   private async generateTokens(userId: string): Promise<AuthTokens> {
-    // This is a simplified implementation
-    // In a real app, you'd use proper JWT generation
-    const accessToken = `access_${userId}_${Date.now()}`;
-    const refreshToken = `refresh_${userId}_${Date.now()}`;
+    // Generar tokens seguros usando crypto.randomUUID() para mayor seguridad
+    const timestamp = Date.now();
+    const randomId = crypto.randomUUID();
+    
+    // Access token: formato más seguro con timestamp y UUID
+    const accessToken = `access_${userId}_${timestamp}_${randomId}`;
+    
+    // Refresh token: formato más seguro con timestamp y UUID
+    const refreshToken = `refresh_${userId}_${timestamp}_${randomId}`;
 
     return {
       accessToken,

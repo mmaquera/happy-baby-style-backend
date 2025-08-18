@@ -72,10 +72,31 @@ export class GraphQLErrorHandler {
   static handleAuthError(error: any): GraphQLErrorResponse {
     console.error('Authentication error:', error);
     
+    // Mapear mensajes específicos a códigos de error
+    let code = 'AUTH_ERROR';
+    let message = error.message || 'Authentication failed';
+    
+    if (error.message?.includes('Session not found')) {
+      code = 'SESSION_NOT_FOUND';
+      message = 'Session not found';
+    } else if (error.message?.includes('Session has expired')) {
+      code = 'SESSION_EXPIRED';
+      message = 'Session has expired';
+    } else if (error.message?.includes('Session is inactive')) {
+      code = 'SESSION_INACTIVE';
+      message = 'Session is inactive';
+    } else if (error.message?.includes('Invalid or expired refresh token')) {
+      code = 'INVALID_REFRESH_TOKEN';
+      message = 'Invalid or expired refresh token';
+    } else if (error.message?.includes('User is inactive')) {
+      code = 'USER_NOT_FOUND';
+      message = 'User account is inactive';
+    }
+    
     return {
       success: false,
-      message: error.message || 'Authentication failed',
-      code: 'AUTH_ERROR',
+      message,
+      code,
       details: error.details
     };
   }
@@ -122,8 +143,12 @@ export class GraphQLErrorHandler {
       return this.handleValidationError(error);
     }
     
-    // Errores de autenticación
-    if (error.name === 'AuthenticationError' || error.code === 'AUTH_ERROR') {
+    // Errores de autenticación - detectar por mensaje también
+    if (error.name === 'AuthenticationError' || 
+        error.code === 'AUTH_ERROR' ||
+        error.message?.includes('Session') ||
+        error.message?.includes('Invalid or expired refresh token') ||
+        error.message?.includes('User is inactive')) {
       return this.handleAuthError(error);
     }
     

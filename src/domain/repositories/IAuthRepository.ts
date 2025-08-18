@@ -46,4 +46,7 @@ export interface IAuthRepository {
   // Session Validation
   validateSession(sessionToken: string): Promise<SessionInfo | null>;
   refreshUserSession(refreshToken: string): Promise<AuthResult>;
+  
+  // Logout Management
+  logoutUser(userId: string, sessionId?: string): Promise<void>;
 }

@@ -1453,12 +1453,107 @@ export const typeDefs = gql`
     softDelete: Boolean!
   }
 
+  # User Address Response Types
+  type CreateUserAddressResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: CreateUserAddressData
+    metadata: ResponseMetadata
+  }
+
+  type CreateUserAddressData {
+    entity: UserAddress!
+    id: ID!
+    createdAt: String!
+  }
+
+  type UpdateUserAddressResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UpdateUserAddressData
+    metadata: ResponseMetadata
+  }
+
+  type UpdateUserAddressData {
+    entity: UserAddress!
+    id: ID!
+    updatedAt: String!
+    changes: [String!]!
+  }
+
+  type DeleteUserAddressResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: DeleteUserAddressData
+    metadata: ResponseMetadata
+  }
+
+  type DeleteUserAddressData {
+    id: ID!
+    deletedAt: String!
+    softDelete: Boolean!
+  }
+
+  type SetDefaultAddressResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: SetDefaultAddressData
+    metadata: ResponseMetadata
+  }
+
+  type SetDefaultAddressData {
+    userId: ID!
+    addressId: ID!
+    updatedAt: String!
+  }
+
+  type GetUserAddressResponse {
+    success: Boolean!
+    message: String!
+    timestamp: String!
+    code: String!
+    data: GetUserAddressData
+    metadata: ResponseMetadata
+  }
+
+  type GetUserAddressData {
+    entity: UserAddress!
+  }
+
+  type GetUserAddressesResponse {
+    success: Boolean!
+    message: String!
+    timestamp: String!
+    code: String!
+    data: GetUserAddressesData
+    metadata: ResponseMetadata
+  }
+
+  type GetUserAddressesData {
+    items: [UserAddress!]!
+  }
+
   type AuthResponse {
     success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: AuthData
+    metadata: ResponseMetadata
+  }
+
+  type AuthData {
     user: User
     accessToken: String
     refreshToken: String
-    message: String!
   }
 
   type SuccessResponse {
@@ -1538,8 +1633,8 @@ export const typeDefs = gql`
     users(filter: UserFilterInput, pagination: PaginationInput): PaginatedUsers!
     user(id: ID!): User
     userProfile(userId: ID!): UserProfile
-    userAddresses(userId: ID!): [UserAddress!]!
-    userAddress(id: ID!): UserAddress
+    userAddresses(userId: ID!): GetUserAddressesResponse!
+    userAddress(id: ID!): GetUserAddressResponse!
     currentUser: User
     searchUsers(query: String!): [User!]!
     activeUsers: [User!]!
@@ -1694,10 +1789,10 @@ export const typeDefs = gql`
     deleteUserProfile(userId: ID!): SuccessResponse!
     
     # User address mutations
-    createUserAddress(input: CreateUserAddressInput!): UserAddress!
-    updateUserAddress(id: ID!, input: UpdateUserAddressInput!): UserAddress!
-    deleteUserAddress(id: ID!): SuccessResponse!
-    setDefaultAddress(userId: ID!, addressId: ID!): SuccessResponse!
+    createUserAddress(input: CreateUserAddressInput!): CreateUserAddressResponse!
+    updateUserAddress(id: ID!, input: UpdateUserAddressInput!): UpdateUserAddressResponse!
+    deleteUserAddress(id: ID!): DeleteUserAddressResponse!
+    setDefaultAddress(userId: ID!, addressId: ID!): SetDefaultAddressResponse!
     
     # Category mutations
     createCategory(input: CreateCategoryInput!): CreateCategoryResponse!

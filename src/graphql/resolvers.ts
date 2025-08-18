@@ -2,7 +2,10 @@ import { GraphQLScalarType, Kind } from 'graphql';
 import { Container } from '@shared/container';
 import { GraphQLErrorHandler, handleResolverError } from './error-handler';
 import { ResponseFactory } from '@shared/factories/ResponseFactory';
+import { Context } from './server';
 import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
+import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
+import { ILogger } from '@domain/interfaces/ILogger';
 import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUseCase';
 import { GetProductByIdUseCase } from '@application/use-cases/product/GetProductByIdUseCase';
 import { CreateProductUseCase } from '@application/use-cases/product/CreateProductUseCase';
@@ -22,7 +25,15 @@ import { AuthenticateUserUseCase } from '@application/use-cases/user/Authenticat
 import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUserFavoritesUseCase';
 import { GetUserOrderHistoryUseCase } from '@application/use-cases/user/GetUserOrderHistoryUseCase';
 import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUserPasswordUseCase';
+import { LogoutUserUseCase } from '@application/use-cases/user/LogoutUserUseCase';
+import { RefreshTokenUseCase } from '@application/use-cases/user/RefreshTokenUseCase';
+import { CreateUserAddressUseCase } from '@application/use-cases/user/CreateUserAddressUseCase';
+import { UpdateUserAddressUseCase } from '@application/use-cases/user/UpdateUserAddressUseCase';
+import { DeleteUserAddressUseCase } from '@application/use-cases/user/DeleteUserAddressUseCase';
+import { GetUserAddressByIdUseCase } from '@application/use-cases/user/GetUserAddressByIdUseCase';
+import { SetDefaultAddressUseCase } from '@application/use-cases/user/SetDefaultAddressUseCase';
 import { UploadImageUseCase } from '@application/use-cases/image/UploadImageUseCase';
+import { AuthService } from '@application/auth/AuthService';
 import { CreateCategoryUseCase } from '@application/use-cases/category/CreateCategoryUseCase';
 import { UpdateCategoryUseCase } from '@application/use-cases/category/UpdateCategoryUseCase';
 import { DeleteCategoryUseCase } from '@application/use-cases/category/DeleteCategoryUseCase';
@@ -1379,19 +1390,99 @@ export const resolvers = {
     },
 
     // Address queries - implemented with user repository
-    userAddresses: async (_: any, { userId }: { userId: string }) => {
+    userAddresses: async (_: any, { userId }: { userId: string }, context: Context) => {
+      const startTime = Date.now();
+      const traceId = `get-addresses-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context.req?.id || `req-${Date.now()}`;
+      
       try {
         const getUserByIdUseCase = container.get<GetUserByIdUseCase>('getUserByIdUseCase');
         const user = await getUserByIdUseCase.execute(userId);
-        return user?.addresses?.map(transformUserAddress) || [];
+        const addresses = user?.addresses?.map(transformUserAddress) || [];
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          addresses,
+          'User addresses retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
       } catch (error: any) {
-        return [];
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        console.error('GetUserAddresses resolver error:', {
+          error: errorResponse,
+          userId,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    userAddress: async (_: any, { id }: { id: string }) => {
-      // This would need a dedicated getUserAddressById use case
-      return null;
+    userAddress: async (_: any, { id }: { id: string }, context: Context) => {
+      const startTime = Date.now();
+      const traceId = `get-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context.req?.id || `req-${Date.now()}`;
+      
+      try {
+        const getUserAddressByIdUseCase = container.get<GetUserAddressByIdUseCase>('getUserAddressByIdUseCase');
+        const address = await getUserAddressByIdUseCase.execute(id);
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          address,
+          'Address retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        console.error('GetUserAddress resolver error:', {
+          error: errorResponse,
+          id,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     // Placeholder queries with mock data for testing
@@ -2951,81 +3042,495 @@ export const resolvers = {
     },
 
     // Auth mutations
-    registerUser: async (_: any, { input }: { input: any }) => {
+    registerUser: async (_: any, { input }: { input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `register-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
       try {
+        // Log del inicio de la operación (sin datos sensibles)
+        logger.info('RegisterUser resolver started', {
+          operation: 'registerUser',
+          requestId,
+          traceId,
+          timestamp: new Date().toISOString(),
+          context: {
+            hasEmail: !!input.email,
+            hasPassword: !!input.password,
+            hasFirstName: !!input.firstName,
+            hasLastName: !!input.lastName,
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
+          }
+        });
+
+        // Validación básica de input
+        if (!input.email || !input.password || !input.firstName || !input.lastName) {
+          const duration = Date.now() - startTime;
+          const errorResponse = GraphQLErrorHandler.createErrorResponse(
+            'Email, password, firstName and lastName are required',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD
+          );
+          
+          logger.warn('RegisterUser validation failed', {
+            operation: 'registerUser',
+            requestId,
+            traceId,
+            duration,
+            error: errorResponse,
+            timestamp: new Date().toISOString()
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            errorResponse.message,
+            errorResponse.code || RESPONSE_CODES.VALIDATION_ERROR,
+            errorResponse.details,
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        // Ejecutar caso de uso para crear usuario
         const createUserUseCase = container.get<CreateUserUseCase>('createUserUseCase');
         const user = await createUserUseCase.execute({
           email: input.email,
           password: input.password,
+          role: input.role || 'customer',
+          isActive: true,
           profile: {
             firstName: input.firstName,
             lastName: input.lastName,
             phone: input.phone,
-            birthDate: input.birthDate ? new Date(input.birthDate) : undefined
+            birthDate: input.dateOfBirth ? new Date(input.dateOfBirth) : undefined
           }
         });
 
-        return {
-          success: true,
-          user: transformUser(user),
-          accessToken: 'mock_access_token', // This would be generated by JWT Auth
-          refreshToken: 'mock_refresh_token', // This would be generated by JWT Auth
-          message: 'User registered successfully'
-        };
+        // Generar tokens de autenticación
+        const authService = new AuthService();
+        const authUser = authService.createAuthUser({
+          id: user.id,
+          email: user.email,
+          role: user.role
+        });
+        
+        const accessToken = authService.generateToken(authUser);
+        const refreshToken = authService.generateToken(authUser);
+
+        const duration = Date.now() - startTime;
+        
+        // Log del éxito (sin datos sensibles)
+        logger.info('RegisterUser resolver success', {
+          operation: 'registerUser',
+          requestId,
+          traceId,
+          duration,
+          userId: user.id,
+          userRole: user.role,
+          timestamp: new Date().toISOString(),
+          context: {
+            hasAccessToken: !!accessToken,
+            hasRefreshToken: !!refreshToken,
+            userActive: user.isActive
+          }
+        });
+
+        // Crear respuesta exitosa usando ResponseFactory
+        return ResponseFactory.createSuccessResponse(
+          {
+            user: transformUser(user),
+            accessToken,
+            refreshToken
+          },
+          'User registered successfully',
+          RESPONSE_CODES.CREATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
       } catch (error: any) {
-        return {
-          success: false,
-          user: null,
-          accessToken: null,
-          refreshToken: null,
-          message: error.message || 'Registration failed'
-        };
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        logger.error('RegisterUser resolver error', error, {
+          errorResponse,
+          input: {
+            hasEmail: !!input.email,
+            hasPassword: !!input.password,
+            hasFirstName: !!input.firstName,
+            hasLastName: !!input.lastName
+          },
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    loginUser: async (_: any, { email, password }: { email: string; password: string }) => {
+    loginUser: async (_: any, { email, password }: { email: string; password: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `login-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
       try {
+        // Log del inicio de la operación (sin datos sensibles)
+        logger.info('LoginUser resolver started', {
+          operation: 'loginUser',
+          requestId,
+          traceId,
+          timestamp: new Date().toISOString(),
+          context: {
+            hasEmail: !!email,
+            hasPassword: !!password,
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
+          }
+        });
+
+        // Validación básica de input
+        if (!email || !password) {
+          const duration = Date.now() - startTime;
+          const errorResponse = GraphQLErrorHandler.createErrorResponse(
+            'Email and password are required',
+            RESPONSE_CODES.MISSING_REQUIRED_FIELD
+          );
+          
+          logger.warn('LoginUser validation failed', {
+            operation: 'loginUser',
+            requestId,
+            traceId,
+            duration,
+            error: errorResponse,
+            timestamp: new Date().toISOString()
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            errorResponse.message,
+            errorResponse.code || RESPONSE_CODES.VALIDATION_ERROR,
+            errorResponse.details,
+            {
+              requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        // Ejecutar caso de uso con información del contexto
         const authenticateUserUseCase = container.get<AuthenticateUserUseCase>('authenticateUserUseCase');
         const result = await authenticateUserUseCase.execute({
           email,
-          password
+          password,
+          userAgent: context?.req?.headers?.['user-agent'],
+          ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress
         });
 
-        return {
-          success: true,
-          user: transformUser(result.user),
-          accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
-          message: 'Login successful'
-        };
+        const duration = Date.now() - startTime;
+        
+        // Log del éxito (sin datos sensibles)
+        logger.info('LoginUser resolver success', {
+          operation: 'loginUser',
+          requestId,
+          traceId,
+          duration,
+          userId: result.user.id,
+          userRole: result.user.role,
+          sessionId: result.session.id,
+          timestamp: new Date().toISOString(),
+          context: {
+            hasAccessToken: !!result.accessToken,
+            hasRefreshToken: !!result.refreshToken,
+            userActive: result.user.isActive,
+            sessionExpiresAt: result.session.expiresAt
+          }
+        });
+
+        // Crear respuesta exitosa usando ResponseFactory con estructura de sesión
+        return ResponseFactory.createSuccessResponse(
+          {
+            user: transformUser(result.user),
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            session: {
+              id: result.session.id,
+              expiresAt: result.session.expiresAt
+            }
+          },
+          'Login successful',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
       } catch (error: any) {
-        return {
-          success: false,
-          user: null,
-          accessToken: null,
-          refreshToken: null,
-          message: error.message || 'Login failed'
-        };
+        const duration = Date.now() - startTime;
+        
+        // Manejar error usando GraphQLErrorHandler
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        logger.error('LoginUser resolver error', error, {
+          operation: 'loginUser',
+          requestId,
+          traceId,
+          duration,
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          context: {
+            hasEmail: !!email,
+            hasPassword: !!password,
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            ip: context?.req?.ip || 'unknown'
+          }
+        });
+        
+        // Crear respuesta de error
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    logoutUser: async () => {
-      // In a real implementation, this would invalidate tokens
-      return {
-        success: true,
-        message: 'Logout successful'
-      };
+    logoutUser: async (_: any, __: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `logout-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      try {
+        // Obtener logger del container
+        const logger = container.get<ILogger>('defaultLogger');
+        
+        // Log de inicio de operación
+        logger.info('Starting user logout process', {
+          operation: 'logoutUser',
+          requestId,
+          traceId,
+          context: {
+            hasUser: !!context.user,
+            userId: context.user?.id,
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
+          }
+        });
+
+        // Validar que el usuario esté autenticado
+        if (!context.user) {
+          const duration = Date.now() - startTime;
+          
+          logger.warn('Logout attempted without authentication', {
+            operation: 'logoutUser',
+            requestId,
+            traceId,
+            duration,
+            context: {
+              userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+              ip: context?.req?.ip || 'unknown'
+            }
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            'User not authenticated',
+            'UNAUTHORIZED',
+            { reason: 'No authentication token provided' },
+            { requestId, traceId, duration }
+          );
+        }
+
+        // Obtener caso de uso de logout
+        const logoutUserUseCase = container.get<LogoutUserUseCase>('logoutUserUseCase');
+        
+        // Ejecutar logout
+        const result = await logoutUserUseCase.execute({
+          userId: context.user.id,
+          reason: 'user_request'
+        });
+
+        const duration = Date.now() - startTime;
+        
+        // Log de éxito
+        logger.info('User logout completed successfully', {
+          operation: 'logoutUser',
+          userId: context.user.id,
+          requestId,
+          traceId,
+          duration,
+          result: {
+            sessionsInvalidated: result.sessionsInvalidated,
+            reason: result.reason
+          }
+        });
+        
+        // Crear respuesta exitosa usando ResponseFactory
+        return ResponseFactory.createSuccessResponse(
+          {
+            userId: result.userId,
+            loggedOutAt: result.loggedOutAt,
+            reason: result.reason,
+            sessionsInvalidated: result.sessionsInvalidated
+          },
+          'User logged out successfully',
+          RESPONSE_CODES.LOGGED_OUT,
+          { requestId, traceId, duration }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        const logger = container.get<ILogger>('defaultLogger');
+        logger.error('LogoutUser resolver error', error, {
+          operation: 'logoutUser',
+          requestId,
+          traceId,
+          duration,
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          context: {
+            hasUser: !!context.user,
+            userId: context.user?.id,
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
+          }
+        });
+        
+        // Manejar error usando GraphQLErrorHandler
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Crear respuesta de error usando ResponseFactory
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          { requestId, traceId, duration }
+        );
+      }
     },
 
-    refreshToken: async (_: any, { refreshToken }: { refreshToken: string }) => {
-      // In a real implementation, this would validate and refresh tokens
-      return {
-        success: true,
-        user: null,
-        accessToken: 'new_mock_access_token',
-        refreshToken: 'new_mock_refresh_token',
-        message: 'Token refreshed successfully'
-      };
+    refreshToken: async (_: any, { refreshToken }: { refreshToken: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `refresh-token-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = container.get<ILogger>('defaultLogger');
+      
+      try {
+        logger.info('RefreshToken mutation started', {
+          operation: 'refreshToken',
+          requestId,
+          traceId,
+          hasRefreshToken: !!refreshToken,
+          context: {
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress || 'unknown'
+          }
+        });
+
+        // Obtener el use case del container
+        const refreshTokenUseCase = container.get<RefreshTokenUseCase>('refreshTokenUseCase');
+        
+        // Ejecutar el caso de uso con contexto adicional
+        const result = await refreshTokenUseCase.execute({
+          refreshToken,
+          userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+          ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress || 'unknown'
+        });
+
+        const duration = Date.now() - startTime;
+        
+        // Log de éxito con contexto completo
+        logger.info('RefreshToken mutation completed successfully', {
+          operation: 'refreshToken',
+          requestId,
+          traceId,
+          duration,
+          userId: result.user?.id,
+          provider: result.provider,
+          isNewUser: result.isNewUser,
+          sessionId: result.session?.id,
+          context: {
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress || 'unknown'
+          }
+        });
+
+        // Crear respuesta exitosa usando ResponseFactory siguiendo estándares
+        return ResponseFactory.createSuccessResponse(
+          {
+            user: result.user,
+            accessToken: result.tokens.accessToken,
+            refreshToken: result.tokens.refreshToken,
+            session: result.session
+          },
+          'Token refreshed successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo usando logging estructurado
+        logger.error('RefreshToken mutation failed', error, {
+          operation: 'refreshToken',
+          requestId,
+          traceId,
+          duration,
+          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+          errorMessage: error instanceof Error ? error.message : String(error),
+          hasRefreshToken: !!refreshToken,
+          context: {
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress || 'unknown'
+          }
+        });
+        
+        // Manejar error usando GraphQLErrorHandler para consistencia
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Crear respuesta de error usando ResponseFactory siguiendo estándares
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          { requestId, traceId, duration }
+        );
+      }
     },
 
     // Password management mutations
@@ -3086,24 +3591,238 @@ export const resolvers = {
     },
 
     // Address mutations
-    createUserAddress: async (_: any, { input }: { input: any }) => {
-      // This would need integration with user repository address methods
-      return null; // Placeholder
+    createUserAddress: async (_: any, { input }: { input: any }, context: Context) => {
+      const startTime = Date.now();
+      const traceId = `create-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context.req?.id || `req-${Date.now()}`;
+      
+      try {
+        const createUserAddressUseCase = container.get<CreateUserAddressUseCase>('createUserAddressUseCase');
+        const address = await createUserAddressUseCase.execute({
+          userId: input.userId,
+          title: input.type,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          addressLine1: input.address1,
+          addressLine2: input.address2,
+          city: input.city,
+          state: input.state,
+          postalCode: input.postalCode,
+          country: input.country || 'PE',
+          isDefault: input.isDefault || false
+        });
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformUserAddress(address),
+            id: address.id,
+            createdAt: address.createdAt
+          },
+          'Address created successfully',
+          RESPONSE_CODES.CREATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        console.error('CreateUserAddress resolver error:', {
+          error: errorResponse,
+          input,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    updateUserAddress: async (_: any, { id, input }: { id: string; input: any }) => {
-      // This would need integration with user repository address methods
-      return null; // Placeholder
+    updateUserAddress: async (_: any, { id, input }: { id: string; input: any }, context: Context) => {
+      const startTime = Date.now();
+      const traceId = `update-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context.req?.id || `req-${Date.now()}`;
+      
+      try {
+        const updateUserAddressUseCase = container.get<UpdateUserAddressUseCase>('updateUserAddressUseCase');
+        
+        // Transform input to match domain model
+        const updateData: any = {};
+        if (input.type !== undefined) updateData.title = input.type;
+        if (input.firstName !== undefined) updateData.firstName = input.firstName;
+        if (input.lastName !== undefined) updateData.lastName = input.lastName;
+        if (input.address1 !== undefined) updateData.addressLine1 = input.address1;
+        if (input.address2 !== undefined) updateData.addressLine2 = input.address2;
+        if (input.city !== undefined) updateData.city = input.city;
+        if (input.state !== undefined) updateData.state = input.state;
+        if (input.postalCode !== undefined) updateData.postalCode = input.postalCode;
+        if (input.country !== undefined) updateData.country = input.country;
+        if (input.phone !== undefined) updateData.phone = input.phone;
+        if (input.isDefault !== undefined) updateData.isDefault = input.isDefault;
+
+        const address = await updateUserAddressUseCase.execute(id, updateData);
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformUserAddress(address),
+            id: address.id,
+            updatedAt: address.updatedAt,
+            changes: Object.keys(updateData)
+          },
+          'Address updated successfully',
+          RESPONSE_CODES.UPDATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        console.error('UpdateUserAddress resolver error:', {
+          error: errorResponse,
+          id,
+          input,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    deleteUserAddress: async (_: any, { id }: { id: string }) => {
-      // This would need integration with user repository address methods
-      return { success: true, message: 'Address deleted successfully' };
+    deleteUserAddress: async (_: any, { id }: { id: string }, context: Context) => {
+      const startTime = Date.now();
+      const traceId = `delete-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context.req?.id || `req-${Date.now()}`;
+      
+      try {
+        const deleteUserAddressUseCase = container.get<DeleteUserAddressUseCase>('deleteUserAddressUseCase');
+        await deleteUserAddressUseCase.execute(id);
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            id,
+            deletedAt: new Date().toISOString(),
+            softDelete: false
+          },
+          'Address deleted successfully',
+          RESPONSE_CODES.DELETED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        console.error('DeleteUserAddress resolver error:', {
+          error: errorResponse,
+          id,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    setDefaultAddress: async (_: any, { userId, addressId }: { userId: string; addressId: string }) => {
-      // This would need integration with user repository address methods
-      return { success: true, message: 'Default address set successfully' };
+    setDefaultAddress: async (_: any, { userId, addressId }: { userId: string; addressId: string }, context: Context) => {
+      const startTime = Date.now();
+      const traceId = `set-default-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context.req?.id || `req-${Date.now()}`;
+      
+      try {
+        const setDefaultAddressUseCase = container.get<SetDefaultAddressUseCase>('setDefaultAddressUseCase');
+        await setDefaultAddressUseCase.execute(userId, addressId);
+
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            userId,
+            addressId,
+            updatedAt: new Date().toISOString()
+          },
+          'Default address set successfully',
+          RESPONSE_CODES.UPDATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        console.error('SetDefaultAddress resolver error:', {
+          error: errorResponse,
+          userId,
+          addressId,
+          context: { requestId, traceId },
+          duration,
+          timestamp: new Date()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     // Favorites mutations

@@ -6,6 +6,8 @@ import { resolvers } from './resolvers';
 import { GraphQLError } from 'graphql';
 import { DataLoaders } from '@infrastructure/loaders/DataLoaders';
 import { AuthMiddleware } from '@presentation/middleware/AuthMiddleware';
+import { RateLimitMiddleware } from '@presentation/middleware/RateLimitMiddleware';
+import { IRateLimitService } from '@domain/interfaces/IRateLimitService';
 import { AuthUser } from '@application/auth/AuthService';
 import { DomainError } from '@domain/errors/DomainError';
 
@@ -16,8 +18,16 @@ export interface Context {
   req?: any;
 }
 
-export async function createApolloServer(app: Express): Promise<ApolloServer> {
+export async function createApolloServer(app: Express): Promise<ApolloServer<Context>> {
   const authMiddleware = new AuthMiddleware();
+  
+  // Get rate limiting service from container
+  const { Container } = await import('@shared/container');
+  const container = Container.getInstance();
+  const rateLimitService = container.get<IRateLimitService>('rateLimitService');
+  const { LoggerFactory } = await import('@infrastructure/logging/LoggerFactory');
+  const logger = LoggerFactory.getInstance().getDefaultLogger();
+  const rateLimitMiddleware = new RateLimitMiddleware(rateLimitService, logger);
 
   const server = new ApolloServer({
     typeDefs,
@@ -58,6 +68,8 @@ export async function createApolloServer(app: Express): Promise<ApolloServer> {
   // Mount Express middlewares for /graphql
   app.use(
     '/graphql',
+    // Rate limiting for GraphQL endpoints (most critical for auth)
+    rateLimitMiddleware.createAuthMiddleware(),
     // CORS is configured globally in index.ts
     express.json({ limit: '10mb' }),
     expressMiddleware(server, {
