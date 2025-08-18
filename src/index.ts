@@ -43,7 +43,21 @@ app.use(requestLogger.middleware());
 // CORS configurado según el entorno
 if (config.enableCors) {
   app.use(cors({
-    origin: config.frontendUrl,
+    origin: (origin, callback) => {
+      // Permitir el frontend configurado
+      if (origin === config.frontendUrl) {
+        callback(null, true);
+      }
+      // Permitir aplicaciones móviles (sin origen)
+      else if (!origin || origin === 'null') {
+        callback(null, true);
+      }
+      else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true
   }));
 }
