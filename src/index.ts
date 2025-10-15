@@ -30,6 +30,7 @@ console.log('📊 Environment Info:', environment.getEnvironmentInfo());
 if (config.enableHelmet) {
   app.use(helmet({
     contentSecurityPolicy: false, // Deshabilitar CSP para el playground
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Permitir acceso cross-origin para imágenes
   }));
 }
 
@@ -68,8 +69,13 @@ if (config.enableCors) {
 const rateLimitService = container.get<IRateLimitService>('rateLimitService');
 const rateLimitMiddleware = new RateLimitMiddleware(rateLimitService, logger);
 
-// Apply rate limiting to all routes
-app.use(rateLimitMiddleware.createGeneralAPIMiddleware());
+// Apply rate limiting to all routes only if enabled
+if (config.enableRateLimit) {
+  app.use(rateLimitMiddleware.createGeneralAPIMiddleware());
+  console.log('🔒 Rate limiting enabled for general API');
+} else {
+  console.log('⚠️  Rate limiting disabled for development');
+}
 
 // Parseo de JSON (necesario para GraphQL)
 app.use(express.json({ limit: '10mb' }));
@@ -115,7 +121,7 @@ async function startServer() {
       database: environment.getDatabaseConfig().host,
     });
 
-    // Setup static file middleware for uploads
+    // Setup static file middleware for uploads (includes CORS headers)
     StaticFileMiddleware.setup(app);
     
     // Configurar Apollo GraphQL Server

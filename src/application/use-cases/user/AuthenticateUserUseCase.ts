@@ -110,6 +110,31 @@ export class AuthenticateUserUseCase {
         isActive: true
       });
 
+      // Create session analytics automatically
+      try {
+        await this.authRepository.createSessionAnalytics({
+          sessionId: session.sessionToken,
+          userId: user.id,
+          pageViews: 0,
+          timeSpent: 0,
+          bounceRate: 0,
+          conversionRate: 0,
+          deviceType: this.extractDeviceType(data.userAgent),
+          browser: this.extractBrowser(data.userAgent),
+          os: this.extractOS(data.userAgent),
+          country: data.ipAddress ? await this.getCountryFromIP(data.ipAddress) : undefined,
+          city: data.ipAddress ? await this.getCityFromIP(data.ipAddress) : undefined
+        });
+      } catch (analyticsError) {
+              // Log error but don't fail authentication
+      this.logger.warn('Failed to create session analytics', {
+        userId: user.id,
+        sessionId: session.sessionToken,
+        operation: 'AuthenticateUser',
+        error: analyticsError instanceof Error ? analyticsError.message : 'Unknown error'
+      });
+      }
+
       // Update last login time
       await this.userRepository.updateUserLastLogin(user.id);
 
@@ -151,5 +176,54 @@ export class AuthenticateUserUseCase {
     if (!password || password.length < 6) {
       throw new ValidationError('Password must be at least 6 characters long');
     }
+  }
+
+  private extractDeviceType(userAgent?: string): string | undefined {
+    if (!userAgent) return undefined;
+    
+    const ua = userAgent.toLowerCase();
+    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+      return 'mobile';
+    } else if (ua.includes('tablet') || ua.includes('ipad')) {
+      return 'tablet';
+    } else {
+      return 'desktop';
+    }
+  }
+
+  private extractBrowser(userAgent?: string): string | undefined {
+    if (!userAgent) return undefined;
+    
+    const ua = userAgent.toLowerCase();
+    if (ua.includes('chrome')) return 'chrome';
+    if (ua.includes('firefox')) return 'firefox';
+    if (ua.includes('safari')) return 'safari';
+    if (ua.includes('edge')) return 'edge';
+    if (ua.includes('opera')) return 'opera';
+    return 'unknown';
+  }
+
+  private extractOS(userAgent?: string): string | undefined {
+    if (!userAgent) return undefined;
+    
+    const ua = userAgent.toLowerCase();
+    if (ua.includes('windows')) return 'windows';
+    if (ua.includes('mac os')) return 'macos';
+    if (ua.includes('linux')) return 'linux';
+    if (ua.includes('android')) return 'android';
+    if (ua.includes('ios')) return 'ios';
+    return 'unknown';
+  }
+
+  private async getCountryFromIP(ipAddress: string): Promise<string | undefined> {
+    // TODO: Implement IP geolocation service
+    // For now, return undefined
+    return undefined;
+  }
+
+  private async getCityFromIP(ipAddress: string): Promise<string | undefined> {
+    // TODO: Implement IP geolocation service
+    // For now, return undefined
+    return undefined;
   }
 }

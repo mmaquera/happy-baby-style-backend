@@ -1197,6 +1197,50 @@ export const typeDefs = gql`
     hasMore: Boolean!
   }
 
+  # Standardized response for users query
+  type GetUsersResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GetUsersData
+    metadata: ResponseMetadata
+  }
+
+  type GetUsersData {
+    items: [User!]!
+    pagination: UserPaginationInfo!
+  }
+
+  type UserPaginationInfo {
+    total: Int!
+    limit: Int!
+    offset: Int!
+    hasMore: Boolean!
+    currentPage: Int!
+    totalPages: Int!
+  }
+
+  # Standardized response for currentUser query
+  type GetCurrentUserResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: User
+    metadata: ResponseMetadata
+  }
+
+  # Standardized response for usersByProvider query
+  type GetUsersByProviderResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: [User!]!
+    metadata: ResponseMetadata
+  }
+
   type UserOrderHistoryResponse {
     orders: [Order!]!
     total: Int!
@@ -1233,6 +1277,15 @@ export const typeDefs = gql`
     totalCategories: Int!
   }
 
+  type ProductStatsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: ProductStats!
+    metadata: ResponseMetadata
+  }
+
   type OrderStats {
     totalOrders: Int!
     pendingOrders: Int!
@@ -1244,11 +1297,29 @@ export const typeDefs = gql`
     averageOrderValue: Decimal!
   }
 
+  type OrderStatsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: OrderStats!
+    metadata: ResponseMetadata
+  }
+
   type UserStats {
     totalUsers: Int!
     activeUsers: Int!
     newUsersThisMonth: Int!
     usersByRole: JSON!
+  }
+
+  type UserStatsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UserStats!
+    metadata: ResponseMetadata
   }
 
   type PaginatedReviews {
@@ -1453,6 +1524,114 @@ export const typeDefs = gql`
     softDelete: Boolean!
   }
 
+  # Session Analytics Input Types
+  input CreateUserSessionAnalyticsInput {
+    sessionId: String!
+    userId: ID!
+    pageViews: Int
+    timeSpent: Int
+    bounceRate: Float
+    conversionRate: Float
+    deviceType: String
+    browser: String
+    os: String
+    country: String
+    city: String
+  }
+
+  input UpdateUserSessionAnalyticsInput {
+    pageViews: Int
+    timeSpent: Int
+    bounceRate: Float
+    conversionRate: Float
+    deviceType: String
+    browser: String
+    os: String
+    country: String
+    city: String
+  }
+
+  # Session Analytics Response Types
+  type CreateUserSessionAnalyticsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: CreateUserSessionAnalyticsData
+    metadata: ResponseMetadata
+  }
+
+  type CreateUserSessionAnalyticsData {
+    entity: UserSessionAnalytics!
+    id: ID!
+    createdAt: String!
+  }
+
+  type UpdateUserSessionAnalyticsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UpdateUserSessionAnalyticsData
+    metadata: ResponseMetadata
+  }
+
+  type UpdateUserSessionAnalyticsData {
+    entity: UserSessionAnalytics!
+    id: ID!
+    updatedAt: String!
+    changes: [String!]!
+  }
+
+  type DeleteUserSessionAnalyticsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: DeleteUserSessionAnalyticsData
+    metadata: ResponseMetadata
+  }
+
+  type DeleteUserSessionAnalyticsData {
+    id: ID!
+    deletedAt: String!
+    softDelete: Boolean!
+  }
+
+  # Session Revocation Response Types
+  type RevokeUserSessionResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: RevokeUserSessionData
+    metadata: ResponseMetadata
+  }
+
+  type RevokeUserSessionData {
+    sessionId: ID!
+    revokedAt: String!
+    reason: String
+    analyticsCleaned: Boolean!
+  }
+
+  type RevokeAllUserSessionsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: RevokeAllUserSessionsData
+    metadata: ResponseMetadata
+  }
+
+  type RevokeAllUserSessionsData {
+    userId: ID!
+    sessionsRevoked: Int!
+    analyticsCleaned: Int!
+    revokedAt: String!
+    reason: String
+  }
+
   # User Address Response Types
   type CreateUserAddressResponse {
     success: Boolean!
@@ -1561,11 +1740,19 @@ export const typeDefs = gql`
     message: String!
   }
 
-  type UploadResponse {
+  type UploadImageResponse {
     success: Boolean!
-    url: String
-    filename: String
     message: String!
+    code: String!
+    timestamp: String!
+    data: UploadImageData
+    metadata: ResponseMetadata
+  }
+
+  type UploadImageData {
+    url: String!
+    filename: String!
+    imageId: ID!
   }
 
   # Analytics Response Types
@@ -1624,22 +1811,22 @@ export const typeDefs = gql`
     orderAnalytics: OrderAnalytics!
     userAnalytics: UserAnalytics!
     
-    # Stats queries
-    productStats: ProductStats!
-    orderStats: OrderStats!
-    userStats: UserStats!
+      # Stats queries
+  productStats: ProductStatsResponse!
+  orderStats: OrderStatsResponse!
+  userStats: UserStatsResponse!
     
     # User queries
-    users(filter: UserFilterInput, pagination: PaginationInput): PaginatedUsers!
+    users(filter: UserFilterInput, pagination: PaginationInput): GetUsersResponse!
     user(id: ID!): User
     userProfile(userId: ID!): UserProfile
     userAddresses(userId: ID!): GetUserAddressesResponse!
     userAddress(id: ID!): GetUserAddressResponse!
-    currentUser: User
+    currentUser: GetCurrentUserResponse!
     searchUsers(query: String!): [User!]!
     activeUsers: [User!]!
     usersByRole(role: UserRole!): [User!]!
-    usersByProvider(provider: AuthProvider!): [User!]!
+    usersByProvider(provider: AuthProvider!): GetUsersByProviderResponse!
     userOrderHistory(userId: ID!, filter: UserOrderHistoryFilter, pagination: PaginationInput): UserOrderHistoryResponse!
     userFavoriteStats(userId: ID!): UserFavoriteStats!
     userActivitySummary(userId: ID!): UserActivitySummary!
@@ -1775,8 +1962,8 @@ export const typeDefs = gql`
     resetPassword(token: String!, newPassword: String!): SuccessResponse!
     
     # User session management
-    revokeUserSession(sessionId: ID!): SuccessResponse!
-    revokeAllUserSessions(userId: ID!): SuccessResponse!
+    revokeUserSession(sessionId: ID!, userId: ID!, reason: String): RevokeUserSessionResponse!
+    revokeAllUserSessions(userId: ID!, requestingUserId: ID!, reason: String, excludeCurrentSession: Boolean): RevokeAllUserSessionsResponse!
     
     # User account management
     unlinkUserAccount(accountId: ID!): SuccessResponse!
@@ -1879,8 +2066,13 @@ export const typeDefs = gql`
     subscribeToNewsletter(email: String!, userId: String): NewsletterSubscription!
     unsubscribeFromNewsletter(email: String!): SuccessResponse!
     
+    # Session Analytics mutations
+    createUserSessionAnalytics(input: CreateUserSessionAnalyticsInput!): CreateUserSessionAnalyticsResponse!
+    updateUserSessionAnalytics(id: ID!, input: UpdateUserSessionAnalyticsInput!): UpdateUserSessionAnalyticsResponse!
+    deleteUserSessionAnalytics(id: ID!): DeleteUserSessionAnalyticsResponse!
+    
     # Image upload
-    uploadImage(file: Upload!, entityType: String!, entityId: String!): UploadResponse!
+    uploadImage(file: Upload!, entityType: String!, entityId: String!): UploadImageResponse!
     
     # Bulk operations
     bulkUpdateProducts(updates: [UpdateProductInput!]!): [Product!]!

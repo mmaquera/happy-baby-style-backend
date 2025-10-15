@@ -107,28 +107,56 @@ export class PrismaProductRepository implements IProductRepository {
 
   async findAll(filters?: ProductFilters): Promise<ProductEntity[]> {
     try {
-      this.logger.debug('Finding all products', {
-        filters
+      this.logger.debug('Finding all products with filters', {
+        filters,
+        filterDetails: {
+          hasCategoryFilter: Boolean(filters?.categoryId),
+          hasActiveFilter: Boolean(filters?.isActive !== undefined),
+          hasStockFilter: Boolean(filters?.inStock),
+          hasPriceFilter: Boolean(filters?.minPrice || filters?.maxPrice),
+          hasSearchFilter: Boolean(filters?.search),
+          hasSkuFilter: Boolean(filters?.sku),
+          hasLimit: Boolean(filters?.limit),
+          hasOffset: Boolean(filters?.offset)
+        }
       });
 
       const where: any = {};
 
       if (filters?.categoryId) {
         where.categoryId = filters.categoryId;
+        this.logger.debug('Category filter applied', { 
+          categoryId: filters.categoryId,
+          filterType: 'exact_match'
+        });
       }
 
       if (filters?.isActive !== undefined) {
         where.isActive = filters.isActive;
+        this.logger.debug('Active filter applied', { 
+          isActive: filters.isActive,
+          filterType: 'boolean'
+        });
       }
 
       if (filters?.minPrice || filters?.maxPrice) {
         where.price = {};
-        if (filters.minPrice) where.price.gte = filters.minPrice;
-        if (filters.maxPrice) where.price.lte = filters.maxPrice;
+        if (filters.minPrice) {
+          where.price.gte = filters.minPrice;
+          this.logger.debug('Min price filter applied', { minPrice: filters.minPrice });
+        }
+        if (filters.maxPrice) {
+          where.price.lte = filters.maxPrice;
+          this.logger.debug('Max price filter applied', { maxPrice: filters.maxPrice });
+        }
       }
 
       if (filters?.inStock) {
         where.stockQuantity = { gt: 0 };
+        this.logger.debug('Stock filter applied', { 
+          filterType: 'stock_quantity_gt_0',
+          inStock: filters.inStock
+        });
       }
 
       if (filters?.search) {
@@ -136,11 +164,26 @@ export class PrismaProductRepository implements IProductRepository {
           { name: { contains: filters.search, mode: 'insensitive' } },
           { description: { contains: filters.search, mode: 'insensitive' } }
         ];
+        this.logger.debug('Search filter applied', { 
+          searchTerm: filters.search,
+          searchFields: ['name', 'description'],
+          caseInsensitive: true
+        });
       }
 
       if (filters?.sku) {
         where.sku = { contains: filters.sku, mode: 'insensitive' };
+        this.logger.debug('SKU filter applied', { 
+          sku: filters.sku,
+          filterType: 'contains_insensitive'
+        });
       }
+
+      this.logger.debug('Final where clause constructed', { 
+        where,
+        filterCount: Object.keys(where).length,
+        hasFilters: Object.keys(where).length > 0
+      });
 
       const products = await this.prisma.product.findMany({
         where,
@@ -153,16 +196,30 @@ export class PrismaProductRepository implements IProductRepository {
         orderBy: { createdAt: 'desc' }
       });
 
+      this.logger.debug('Database query executed successfully', {
+        productsFound: products.length,
+        limit: filters?.limit,
+        offset: filters?.offset,
+        hasCategoryRelation: products.every(p => p.category),
+        hasVariantsRelation: products.every(p => p.variants)
+      });
+
       const productEntities = products.map(product => this.mapToProductEntity(product));
       
-      this.logger.debug('Products found successfully', {
-        count: productEntities.length
+      this.logger.debug('Products transformed to entities successfully', {
+        count: productEntities.length,
+        transformationSuccess: productEntities.length === products.length
       });
 
       return productEntities;
     } catch (error) {
       this.logger.error('Failed to find all products', error instanceof Error ? error : new Error(String(error)), {
-        filters
+        filters,
+        errorContext: {
+          operation: 'findAll',
+          repository: 'PrismaProductRepository',
+          filtersApplied: Object.keys(filters || {}).length
+        }
       });
 
       throw error;

@@ -42,6 +42,11 @@ import { UpdateUserAddressUseCase } from '@application/use-cases/user/UpdateUser
 import { DeleteUserAddressUseCase } from '@application/use-cases/user/DeleteUserAddressUseCase';
 import { GetUserAddressByIdUseCase } from '@application/use-cases/user/GetUserAddressByIdUseCase';
 import { SetDefaultAddressUseCase } from '@application/use-cases/user/SetDefaultAddressUseCase';
+import { CreateUserSessionAnalyticsUseCase } from '@application/use-cases/user/CreateUserSessionAnalyticsUseCase';
+import { UpdateUserSessionAnalyticsUseCase } from '@application/use-cases/user/UpdateUserSessionAnalyticsUseCase';
+import { GetUserSessionAnalyticsUseCase } from '@application/use-cases/user/GetUserSessionAnalyticsUseCase';
+import { RevokeUserSessionUseCase } from '@application/use-cases/user/RevokeUserSessionUseCase';
+import { RevokeAllUserSessionsUseCase } from '@application/use-cases/user/RevokeAllUserSessionsUseCase';
 import { SessionService } from '@application/auth/SessionService';
 import { RateLimitService } from '@application/services/RateLimitService';
 // Controllers removed - GraphQL only architecture
@@ -165,6 +170,15 @@ export class Container {
     const getUserAddressByIdUseCase = new GetUserAddressByIdUseCase(userRepository);
     const setDefaultAddressUseCase = new SetDefaultAddressUseCase(userRepository);
     
+    // Casos de uso de UserSessionAnalytics
+    const createUserSessionAnalyticsUseCase = new CreateUserSessionAnalyticsUseCase(authRepository, defaultLogger);
+    const updateUserSessionAnalyticsUseCase = new UpdateUserSessionAnalyticsUseCase(authRepository, defaultLogger);
+    const getUserSessionAnalyticsUseCase = new GetUserSessionAnalyticsUseCase(authRepository, defaultLogger);
+    
+    // Casos de uso de revocación de sesiones
+    const revokeUserSessionUseCase = new RevokeUserSessionUseCase(authRepository, defaultLogger);
+    const revokeAllUserSessionsUseCase = new RevokeAllUserSessionsUseCase(authRepository, defaultLogger);
+    
     // Servicios de autenticación
     const sessionService = new SessionService(authRepository, defaultLogger);
     
@@ -224,6 +238,16 @@ export class Container {
     this.dependencies.set('setDefaultAddressUseCase', setDefaultAddressUseCase);
     this.dependencies.set('logoutUserUseCase', logoutUserUseCase);
     this.dependencies.set('refreshTokenUseCase', refreshTokenUseCase);
+    
+    // UserSessionAnalytics use cases
+    this.dependencies.set('createUserSessionAnalyticsUseCase', createUserSessionAnalyticsUseCase);
+    this.dependencies.set('updateUserSessionAnalyticsUseCase', updateUserSessionAnalyticsUseCase);
+    this.dependencies.set('getUserSessionAnalyticsUseCase', getUserSessionAnalyticsUseCase);
+    
+    // Session revocation use cases
+    this.dependencies.set('revokeUserSessionUseCase', revokeUserSessionUseCase);
+    this.dependencies.set('revokeAllUserSessionsUseCase', revokeAllUserSessionsUseCase);
+    
     this.dependencies.set('sessionService', sessionService);
     this.dependencies.set('rateLimitService', rateLimitService);
     

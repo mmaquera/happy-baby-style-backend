@@ -240,3 +240,46 @@ export class UserPasswordEntity implements UserPassword {
       : false;
   }
 }
+
+export interface UserSessionAnalytics {
+  id: string;
+  sessionId: string;
+  userId: string;
+  pageViews: number;
+  timeSpent: number;
+  bounceRate: number;
+  conversionRate: number;
+  deviceType?: string;
+  browser?: string;
+  os?: string;
+  country?: string;
+  city?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateUserSessionAnalyticsRequest {
+  sessionId: string;
+  userId: string;
+  pageViews?: number;
+  timeSpent?: number;
+  bounceRate?: number;
+  conversionRate?: number;
+  deviceType?: string;
+  browser?: string;
+  os?: string;
+  country?: string;
+  city?: string;
+}
+
+export interface UpdateUserSessionAnalyticsRequest {
+  pageViews?: number;
+  timeSpent?: number;
+  bounceRate?: number;
+  conversionRate?: number;
+  deviceType?: string;
+  browser?: string;
+  os?: string;
+  country?: string;
+  city?: string;
+}

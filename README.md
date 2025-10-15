@@ -59,6 +59,105 @@ npm run prisma:migrate
 npm run dev
 ```
 
+## 🔒 Configuración de Rate Limiting
+
+El sistema incluye protección contra ataques de fuerza bruta y uso excesivo de la API mediante rate limiting configurable.
+
+### Configuración por Entorno
+
+**Desarrollo (Rate Limiting Desactivado por defecto):**
+```bash
+# .env.development.local
+ENABLE_RATE_LIMIT=false
+```
+
+**Producción (Rate Limiting Activado por defecto):**
+```bash
+# .env.production
+ENABLE_RATE_LIMIT=true
+```
+
+### Límites Configurados
+
+- **Login**: 5 intentos por 15 minutos
+- **Registro**: 3 intentos por 15 minutos  
+- **Refresh Token**: 20 intentos por 15 minutos
+- **API General**: 100 requests por 15 minutos
+- **Uploads**: 10 archivos por 15 minutos
+
+### Desactivar en Desarrollo
+
+Para desactivar completamente el rate limiting durante el desarrollo:
+
+1. Crear archivo `.env.development.local`:
+```bash
+ENABLE_RATE_LIMIT=false
+```
+
+2. Reiniciar el servidor de desarrollo
+
+**⚠️ Importante**: Nunca desactivar el rate limiting en producción.
+
+## 🗄️ Sincronización de Base de Datos
+
+### Problemas Comunes
+
+Si encuentras errores como:
+```
+⚠️ We found changes that cannot be executed:
+  • Added the required column `expiry_months` to the `loyalty_programs` table without a default value
+  • Database schema is not in sync with migration history
+```
+
+Esto indica **desajuste de schema** - tu schema de Prisma no coincide con la estructura real de la base de datos.
+
+### Solución Rápida
+
+**Desarrollo:**
+```bash
+# Copiar archivo de entorno
+cp .env.development .env
+
+# Sincronizar schema
+npx prisma migrate reset --force
+npx prisma db push
+```
+
+**Producción:**
+```bash
+# ⚠️ HACER RESPALDO ANTES
+cp .env.production .env
+npx prisma migrate deploy
+```
+
+### 📚 Documentación Completa
+
+Para una guía detallada de sincronización, incluyendo:
+- Resolución de problemas comunes
+- Configuración de producción
+- Comandos de verificación
+- Mejores prácticas
+
+**Ver:** [`PRISMA_DATABASE_SYNC.md`](./PRISMA_DATABASE_SYNC.md)
+
+### 🚀 Script de Automatización
+
+También dispones de un script automatizado para sincronización:
+
+```bash
+# Sincronizar desarrollo
+./scripts/sync-database.sh
+
+# Sincronizar producción
+./scripts/sync-database.sh production
+
+# Verificar estado
+./scripts/sync-database.sh verify
+
+# Ayuda
+./scripts/sync-database.sh help
+```
+
 ### Producción
 
 ```bash

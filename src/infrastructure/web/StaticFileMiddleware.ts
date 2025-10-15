@@ -23,6 +23,11 @@ export class StaticFileMiddleware {
         } else if (path.endsWith('.svg')) {
           res.setHeader('Content-Type', 'image/svg+xml');
         }
+        
+        // Set CORS headers for cross-origin access
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       }
     }));
 

@@ -19,6 +19,7 @@ import {
   AuthTokens
 } from '@domain/entities/Auth';
 import { UserProfile, UserRole } from '@domain/entities/User';
+import { CreateUserSessionAnalyticsRequest, UpdateUserSessionAnalyticsRequest, UserSessionAnalytics } from '@domain/entities/Auth';
 
 export class PrismaAuthRepository implements IAuthRepository {
   constructor(private prisma: PrismaClient) {}
@@ -503,9 +504,13 @@ export class PrismaAuthRepository implements IAuthRepository {
   async logoutUser(userId: string, sessionId?: string): Promise<void> {
     try {
       if (sessionId) {
-        // Invalidar sesión específica
-        await this.prisma.userSession.update({
-          where: { id: sessionId },
+        // Logout specific session
+        await this.prisma.userSession.updateMany({
+          where: { 
+            id: sessionId, 
+            userId,
+            isActive: true 
+          },
           data: { 
             isActive: false, 
             expiresAt: new Date(),
@@ -513,10 +518,10 @@ export class PrismaAuthRepository implements IAuthRepository {
           }
         });
       } else {
-        // Invalidar todas las sesiones del usuario
+        // Logout all user sessions
         await this.prisma.userSession.updateMany({
           where: { 
-            userId, 
+            userId,
             isActive: true 
           },
           data: { 
@@ -528,6 +533,122 @@ export class PrismaAuthRepository implements IAuthRepository {
       }
     } catch (error) {
       throw new Error(`Failed to logout user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Session Analytics Management
+  async createSessionAnalytics(data: CreateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics> {
+    try {
+      const created = await this.prisma.userSessionAnalytics.create({
+        data: {
+          sessionId: data.sessionId,
+          userId: data.userId,
+          pageViews: data.pageViews || 0,
+          timeSpent: data.timeSpent || 0,
+          bounceRate: data.bounceRate || 0,
+          conversionRate: data.conversionRate || 0,
+          deviceType: data.deviceType,
+          browser: data.browser,
+          os: data.os,
+          country: data.country,
+          city: data.city
+        }
+      });
+
+      return this.mapToUserSessionAnalytics(created);
+    } catch (error) {
+      throw new Error(`Failed to create session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async findSessionAnalyticsById(id: string): Promise<UserSessionAnalytics | null> {
+    try {
+      const analytics = await this.prisma.userSessionAnalytics.findUnique({
+        where: { id }
+      });
+
+      return analytics ? this.mapToUserSessionAnalytics(analytics) : null;
+    } catch (error) {
+      throw new Error(`Failed to find session analytics by ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async findSessionAnalyticsBySessionId(sessionId: string): Promise<UserSessionAnalytics | null> {
+    try {
+      const analytics = await this.prisma.userSessionAnalytics.findFirst({
+        where: { sessionId }
+      });
+
+      return analytics ? this.mapToUserSessionAnalytics(analytics) : null;
+    } catch (error) {
+      throw new Error(`Failed to find session analytics by session ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async findSessionAnalyticsByUserId(userId: string): Promise<UserSessionAnalytics[]> {
+    try {
+      const analytics = await this.prisma.userSessionAnalytics.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return analytics.map(analytics => this.mapToUserSessionAnalytics(analytics));
+    } catch (error) {
+      throw new Error(`Failed to find session analytics by user ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async updateSessionAnalytics(id: string, data: UpdateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics> {
+    try {
+      const updated = await this.prisma.userSessionAnalytics.update({
+        where: { id },
+        data: {
+          ...(data.pageViews !== undefined && { pageViews: data.pageViews }),
+          ...(data.timeSpent !== undefined && { timeSpent: data.timeSpent }),
+          ...(data.bounceRate !== undefined && { bounceRate: data.bounceRate }),
+          ...(data.conversionRate !== undefined && { conversionRate: data.conversionRate }),
+          ...(data.deviceType !== undefined && { deviceType: data.deviceType }),
+          ...(data.browser !== undefined && { browser: data.browser }),
+          ...(data.os !== undefined && { os: data.os }),
+          ...(data.country !== undefined && { country: data.country }),
+          ...(data.city !== undefined && { city: data.city }),
+          updatedAt: new Date()
+        }
+      });
+
+      return this.mapToUserSessionAnalytics(updated);
+    } catch (error) {
+      throw new Error(`Failed to update session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async deleteSessionAnalytics(id: string): Promise<void> {
+    try {
+      await this.prisma.userSessionAnalytics.delete({
+        where: { id }
+      });
+    } catch (error) {
+      throw new Error(`Failed to delete session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async deleteSessionAnalyticsBySessionId(sessionId: string): Promise<void> {
+    try {
+      await this.prisma.userSessionAnalytics.deleteMany({
+        where: { sessionId }
+      });
+    } catch (error) {
+      throw new Error(`Failed to delete session analytics by session ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async deleteSessionAnalyticsByUserId(userId: string): Promise<void> {
+    try {
+      await this.prisma.userSessionAnalytics.deleteMany({
+        where: { userId }
+      });
+    } catch (error) {
+      throw new Error(`Failed to delete session analytics by user ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -614,6 +735,25 @@ export class PrismaAuthRepository implements IAuthRepository {
       updatedAt: data.updatedAt,
       addresses: [],
       favoriteProductIds: []
+    };
+  }
+
+  private mapToUserSessionAnalytics(data: any): UserSessionAnalytics {
+    return {
+      id: data.id,
+      sessionId: data.sessionId,
+      userId: data.userId,
+      pageViews: data.pageViews,
+      timeSpent: data.timeSpent,
+      bounceRate: data.bounceRate,
+      conversionRate: data.conversionRate,
+      deviceType: data.deviceType,
+      browser: data.browser,
+      os: data.os,
+      country: data.country,
+      city: data.city,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt
     };
   }
 }

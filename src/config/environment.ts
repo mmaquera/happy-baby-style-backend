@@ -76,6 +76,7 @@ export interface EnvironmentConfig {
   enableCors: boolean;
   enableCompression: boolean;
   enableHelmet: boolean;
+  enableRateLimit: boolean;
 }
 
 class EnvironmentService {
@@ -185,6 +186,7 @@ class EnvironmentService {
       enableCors: true,
       enableCompression: true,
       enableHelmet: true,
+      enableRateLimit: process.env.ENABLE_RATE_LIMIT !== 'false',
     };
   }
 
@@ -233,6 +235,7 @@ class EnvironmentService {
         cors: this.config.enableCors,
         compression: this.config.enableCompression,
         helmet: this.config.enableHelmet,
+        rateLimit: this.config.enableRateLimit,
       },
     };
   }

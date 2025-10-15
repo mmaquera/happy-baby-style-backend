@@ -31,7 +31,15 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   updateUserLastLogin: jest.fn(),
   validateSession: jest.fn(),
   refreshUserSession: jest.fn(),
-  logoutUser: jest.fn()
+  logoutUser: jest.fn(),
+  createSessionAnalytics: jest.fn(),
+  findSessionAnalyticsById: jest.fn(),
+  findSessionAnalyticsBySessionId: jest.fn(),
+  findSessionAnalyticsByUserId: jest.fn(),
+  updateSessionAnalytics: jest.fn(),
+  deleteSessionAnalytics: jest.fn(),
+  deleteSessionAnalyticsByUserId: jest.fn(),
+  deleteSessionAnalyticsBySessionId: jest.fn()
 };
 
 // Mock del logger

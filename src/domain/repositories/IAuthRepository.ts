@@ -7,7 +7,10 @@ import {
   EmailLoginRequest,
   EmailRegisterRequest,
   AuthResult,
-  SessionInfo
+  SessionInfo,
+  UserSessionAnalytics,
+  CreateUserSessionAnalyticsRequest,
+  UpdateUserSessionAnalyticsRequest
 } from '@domain/entities/Auth';
 import { UserProfile } from '@domain/entities/User';
 
@@ -49,4 +52,14 @@ export interface IAuthRepository {
   
   // Logout Management
   logoutUser(userId: string, sessionId?: string): Promise<void>;
+  
+  // Session Analytics Management
+  createSessionAnalytics(data: CreateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics>;
+  findSessionAnalyticsById(id: string): Promise<UserSessionAnalytics | null>;
+  findSessionAnalyticsBySessionId(sessionId: string): Promise<UserSessionAnalytics | null>;
+  findSessionAnalyticsByUserId(userId: string): Promise<UserSessionAnalytics[]>;
+  updateSessionAnalytics(id: string, data: UpdateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics>;
+  deleteSessionAnalytics(id: string): Promise<void>;
+  deleteSessionAnalyticsBySessionId(sessionId: string): Promise<void>;
+  deleteSessionAnalyticsByUserId(userId: string): Promise<void>;
 }

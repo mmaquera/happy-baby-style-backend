@@ -1,6 +1,7 @@
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import express, { Express } from 'express';
+import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs';
 import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { GraphQLError } from 'graphql';
@@ -10,6 +11,7 @@ import { RateLimitMiddleware } from '@presentation/middleware/RateLimitMiddlewar
 import { IRateLimitService } from '@domain/interfaces/IRateLimitService';
 import { AuthUser } from '@application/auth/AuthService';
 import { DomainError } from '@domain/errors/DomainError';
+import { environment } from '../config/environment';
 
 export interface Context {
   user?: AuthUser | null;
@@ -32,6 +34,7 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
   const server = new ApolloServer({
     typeDefs,
     resolvers,
+    csrfPrevention: false, // Deshabilitar CSRF para permitir uploads
     formatError: (error, originalError) => {
       console.error('GraphQL Error:', error);
       
@@ -66,12 +69,18 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
   await server.start();
 
   // Mount Express middlewares for /graphql
+  const config = environment.getConfig();
   app.use(
     '/graphql',
-    // Rate limiting for GraphQL endpoints (most critical for auth)
-    rateLimitMiddleware.createAuthMiddleware(),
+    // Rate limiting for GraphQL endpoints (most critical for auth) - only if enabled
+    ...(config.enableRateLimit ? [rateLimitMiddleware.createAuthMiddleware()] : []),
     // CORS is configured globally in index.ts
     express.json({ limit: '10mb' }),
+    // File upload middleware using graphql-upload
+    graphqlUploadExpress({
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      maxFiles: 10
+    }),
     expressMiddleware(server, {
       context: async ({ req }): Promise<Context> => {
         const authContext = await authMiddleware.createAuthContext(req);

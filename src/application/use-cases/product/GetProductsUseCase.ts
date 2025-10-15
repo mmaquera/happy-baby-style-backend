@@ -6,13 +6,15 @@ import { ILogger } from '@domain/interfaces/ILogger';
 
 export interface GetProductsRequest {
   filters?: {
-    category?: string;
+    categoryId?: string;  // Cambiado de 'category' a 'categoryId' para consistencia con GraphQL
     isActive?: boolean;
     minPrice?: number;
     maxPrice?: number;
     inStock?: boolean;
     search?: string;
     sku?: string;
+    tags?: string[];  // Agregado para soporte completo de filtros GraphQL
+    rating?: number;  // Agregado para soporte completo de filtros GraphQL
   };
   pagination?: {
     limit?: number;
@@ -52,8 +54,9 @@ export class GetProductsUseCase {
       const limit = pagination.limit || 50;
       const offset = pagination.offset || 0;
       
+      // Mapeo correcto de filtros GraphQL a ProductFilters
       const filters: ProductFilters = {
-        categoryId: request.filters?.category,
+        categoryId: request.filters?.categoryId,  // Corregido: ahora usa categoryId directamente
         isActive: request.filters?.isActive,
         minPrice: request.filters?.minPrice,
         maxPrice: request.filters?.maxPrice,
@@ -63,6 +66,16 @@ export class GetProductsUseCase {
         limit,
         offset
       };
+
+      this.logger.debug('Filters mapping completed', { 
+        originalFilters: request.filters,
+        mappedFilters: filters,
+        categoryIdMapping: {
+          from: request.filters?.categoryId,
+          to: filters.categoryId,
+          isCorrect: request.filters?.categoryId === filters.categoryId
+        }
+      });
 
       this.logger.debug('Applying filters to product query', { filters });
 
@@ -83,14 +96,23 @@ export class GetProductsUseCase {
         productsCount: products.length,
         total,
         hasMore,
-        filters: request.filters
+        filters: request.filters,
+        appliedFilters: filters,
+        categoryFilterApplied: Boolean(filters.categoryId),
+        stockFilterApplied: Boolean(filters.inStock),
+        activeFilterApplied: Boolean(filters.isActive !== undefined)
       });
 
       return result;
     } catch (error: any) {
       this.logger.error('GetProducts use case failed', error, {
         filters: request.filters,
-        pagination: request.pagination
+        pagination: request.pagination,
+        errorDetails: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        }
       });
       throw error;
     }

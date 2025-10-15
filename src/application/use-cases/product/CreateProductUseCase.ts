@@ -1,5 +1,9 @@
 import { ProductEntity } from '@domain/entities/Product';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
+import { ILogger } from '@domain/interfaces/ILogger';
+import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
+import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { PerformanceLogger } from '@infrastructure/logging/PerformanceLogger';
 import { 
   RequiredFieldError, 
   InvalidRangeError, 
@@ -24,20 +28,126 @@ export interface CreateProductRequest {
 }
 
 export class CreateProductUseCase {
+  private readonly logger: ILogger;
+  private readonly performanceLogger: PerformanceLogger;
+
   constructor(
     private readonly productRepository: IProductRepository
-  ) {}
+  ) {
+    this.logger = LoggerFactory.getInstance().createUseCaseLogger('CreateProductUseCase');
+    this.performanceLogger = new PerformanceLogger();
+  }
 
+  @LoggingDecorator.logUseCase({
+    includeArgs: true,
+    includeResult: true,
+    includeDuration: true,
+    includeError: true,
+    context: { useCase: 'CreateProduct' }
+  })
   async execute(request: CreateProductRequest): Promise<ProductEntity> {
+    const traceId = `create-product-${Date.now()}-${request.sku}`;
+
+    // Log operation start with image analysis
+    this.logger.info('Starting product creation process', {
+      operation: 'createProduct',
+      productName: request.name,
+      sku: request.sku,
+      categoryId: request.categoryId,
+      hasImages: !!(request.images && request.images.length > 0),
+      imageCount: request.images?.length || 0,
+      context: 'CreateProductUseCase.execute'
+    }, traceId);
+
+    // Start performance measurement
+    const operationId = this.performanceLogger.startTimer('createProductProcess', {
+      productName: request.name,
+      sku: request.sku,
+      imageCount: request.images?.length || 0
+    });
+
     try {
       // Validación de input usando métodos locales
+      this.logger.debug('Validating product input', {
+        productName: request.name,
+        sku: request.sku,
+        hasImages: !!(request.images && request.images.length > 0),
+        context: 'CreateProductUseCase.validateInput'
+      }, traceId);
+
       this.validateInput(request);
 
+      // Analyze images if provided
+      if (request.images && request.images.length > 0) {
+        const blobUrls = request.images.filter(img => img.startsWith('blob:'));
+        const validUrls = request.images.filter(img => !img.startsWith('blob:') && (img.startsWith('http') || img.startsWith('/')));
+        const invalidUrls = request.images.filter(img => !img.startsWith('blob:') && !img.startsWith('http') && !img.startsWith('/'));
+
+        this.logger.info('Analyzing product images', {
+          productName: request.name,
+          sku: request.sku,
+          totalImages: request.images.length,
+          blobUrls: blobUrls.length,
+          validUrls: validUrls.length,
+          invalidUrls: invalidUrls.length,
+          imageList: request.images,
+          context: 'CreateProductUseCase.analyzeImages'
+        }, traceId);
+
+        if (blobUrls.length > 0) {
+          this.logger.warn('Product contains blob URLs - images may not be properly uploaded', {
+            productName: request.name,
+            sku: request.sku,
+            blobCount: blobUrls.length,
+            blobUrls: blobUrls,
+            recommendation: 'Use uploadImage mutation before createProduct',
+            context: 'CreateProductUseCase.analyzeImages'
+          }, traceId);
+        }
+
+        if (invalidUrls.length > 0) {
+          this.logger.warn('Product contains invalid image URLs', {
+            productName: request.name,
+            sku: request.sku,
+            invalidCount: invalidUrls.length,
+            invalidUrls: invalidUrls,
+            context: 'CreateProductUseCase.analyzeImages'
+          }, traceId);
+        }
+      } else {
+        this.logger.info('Product created without images', {
+          productName: request.name,
+          sku: request.sku,
+          context: 'CreateProductUseCase.analyzeImages'
+        }, traceId);
+      }
+
+      this.logger.debug('Product input validation successful', {
+        productName: request.name,
+        sku: request.sku,
+        context: 'CreateProductUseCase.validateInput'
+      }, traceId);
+
       // Validar que el SKU sea único
+      this.logger.debug('Checking SKU uniqueness', {
+        sku: request.sku,
+        context: 'CreateProductUseCase.checkSku'
+      }, traceId);
+
       const existingProduct = await this.productRepository.findBySku(request.sku);
       if (existingProduct) {
+        this.logger.warn('SKU already exists', {
+          sku: request.sku,
+          existingProductId: existingProduct.id,
+          context: 'CreateProductUseCase.checkSku'
+        }, traceId);
         throw new DuplicateError('Product', 'SKU', request.sku);
       }
+
+      this.logger.debug('SKU is unique, proceeding with creation', {
+        sku: request.sku,
+        context: 'CreateProductUseCase.checkSku'
+      }, traceId);
 
       // Crear producto
       const product = ProductEntity.create({
@@ -54,8 +164,57 @@ export class CreateProductUseCase {
         tags: request.tags
       });
 
-      return await this.productRepository.create(product);
+      this.logger.debug('Product entity created', {
+        productId: product.id,
+        productName: product.name,
+        sku: product.sku,
+        imageCount: product.images.length,
+        context: 'CreateProductUseCase.createEntity'
+      }, traceId);
+
+      this.logger.info('Saving product to database', {
+        productId: product.id,
+        productName: product.name,
+        sku: product.sku,
+        context: 'CreateProductUseCase.saveProduct'
+      }, traceId);
+
+      const savedProduct = await this.productRepository.create(product);
+
+      // End performance measurement
+      const measurement = this.performanceLogger.endTimer(operationId, {
+        success: true,
+        productId: savedProduct.id,
+        productName: savedProduct.name
+      });
+
+      this.logger.info('Product creation process completed successfully', {
+        productId: savedProduct.id,
+        productName: savedProduct.name,
+        sku: savedProduct.sku,
+        imageCount: savedProduct.images.length,
+        duration: measurement?.duration,
+        context: 'CreateProductUseCase.execute'
+      }, traceId);
+
+      return savedProduct;
     } catch (error) {
+      // End performance measurement with error
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      this.logger.error('Product creation process failed', error instanceof Error ? error : new Error('Unknown error'), {
+        operation: 'createProduct',
+        productName: request.name,
+        sku: request.sku,
+        categoryId: request.categoryId,
+        imageCount: request.images?.length || 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        context: 'CreateProductUseCase.execute'
+      }, traceId);
+
       // Re-throw validation and domain errors as-is
       if (error instanceof ValidationError || 
           error instanceof DuplicateError || 

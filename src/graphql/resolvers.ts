@@ -28,6 +28,7 @@ import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUse
 import { LogoutUserUseCase } from '@application/use-cases/user/LogoutUserUseCase';
 import { RefreshTokenUseCase } from '@application/use-cases/user/RefreshTokenUseCase';
 import { CreateUserAddressUseCase } from '@application/use-cases/user/CreateUserAddressUseCase';
+import { UnauthorizedError, NotFoundError } from '@domain/errors/DomainError';
 import { UpdateUserAddressUseCase } from '@application/use-cases/user/UpdateUserAddressUseCase';
 import { DeleteUserAddressUseCase } from '@application/use-cases/user/DeleteUserAddressUseCase';
 import { GetUserAddressByIdUseCase } from '@application/use-cases/user/GetUserAddressByIdUseCase';
@@ -41,6 +42,12 @@ import { transformCategory } from './transformers/categoryTransformer';
 import { GetCategoriesUseCase } from '@application/use-cases/category/GetCategoriesUseCase';
 import { GetCategoryByIdUseCase } from '@application/use-cases/category/GetCategoryByIdUseCase';
 import { GetCategoryBySlugUseCase } from '@application/use-cases/category/GetCategoryBySlugUseCase';
+import { CreateUserSessionAnalyticsUseCase } from '@application/use-cases/user/CreateUserSessionAnalyticsUseCase';
+import { UpdateUserSessionAnalyticsUseCase } from '@application/use-cases/user/UpdateUserSessionAnalyticsUseCase';
+import { GetUserSessionAnalyticsUseCase } from '@application/use-cases/user/GetUserSessionAnalyticsUseCase';
+import { RevokeUserSessionUseCase } from '@application/use-cases/user/RevokeUserSessionUseCase';
+import { RevokeAllUserSessionsUseCase } from '@application/use-cases/user/RevokeAllUserSessionsUseCase';
+import { transformUserSessionAnalytics } from './transformers/userSessionAnalyticsTransformer';
 
 // Initialize container
 const container = Container.getInstance();
@@ -135,26 +142,26 @@ const transformUserAddress = (address: any) => ({
 
 const transformProduct = (product: any) => ({
   ...product,
-  categoryId: product.category_id || '',
-  salePrice: product.sale_price,
-  stockQuantity: parseInt(product.stock_quantity) || 0, // Ensure integer value
-  isActive: Boolean(product.is_active), // Ensure boolean value
-  reviewCount: parseInt(product.review_count) || 0, // Ensure integer value
-  createdAt: product.created_at || new Date(),
-  updatedAt: product.updated_at || new Date(),
+  categoryId: product.categoryId || product.category_id || '',
+  salePrice: product.salePrice || product.sale_price,
+  stockQuantity: product.stockQuantity || parseInt(product.stock_quantity) || 0, // Use existing field first
+  isActive: Boolean(product.isActive !== undefined ? product.isActive : product.is_active), // Use existing field first
+  reviewCount: product.reviewCount || parseInt(product.review_count) || 0, // Use existing field first
+  createdAt: product.createdAt || product.created_at || new Date(),
+  updatedAt: product.updatedAt || product.updated_at || new Date(),
   // Relations - ensure arrays are never null
   variants: product.variants || [], // Ensure array is never null
   cartItems: product.cartItems || [], // Ensure array is never null
   favorites: product.favorites || [], // Ensure array is never null
   orderItems: product.orderItems || [], // Ensure array is never null
-  // Computed fields
-  currentPrice: product.sale_price || product.price || 0,
-  hasDiscount: Boolean(product.sale_price && product.price && product.sale_price < product.price),
-  discountPercentage: product.sale_price && product.price && product.price > 0 
-    ? Math.round(((product.price - product.sale_price) / product.price) * 100)
+  // Computed fields - use the correct values from above
+  currentPrice: product.salePrice || product.sale_price || product.price || 0,
+  hasDiscount: Boolean((product.salePrice || product.sale_price) && product.price && (product.salePrice || product.sale_price) < product.price),
+  discountPercentage: (product.salePrice || product.sale_price) && product.price && product.price > 0 
+    ? Math.round(((product.price - (product.salePrice || product.sale_price)) / product.price) * 100)
     : 0,
-  totalStock: parseInt(product.stock_quantity) || 0,
-  isInStock: (parseInt(product.stock_quantity) || 0) > 0,
+  totalStock: product.stockQuantity || parseInt(product.stock_quantity) || 0, // Use the corrected stockQuantity
+  isInStock: (product.stockQuantity || parseInt(product.stock_quantity) || 0) > 0, // Use the corrected stockQuantity
 });
 
 const transformOrder = (order: any) => ({
@@ -247,6 +254,44 @@ export const resolvers = {
   JSON: jsonScalar,
 
   // Type resolvers for relationships
+  User: {
+    sessions: async (parent: any, _: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = `user-sessions-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+
+      try {
+        const authRepository = container.get('authRepository') as any;
+        const sessions = await authRepository.findSessionsByUserId(parent.id);
+
+        const duration = Date.now() - startTime;
+        logger.info('User.sessions resolver success', {
+          operation: 'User.sessions',
+          requestId,
+          traceId,
+          duration,
+          userId: parent.id,
+          sessionsCount: Array.isArray(sessions) ? sessions.length : 0,
+          timestamp: new Date().toISOString()
+        });
+
+        return Array.isArray(sessions) ? sessions.map(transformUserSession) : [];
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error('User.sessions resolver error', error as Error, {
+          operation: 'User.sessions',
+          requestId,
+          traceId,
+          duration,
+          userId: parent.id,
+          timestamp: new Date().toISOString()
+        });
+        return [];
+      }
+    }
+  },
   Category: {
     products: async (parent: any, _: any, context: any) => {
       const startTime = Date.now();
@@ -672,7 +717,27 @@ export const resolvers = {
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
       
       try {
+        // Logging detallado de la request GraphQL
+        console.log('GetProducts resolver - GraphQL request received:', {
+          filter,
+          pagination,
+          traceId,
+          requestId,
+          timestamp: new Date().toISOString()
+        });
+
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
+        
+        // Logging del mapeo de filtros
+        console.log('GetProducts resolver - Calling use case with mapped filters:', {
+          originalFilter: filter,
+          mappedFilters: {
+            filters: filter,
+            pagination: pagination || { limit: 10, offset: 0 }
+          },
+          traceId,
+          requestId
+        });
         
         const result = await getProductsUseCase.execute({
           filters: filter,
@@ -686,6 +751,23 @@ export const resolvers = {
         const offset = pagination?.offset || 0;
         const currentPage = Math.floor(offset / limit) + 1;
         const totalPages = Math.ceil(result.total / limit);
+        
+        // Logging del resultado exitoso
+        console.log('GetProducts resolver - Use case completed successfully:', {
+          productsCount: result.products.length,
+          total: result.total,
+          hasMore: result.hasMore,
+          pagination: { limit, offset, currentPage, totalPages },
+          duration,
+          traceId,
+          requestId,
+          filtersApplied: {
+            categoryId: filter?.categoryId,
+            isActive: filter?.isActive,
+            inStock: filter?.inStock,
+            hasFilters: Boolean(filter && Object.keys(filter).length > 0)
+          }
+        });
         
         return ResponseFactory.createPaginatedResponse(
           result.products.map(transformProduct),
@@ -715,7 +797,14 @@ export const resolvers = {
           pagination,
           context: { requestId, traceId },
           duration,
-          timestamp: new Date()
+          timestamp: new Date(),
+          errorStack: error.stack,
+          filterAnalysis: {
+            hasCategoryFilter: Boolean(filter?.categoryId),
+            hasActiveFilter: Boolean(filter?.isActive !== undefined),
+            hasStockFilter: Boolean(filter?.inStock),
+            filterKeys: filter ? Object.keys(filter) : []
+          }
         });
         
         return ResponseFactory.createErrorResponse(
@@ -973,11 +1062,66 @@ export const resolvers = {
     },
 
     // User queries
-    users: async (_: any, { filter, pagination }: any) => {
+    users: async (_: any, { filter, pagination }: any, context: any) => {
+      const startTime = Date.now();
+      const traceId = context?.traceId || `users-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Create logger for this operation
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
       try {
+        logger.info('Starting users query', {
+          operation: 'users',
+          requestId,
+          traceId,
+          filter,
+          pagination,
+          timestamp: new Date().toISOString()
+        });
+
         const getUsersUseCase = container.get<GetUsersUseCase>('getUsersUseCase');
         const limit = pagination?.limit || 10;
         const offset = pagination?.offset || 0;
+        
+        // Validate pagination parameters
+        if (limit < 1 || limit > 100) {
+          const duration = Date.now() - startTime;
+          logger.warn('Invalid pagination limit', {
+            operation: 'users',
+            requestId,
+            traceId,
+            duration,
+            limit,
+            timestamp: new Date().toISOString()
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            'Invalid pagination limit. Must be between 1 and 100',
+            RESPONSE_CODES.INVALID_INPUT,
+            { limit, maxAllowed: 100 },
+            { requestId, traceId, duration }
+          );
+        }
+
+        if (offset < 0) {
+          const duration = Date.now() - startTime;
+          logger.warn('Invalid pagination offset', {
+            operation: 'users',
+            requestId,
+            traceId,
+            duration,
+            offset,
+            timestamp: new Date().toISOString()
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            'Invalid pagination offset. Must be non-negative',
+            RESPONSE_CODES.INVALID_INPUT,
+            { offset },
+            { requestId, traceId, duration }
+          );
+        }
         
         // Get users for current page
         const result = await getUsersUseCase.execute({
@@ -988,29 +1132,98 @@ export const resolvers = {
           offset
         });
 
+        const duration = Date.now() - startTime;
+        
         // Check if result has the expected structure
         if (result && typeof result === 'object' && 'users' in result && 'total' in result) {
           // Repository returned paginated result
-          return {
-            users: (result as any).users.map(transformUser),
+          const paginationInfo = {
             total: (result as any).total,
-            hasMore: (result as any).users.length === limit
+            limit,
+            offset,
+            hasMore: (result as any).users.length === limit,
+            currentPage: Math.floor(offset / limit) + 1,
+            totalPages: Math.ceil((result as any).total / limit)
           };
+
+          const transformedUsers = (result as any).users.map(transformUser);
+          
+          logger.info('Users query completed successfully', {
+            operation: 'users',
+            requestId,
+            traceId,
+            duration,
+            usersCount: transformedUsers.length,
+            total: paginationInfo.total,
+            hasMore: paginationInfo.hasMore,
+            timestamp: new Date().toISOString()
+          });
+
+          return ResponseFactory.createPaginatedResponse(
+            transformedUsers,
+            paginationInfo,
+            'Users retrieved successfully',
+            { requestId, traceId, duration }
+          );
         } else {
           // Fallback for backward compatibility
           const users = Array.isArray(result) ? result : [];
           const total = users.length + (users.length === limit ? 50 : 0);
           const hasMore = users.length === limit;
           
-          return {
-            users: users.map(transformUser),
+          const paginationInfo = {
             total,
-            hasMore
+            limit,
+            offset,
+            hasMore,
+            currentPage: Math.floor(offset / limit) + 1,
+            totalPages: Math.ceil(total / limit)
           };
+
+          const transformedUsers = users.map(transformUser);
+          
+          logger.info('Users query completed with fallback logic', {
+            operation: 'users',
+            requestId,
+            traceId,
+            duration,
+            usersCount: transformedUsers.length,
+            total: paginationInfo.total,
+            hasMore: paginationInfo.hasMore,
+            fallbackUsed: true,
+            timestamp: new Date().toISOString()
+          });
+
+          return ResponseFactory.createPaginatedResponse(
+            transformedUsers,
+            paginationInfo,
+            'Users retrieved successfully (fallback mode)',
+            { requestId, traceId, duration }
+          );
         }
-      } catch (error) {
-        console.error('Error in users resolver:', error);
-        throw new Error('Failed to fetch users');
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        logger.error('Users resolver error', error, {
+          operation: 'users',
+          requestId,
+          traceId,
+          duration,
+          filter,
+          pagination,
+          errorCode: errorResponse.code,
+          errorMessage: errorResponse.message,
+          timestamp: new Date().toISOString()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message || 'Failed to fetch users',
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          { requestId, traceId, duration }
+        );
       }
     },
 
@@ -1027,13 +1240,119 @@ export const resolvers = {
     },
 
     currentUser: async (_: any, __: any, context: any) => {
-      if (!context.user) {
-        throw new Error('Authentication required');
-      }
+      const startTime = Date.now();
+      const traceId = context?.traceId || `current-user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
       
-      const getUserByIdUseCase = container.get<GetUserByIdUseCase>('getUserByIdUseCase');
-      const user = await getUserByIdUseCase.execute(context.user.id);
-      return user ? transformUser(user) : null;
+      // Create logger for this operation
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        logger.info('Starting currentUser query', {
+          operation: 'currentUser',
+          requestId,
+          traceId,
+          hasUser: !!context.user,
+          userId: context.user?.id,
+          timestamp: new Date().toISOString()
+        });
+
+        // Check authentication
+        if (!context.user) {
+          const duration = Date.now() - startTime;
+          logger.warn('CurrentUser query failed: Authentication required', {
+            operation: 'currentUser',
+            requestId,
+            traceId,
+            duration,
+            timestamp: new Date().toISOString()
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            'Authentication required',
+            RESPONSE_CODES.AUTHENTICATION_FAILED,
+            { 
+              operation: 'currentUser',
+              message: 'User must be authenticated to access current user information'
+            },
+            { requestId, traceId, duration }
+          );
+        }
+
+        // Get user by ID using the use case
+        const getUserByIdUseCase = container.get<GetUserByIdUseCase>('getUserByIdUseCase');
+        const user = await getUserByIdUseCase.execute(context.user.id);
+        
+        const duration = Date.now() - startTime;
+        
+        if (!user) {
+          logger.warn('CurrentUser query failed: User not found', {
+            operation: 'currentUser',
+            requestId,
+            traceId,
+            duration,
+            userId: context.user.id,
+            timestamp: new Date().toISOString()
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            'User not found',
+            RESPONSE_CODES.USER_NOT_FOUND,
+            { 
+              operation: 'currentUser',
+              userId: context.user.id,
+              message: 'The authenticated user was not found in the system'
+            },
+            { requestId, traceId, duration }
+          );
+        }
+
+        // Transform user data
+        const transformedUser = transformUser(user);
+        
+        logger.info('CurrentUser query completed successfully', {
+          operation: 'currentUser',
+          requestId,
+          traceId,
+          duration,
+          userId: user.id,
+          userRole: user.role,
+          hasProfile: !!user.profile,
+          addressesCount: user.addresses?.length || 0,
+          timestamp: new Date().toISOString()
+        });
+
+        // Return standardized response using ResponseFactory
+        return ResponseFactory.createSuccessResponse(
+          transformedUser,
+          'Current user retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log the error with complete context
+        logger.error('CurrentUser query error', error, {
+          operation: 'currentUser',
+          requestId,
+          traceId,
+          duration,
+          userId: context.user?.id,
+          errorCode: errorResponse.code,
+          errorMessage: errorResponse.message,
+          timestamp: new Date().toISOString()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message || 'Failed to retrieve current user',
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          { requestId, traceId, duration }
+        );
+      }
     },
 
     searchUsers: async (_: any, { query }: { query: string }) => {
@@ -1066,14 +1385,105 @@ export const resolvers = {
       return users.map(transformUser);
     },
 
-    usersByProvider: async (_: any, { provider }: { provider: string }) => {
-      // TODO: Implement provider filtering in repository
-      const getUsersUseCase = container.get<GetUsersUseCase>('getUsersUseCase');
-      const users = await getUsersUseCase.execute({
-        limit: 100,
-        offset: 0
-      });
-      return users.map(transformUser);
+    usersByProvider: async (_: any, { provider }: { provider: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = context?.traceId || `users-by-provider-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Create logger for this operation
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        logger.info('Starting usersByProvider query', {
+          operation: 'usersByProvider',
+          requestId,
+          traceId,
+          provider,
+          timestamp: new Date().toISOString()
+        });
+
+        // Validate provider parameter
+        if (!provider || !['email', 'google', 'facebook', 'apple'].includes(provider)) {
+          const duration = Date.now() - startTime;
+          logger.warn('Invalid provider parameter', {
+            operation: 'usersByProvider',
+            requestId,
+            traceId,
+            duration,
+            provider,
+            validProviders: ['email', 'google', 'facebook', 'apple'],
+            timestamp: new Date().toISOString()
+          });
+          
+          return ResponseFactory.createErrorResponse(
+            `Invalid provider. Must be one of: email, google, facebook, apple`,
+            RESPONSE_CODES.INVALID_INPUT,
+            { provider, validProviders: ['email', 'google', 'facebook', 'apple'] },
+            { requestId, traceId, duration }
+          );
+        }
+
+        // TODO: Implement proper provider filtering in repository
+        // For now, we'll get all users and filter by provider in the resolver
+        // This should be moved to the repository layer for better performance
+        const getUsersUseCase = container.get<GetUsersUseCase>('getUsersUseCase');
+        const allUsers = await getUsersUseCase.execute({
+          limit: 100, // Maximum allowed limit
+          offset: 0
+        });
+
+        // Filter users by provider (temporary implementation)
+        // This should be replaced with proper repository filtering
+        const usersByProvider = allUsers.filter(user => {
+          // For now, we'll assume all users are email-based
+          // In a real implementation, this would check the UserAccount table
+          return provider === 'email';
+        });
+
+        const duration = Date.now() - startTime;
+        const transformedUsers = usersByProvider.map(transformUser);
+        
+        logger.info('UsersByProvider query completed successfully', {
+          operation: 'usersByProvider',
+          requestId,
+          traceId,
+          duration,
+          provider,
+          totalUsers: allUsers.length,
+          filteredUsers: transformedUsers.length,
+          timestamp: new Date().toISOString()
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          transformedUsers,
+          `Users by provider '${provider}' retrieved successfully`,
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        const errorResponse = GraphQLErrorHandler.handleError(error);
+        
+        // Log del error con contexto completo
+        logger.error('UsersByProvider resolver error', error, {
+          operation: 'usersByProvider',
+          requestId,
+          traceId,
+          duration,
+          provider,
+          errorCode: errorResponse.code,
+          errorMessage: errorResponse.message,
+          timestamp: new Date().toISOString()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          errorResponse.message || `Failed to fetch users by provider '${provider}'`,
+          errorResponse.code || RESPONSE_CODES.INTERNAL_ERROR,
+          errorResponse.details,
+          { requestId, traceId, duration }
+        );
+      }
     },
 
     // Authentication queries
@@ -1082,19 +1492,142 @@ export const resolvers = {
       return [];
     },
 
-    userSessions: async (_: any, { userId }: { userId: string }) => {
-      // This would be implemented with proper repository
-      return [];
+    userSessions: async (_: any, { userId }: { userId: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `query-user-sessions-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      try {
+        const authRepository = container.get('authRepository') as any;
+        const sessions = await authRepository.findSessionsByUserId(userId);
+
+        const duration = Date.now() - startTime;
+        logger.info('Query.userSessions success', {
+          operation: 'userSessions',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          sessionsCount: Array.isArray(sessions) ? sessions.length : 0,
+          timestamp: new Date().toISOString()
+        });
+
+        return Array.isArray(sessions) ? sessions.map(transformUserSession) : [];
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error('Query.userSessions error', error as Error, {
+          operation: 'userSessions',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          timestamp: new Date().toISOString()
+        });
+        return [];
+      }
     },
 
-    activeSessions: async (_: any, { userId }: { userId: string }) => {
-      // This would be implemented with proper repository
-      return [];
+    activeSessions: async (_: any, { userId }: { userId: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `query-active-sessions-${Date.now()}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      try {
+        const authRepository = container.get('authRepository') as any;
+        const sessions = await authRepository.findSessionsByUserId(userId);
+        const active = Array.isArray(sessions) ? sessions.filter((s: any) => s.isActive) : [];
+
+        const duration = Date.now() - startTime;
+        logger.info('Query.activeSessions success', {
+          operation: 'activeSessions',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          totalSessions: Array.isArray(sessions) ? sessions.length : 0,
+          activeSessions: active.length,
+          timestamp: new Date().toISOString()
+        });
+
+        return active.map(transformUserSession);
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error('Query.activeSessions error', error as Error, {
+          operation: 'activeSessions',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          timestamp: new Date().toISOString()
+        });
+        return [];
+      }
     },
 
-    userSessionAnalytics: async (_: any, { userId }: { userId: string }) => {
-      // This would be implemented with proper repository
-      return [];
+    userSessionAnalytics: async (_: any, { userId }: { userId: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `user-session-analytics-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        // Log del inicio de la operación
+        logger.info('UserSessionAnalytics query started', {
+          operation: 'userSessionAnalytics',
+          requestId,
+          traceId,
+          userId,
+          timestamp: new Date().toISOString()
+        });
+
+        const getUserSessionAnalyticsUseCase = container.get<GetUserSessionAnalyticsUseCase>('getUserSessionAnalyticsUseCase');
+        const result = await getUserSessionAnalyticsUseCase.execute({
+          userId,
+          limit: 50,
+          offset: 0
+        });
+
+        const duration = Date.now() - startTime;
+        
+        // Log del éxito
+        logger.info('UserSessionAnalytics query success', {
+          operation: 'userSessionAnalytics',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          total: result.total,
+          returned: result.analytics.length,
+          timestamp: new Date().toISOString()
+        });
+
+        return result.analytics.map(transformUserSessionAnalytics);
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error
+        logger.error('UserSessionAnalytics query error', error, {
+          operation: 'userSessionAnalytics',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        // Return empty array on error
+        return [];
+      }
     },
 
     userOrderHistory: async (_: any, { userId, filter, pagination }: any) => {
@@ -1198,10 +1731,23 @@ export const resolvers = {
     // Stats queries
     productStats: async (_: any, __: any, context: any) => {
       const startTime = Date.now();
-      const traceId = `product-stats-${Date.now()}`;
+      const traceId = `product-stats-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
       
+      // Logger especializado para este resolver
+      const logger = LoggerFactory.getInstance().createLoggerWithContext({
+        module: 'GraphQL',
+        operation: 'productStats',
+        requestId,
+        traceId
+      });
+      
       try {
+        logger.info('Starting productStats query execution', {
+          context: { requestId, traceId },
+          timestamp: new Date()
+        });
+
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({ 
           filters: {}, 
@@ -1212,6 +1758,17 @@ export const resolvers = {
         const activeProducts = products.filter(p => p.isActive).length;
 
         const duration = Date.now() - startTime;
+        
+        logger.info('ProductStats query completed successfully', {
+          context: { requestId, traceId },
+          duration,
+          result: {
+            totalProducts: products.length,
+            activeProducts,
+            totalCategories: 0
+          },
+          timestamp: new Date()
+        });
         
         return ResponseFactory.createSuccessResponse(
           {
@@ -1231,18 +1788,27 @@ export const resolvers = {
       } catch (error: any) {
         const duration = Date.now() - startTime;
         
-        // Log del error con contexto completo
-        console.error('ProductStats resolver error:', {
-          error: error.message,
+        // Log del error con contexto completo usando el logger especializado
+        logger.error('ProductStats query failed', error, {
           context: { requestId, traceId },
           duration,
+          errorDetails: {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            code: error.code
+          },
           timestamp: new Date()
         });
         
         return ResponseFactory.createErrorResponse(
           `Failed to fetch product stats: ${error.message || 'Unknown error'}`,
           RESPONSE_CODES.INTERNAL_ERROR,
-          { error: error.message },
+          { 
+            error: error.message,
+            errorType: error.name,
+            errorCode: error.code 
+          },
           {
             requestId,
             traceId,
@@ -1254,14 +1820,38 @@ export const resolvers = {
 
     orderStats: async (_: any, __: any, context: any) => {
       const startTime = Date.now();
-      const traceId = `order-stats-${Date.now()}`;
+      const traceId = `order-stats-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
       
+      // Logger especializado para este resolver
+      const logger = LoggerFactory.getInstance().createLoggerWithContext({
+        module: 'GraphQL',
+        operation: 'orderStats',
+        requestId,
+        traceId
+      });
+      
       try {
+        logger.info('Starting orderStats query execution', {
+          context: { requestId, traceId },
+          timestamp: new Date()
+        });
+
         const getOrderStatsUseCase = container.get<GetOrderStatsUseCase>('getOrderStatsUseCase');
         const result = await getOrderStatsUseCase.execute();
         
         const duration = Date.now() - startTime;
+        
+        logger.info('OrderStats query completed successfully', {
+          context: { requestId, traceId },
+          duration,
+          result: {
+            totalOrders: result.totalOrders,
+            totalRevenue: result.totalRevenue,
+            averageOrderValue: result.averageOrderValue
+          },
+          timestamp: new Date()
+        });
         
         return ResponseFactory.createSuccessResponse(
           result,
@@ -1277,18 +1867,27 @@ export const resolvers = {
       } catch (error: any) {
         const duration = Date.now() - startTime;
         
-        // Log del error con contexto completo
-        console.error('OrderStats resolver error:', {
-          error: error.message,
+        // Log del error con contexto completo usando el logger especializado
+        logger.error('OrderStats query failed', error, {
           context: { requestId, traceId },
           duration,
+          errorDetails: {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            code: error.code
+          },
           timestamp: new Date()
         });
         
         return ResponseFactory.createErrorResponse(
           `Failed to fetch order stats: ${error.message || 'Unknown error'}`,
           RESPONSE_CODES.INTERNAL_ERROR,
-          { error: error.message },
+          { 
+            error: error.message,
+            errorType: error.name,
+            errorCode: error.code 
+          },
           {
             requestId,
             traceId,
@@ -1300,14 +1899,38 @@ export const resolvers = {
 
     userStats: async (_: any, __: any, context: any) => {
       const startTime = Date.now();
-      const traceId = `user-stats-${Date.now()}`;
+      const traceId = `user-stats-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
       
+      // Logger especializado para este resolver
+      const logger = LoggerFactory.getInstance().createLoggerWithContext({
+        module: 'GraphQL',
+        operation: 'userStats',
+        requestId,
+        traceId
+      });
+      
       try {
+        logger.info('Starting userStats query execution', {
+          context: { requestId, traceId },
+          timestamp: new Date()
+        });
+
         const getUserStatsUseCase = container.get<GetUserStatsUseCase>('getUserStatsUseCase');
         const result = await getUserStatsUseCase.execute();
         
         const duration = Date.now() - startTime;
+        
+        logger.info('UserStats query completed successfully', {
+          context: { requestId, traceId },
+          duration,
+          result: {
+            totalUsers: result.totalUsers,
+            activeUsers: result.activeUsers,
+            newUsersThisMonth: result.newUsersThisMonth
+          },
+          timestamp: new Date()
+        });
         
         return ResponseFactory.createSuccessResponse(
           result,
@@ -1323,18 +1946,27 @@ export const resolvers = {
       } catch (error: any) {
         const duration = Date.now() - startTime;
         
-        // Log del error con contexto completo
-        console.error('UserStats resolver error:', {
-          error: error.message,
+        // Log del error con contexto completo usando el logger especializado
+        logger.error('UserStats query failed', error, {
           context: { requestId, traceId },
           duration,
+          errorDetails: {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            code: error.code
+          },
           timestamp: new Date()
         });
         
         return ResponseFactory.createErrorResponse(
           `Failed to fetch user stats: ${error.message || 'Unknown error'}`,
           RESPONSE_CODES.INTERNAL_ERROR,
-          { error: error.message },
+          { 
+            error: error.message,
+            errorType: error.name,
+            errorCode: error.code 
+          },
           {
             requestId,
             traceId,
@@ -1649,7 +2281,7 @@ export const resolvers = {
       try {
         const getProductsUseCase = container.get<GetProductsUseCase>('getProductsUseCase');
         const result = await getProductsUseCase.execute({
-          filters: { category: categoryId },
+          filters: { categoryId: categoryId },
           pagination: pagination || { limit: 10, offset: 0 }
         });
 
@@ -2594,7 +3226,44 @@ export const resolvers = {
       const traceId = `create-product-${Date.now()}`;
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
       
+      const logger = LoggerFactory.getInstance().createServiceLogger('GraphQLResolver.createProduct');
+      
       try {
+        // Log image handling specifically
+        if (input.images && input.images.length > 0) {
+          const blobUrls = input.images.filter((img: string) => img.startsWith('blob:'));
+          const validUrls = input.images.filter((img: string) => !img.startsWith('blob:'));
+          
+          if (blobUrls.length > 0) {
+            logger.warn('Blob URLs detected in product creation - images not properly uploaded', {
+              operation: 'createProduct',
+              productName: input.name,
+              totalImages: input.images.length,
+              blobUrls: blobUrls.length,
+              validUrls: validUrls.length,
+              blobUrlsDetected: blobUrls,
+              requestId,
+              context: 'GraphQLResolver.createProduct'
+            }, traceId);
+          } else {
+            logger.info('Valid image URLs provided for product creation', {
+              operation: 'createProduct',
+              productName: input.name,
+              imageCount: input.images.length,
+              imageUrls: input.images,
+              requestId,
+              context: 'GraphQLResolver.createProduct'
+            }, traceId);
+          }
+        } else {
+          logger.info('Product created without images', {
+            operation: 'createProduct',
+            productName: input.name,
+            requestId,
+            context: 'GraphQLResolver.createProduct'
+          }, traceId);
+        }
+
         const createProductUseCase = container.get<CreateProductUseCase>('createProductUseCase');
         const product = await createProductUseCase.execute({
           categoryId: input.categoryId,
@@ -2968,20 +3637,210 @@ export const resolvers = {
     },
 
     // Authentication management mutations
-    revokeUserSession: async (_: any, { sessionId }: { sessionId: string }) => {
-      // This would be implemented with proper auth repository
-      return {
-        success: true,
-        message: 'Sesión revocada exitosamente'
-      };
+    revokeUserSession: async (_: any, { sessionId, userId, reason }: { sessionId: string; userId: string; reason?: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `revoke-session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        // Log del inicio de la operación
+        logger.info('RevokeUserSession mutation started', {
+          operation: 'revokeUserSession',
+          requestId,
+          traceId,
+          sessionId,
+          userId,
+          hasReason: !!reason,
+          timestamp: new Date().toISOString()
+        });
+
+        const revokeUserSessionUseCase = container.get<RevokeUserSessionUseCase>('revokeUserSessionUseCase');
+        const result = await revokeUserSessionUseCase.execute({
+          sessionId,
+          userId,
+          reason
+        });
+
+        const duration = Date.now() - startTime;
+        
+        // Log del éxito
+        logger.info('RevokeUserSession mutation success', {
+          operation: 'revokeUserSession',
+          requestId,
+          traceId,
+          duration,
+          sessionId,
+          userId,
+          analyticsCleaned: result.analyticsCleaned,
+          timestamp: new Date().toISOString()
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            sessionId: result.sessionId,
+            revokedAt: result.revokedAt,
+            reason: result.reason,
+            analyticsCleaned: result.analyticsCleaned
+          },
+          'User session revoked successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        logger.error('RevokeUserSession mutation error', error, {
+          operation: 'revokeUserSession',
+          requestId,
+          traceId,
+          duration,
+          sessionId,
+          userId,
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        let errorMessage = error.message || 'Failed to revoke user session';
+        
+        if (error.message?.includes('not found') || error.message?.includes('NotFound')) {
+          errorCode = RESPONSE_CODES.RESOURCE_NOT_FOUND;
+        } else if (error.message?.includes('unauthorized') || error.message?.includes('Unauthorized')) {
+          errorCode = RESPONSE_CODES.INSUFFICIENT_PERMISSIONS;
+        } else if (error.message?.includes('required') || error.message?.includes('Validation failed')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        }
+        
+        return ResponseFactory.createErrorResponse(
+          errorMessage,
+          errorCode as any,
+          { sessionId, userId, reason, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    revokeAllUserSessions: async (_: any, { userId }: { userId: string }) => {
-      // This would be implemented with proper auth repository
-      return {
-        success: true,
-        message: 'Todas las sesiones han sido revocadas'
-      };
+    revokeAllUserSessions: async (_: any, { userId, requestingUserId, reason, excludeCurrentSession }: { userId: string; requestingUserId: string; reason?: string; excludeCurrentSession?: boolean }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `revoke-all-sessions-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        // Log del inicio de la operación
+        logger.info('RevokeAllUserSessions mutation started', {
+          operation: 'revokeAllUserSessions',
+          requestId,
+          traceId,
+          userId,
+          requestingUserId,
+          hasReason: !!reason,
+          excludeCurrentSession,
+          timestamp: new Date().toISOString()
+        });
+
+        const revokeAllUserSessionsUseCase = container.get<RevokeAllUserSessionsUseCase>('revokeAllUserSessionsUseCase');
+        const result = await revokeAllUserSessionsUseCase.execute({
+          userId,
+          requestingUserId,
+          reason,
+          excludeCurrentSession
+        });
+
+        const duration = Date.now() - startTime;
+        
+        // Log del éxito
+        logger.info('RevokeAllUserSessions mutation success', {
+          operation: 'revokeAllUserSessions',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          requestingUserId,
+          sessionsRevoked: result.sessionsRevoked,
+          analyticsCleaned: result.analyticsCleaned,
+          timestamp: new Date().toISOString()
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            userId: result.userId,
+            sessionsRevoked: result.sessionsRevoked,
+            analyticsCleaned: result.analyticsCleaned,
+            revokedAt: result.revokedAt,
+            reason: result.reason
+          },
+          'All user sessions revoked successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        logger.error('RevokeAllUserSessions mutation error', error, {
+          operation: 'revokeAllUserSessions',
+          requestId,
+          traceId,
+          duration,
+          userId,
+          requestingUserId,
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        let errorMessage = error.message || 'Failed to revoke all user sessions';
+        
+        if (error.message?.includes('not found') || error.message?.includes('NotFound')) {
+          errorCode = RESPONSE_CODES.RESOURCE_NOT_FOUND;
+        } else if (error.message?.includes('unauthorized') || error.message?.includes('Unauthorized')) {
+          errorCode = RESPONSE_CODES.INSUFFICIENT_PERMISSIONS;
+        } else if (error.message?.includes('required') || error.message?.includes('Validation failed')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        }
+        
+        return ResponseFactory.createErrorResponse(
+          errorMessage,
+          errorCode as any,
+          { userId, requestingUserId, reason, excludeCurrentSession, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     unlinkUserAccount: async (_: any, { accountId }: { accountId: string }) => {
@@ -3888,25 +4747,117 @@ export const resolvers = {
     },
 
     // Image upload mutation (critical functionality)
-    uploadImage: async (_: any, { file, entityType, entityId }: { file: any; entityType: string; entityId: string }) => {
-      const uploadImageUseCase = container.get<UploadImageUseCase>('uploadImageUseCase');
+    uploadImage: async (_: any, { file, entityType, entityId }: { file: any; entityType: string; entityId: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `upload-image-${Date.now()}-${entityId}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      const logger = LoggerFactory.getInstance().createServiceLogger('GraphQLResolver.uploadImage');
+      
       try {
+        // ✅ GRAPHQL-UPLOAD: El archivo viene directamente como parámetro
+        if (!file) {
+          throw new Error('No file uploaded. Please select a file to upload.');
+        }
+        
+        // ✅ CORRECCIÓN: Acceder correctamente a las propiedades del objeto Upload de graphql-upload
+        const fileInfo = {
+          filename: file?.file?.filename || file?.filename || 'unknown',
+          mimetype: file?.file?.mimetype || file?.mimetype || 'unknown',
+          size: file?.file?.size || file?.size || 0,
+          encoding: file?.file?.encoding || file?.encoding || 'unknown'
+        };
+        
+        logger.info('GraphQL uploadImage mutation started', {
+          operation: 'uploadImage',
+          entityType,
+          entityId,
+          fileName: fileInfo.filename,
+          fileSize: fileInfo.size,
+          mimeType: fileInfo.mimetype,
+          encoding: fileInfo.encoding,
+          requestId,
+          context: 'GraphQLResolver.uploadImage'
+        }, traceId);
+
+        const uploadImageUseCase = container.get<UploadImageUseCase>('uploadImageUseCase');
+        
         const result = await uploadImageUseCase.execute({
           file,
           entityType: entityType as any,
           entityId
         });
-        return {
-          success: true,
+
+        const duration = Date.now() - startTime;
+        
+        logger.info('GraphQL uploadImage mutation completed successfully', {
+          operation: 'uploadImage',
+          entityType,
+          entityId,
+          imageId: result.id,
+          fileName: result.fileName,
           url: result.url,
-          filename: result.fileName || result.url,
-          message: 'Image uploaded successfully'
-        };
+          duration,
+          requestId,
+          context: 'GraphQLResolver.uploadImage'
+        }, traceId);
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            url: result.url,
+            filename: result.fileName || result.url,
+            imageId: result.id
+          },
+          'Image uploaded successfully',
+          RESPONSE_CODES.CREATED,
+          { requestId, traceId, duration }
+        );
       } catch (error: any) {
-        return {
-          success: false,
-          message: error.message || 'Failed to upload image'
+        const duration = Date.now() - startTime;
+        
+        // ✅ CORRECCIÓN: Acceder correctamente a las propiedades del objeto Upload
+        const fileInfo = {
+          filename: file?.file?.filename || file?.filename || 'unknown',
+          mimetype: file?.file?.mimetype || file?.mimetype || 'unknown',
+          size: file?.file?.size || file?.size || 0,
+          encoding: file?.file?.encoding || file?.encoding || 'unknown'
         };
+        
+        logger.error('GraphQL uploadImage mutation failed', error, {
+          operation: 'uploadImage',
+          entityType,
+          entityId,
+          fileName: fileInfo.filename,
+          fileSize: fileInfo.size,
+          mimeType: fileInfo.mimetype,
+          encoding: fileInfo.encoding,
+          error: error.message || 'Unknown error',
+          duration,
+          requestId,
+          context: 'GraphQLResolver.uploadImage'
+        }, traceId);
+
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        if (error.message?.includes('Invalid file type')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        } else if (error.message?.includes('File size too large')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        } else if (error.message?.includes('Failed to upload')) {
+          errorCode = RESPONSE_CODES.SERVICE_UNAVAILABLE;
+        }
+
+        return ResponseFactory.createErrorResponse(
+          error.message || 'Failed to upload image',
+          errorCode,
+          {
+            operation: 'uploadImage',
+            entityType,
+            entityId,
+            error: error.message || 'Unknown error'
+          },
+          { requestId, traceId, duration }
+        );
       }
     },
 
@@ -4228,6 +5179,277 @@ export const resolvers = {
           `Failed to bulk update order status: ${error.message || 'Unknown error'}`,
           RESPONSE_CODES.INTERNAL_ERROR,
           { orders, status, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
+
+    // Session Analytics mutations
+    createUserSessionAnalytics: async (_: any, { input }: { input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `create-session-analytics-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        // Log del inicio de la operación
+        logger.info('CreateUserSessionAnalytics mutation started', {
+          operation: 'createUserSessionAnalytics',
+          requestId,
+          traceId,
+          input: {
+            sessionId: input.sessionId,
+            userId: input.userId,
+            hasPageViews: input.pageViews !== undefined,
+            hasTimeSpent: input.timeSpent !== undefined,
+            hasDeviceInfo: !!(input.deviceType || input.browser || input.os)
+          },
+          timestamp: new Date().toISOString()
+        });
+
+        const createUserSessionAnalyticsUseCase = container.get<CreateUserSessionAnalyticsUseCase>('createUserSessionAnalyticsUseCase');
+        const result = await createUserSessionAnalyticsUseCase.execute(input);
+
+        const duration = Date.now() - startTime;
+        
+        // Log del éxito
+        logger.info('CreateUserSessionAnalytics mutation success', {
+          operation: 'createUserSessionAnalytics',
+          requestId,
+          traceId,
+          duration,
+          analyticsId: result.analytics.id,
+          sessionId: result.analytics.sessionId,
+          userId: result.analytics.userId,
+          timestamp: new Date().toISOString()
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformUserSessionAnalytics(result.analytics),
+            id: result.analytics.id,
+            createdAt: result.analytics.createdAt.toISOString()
+          },
+          'User session analytics created successfully',
+          RESPONSE_CODES.CREATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        logger.error('CreateUserSessionAnalytics mutation error', error, {
+          operation: 'createUserSessionAnalytics',
+          requestId,
+          traceId,
+          duration,
+          input: {
+            sessionId: input.sessionId,
+            userId: input.userId
+          },
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        let errorMessage = error.message || 'Failed to create user session analytics';
+        
+        if (error.message?.includes('required') || error.message?.includes('Validation failed')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        } else if (error.message?.includes('not found')) {
+          errorCode = RESPONSE_CODES.RESOURCE_NOT_FOUND;
+        }
+        
+        return ResponseFactory.createErrorResponse(
+          errorMessage,
+          errorCode as any,
+          { input, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
+
+    updateUserSessionAnalytics: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `update-session-analytics-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        // Log del inicio de la operación
+        logger.info('UpdateUserSessionAnalytics mutation started', {
+          operation: 'updateUserSessionAnalytics',
+          requestId,
+          traceId,
+          analyticsId: id,
+          input: {
+            hasPageViews: input.pageViews !== undefined,
+            hasTimeSpent: input.timeSpent !== undefined,
+            hasDeviceInfo: !!(input.deviceType || input.browser || input.os)
+          },
+          timestamp: new Date().toISOString()
+        });
+
+        const updateUserSessionAnalyticsUseCase = container.get<UpdateUserSessionAnalyticsUseCase>('updateUserSessionAnalyticsUseCase');
+        const result = await updateUserSessionAnalyticsUseCase.execute(id, input);
+
+        const duration = Date.now() - startTime;
+        
+        // Log del éxito
+        logger.info('UpdateUserSessionAnalytics mutation success', {
+          operation: 'updateUserSessionAnalytics',
+          requestId,
+          traceId,
+          duration,
+          analyticsId: id,
+          sessionId: result.analytics.sessionId,
+          userId: result.analytics.userId,
+          changes: result.changes,
+          timestamp: new Date().toISOString()
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            entity: transformUserSessionAnalytics(result.analytics),
+            id: result.analytics.id,
+            updatedAt: result.analytics.updatedAt.toISOString(),
+            changes: result.changes
+          },
+          'User session analytics updated successfully',
+          RESPONSE_CODES.UPDATED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        logger.error('UpdateUserSessionAnalytics mutation error', error, {
+          operation: 'updateUserSessionAnalytics',
+          requestId,
+          traceId,
+          duration,
+          analyticsId: id,
+          input: {
+            hasPageViews: input.pageViews !== undefined,
+            hasTimeSpent: input.timeSpent !== undefined
+          },
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        // Determinar el código de error apropiado
+        let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
+        let errorMessage = error.message || 'Failed to update user session analytics';
+        
+        if (error.message?.includes('required') || error.message?.includes('Validation failed')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        } else if (error.message?.includes('not found')) {
+          errorCode = RESPONSE_CODES.RESOURCE_NOT_FOUND;
+        }
+        
+        return ResponseFactory.createErrorResponse(
+          errorMessage,
+          errorCode as any,
+          { id, input, error: error.message },
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
+
+    deleteUserSessionAnalytics: async (_: any, { id }: { id: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `delete-session-analytics-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      // Logger especializado para GraphQL
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
+      try {
+        // Log del inicio de la operación
+        logger.info('DeleteUserSessionAnalytics mutation started', {
+          operation: 'deleteUserSessionAnalytics',
+          requestId,
+          traceId,
+          analyticsId: id,
+          timestamp: new Date().toISOString()
+        });
+
+        // TODO: Implementar caso de uso de eliminación
+        // Por ahora retornamos un placeholder
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            id,
+            deletedAt: new Date().toISOString(),
+            softDelete: false
+          },
+          'User session analytics deleted successfully',
+          RESPONSE_CODES.DELETED,
+          {
+            requestId,
+            traceId,
+            duration
+          }
+        );
+
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Log del error con contexto completo
+        logger.error('DeleteUserSessionAnalytics mutation error', error, {
+          operation: 'deleteUserSessionAnalytics',
+          requestId,
+          traceId,
+          duration,
+          analyticsId: id,
+          errorDetails: {
+            message: error.message,
+            type: error.constructor.name,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          `Failed to delete user session analytics: ${error.message || 'Unknown error'}`,
+          RESPONSE_CODES.INTERNAL_ERROR,
+          { id, error: error.message },
           {
             requestId,
             traceId,

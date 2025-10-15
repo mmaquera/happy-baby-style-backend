@@ -33,7 +33,15 @@ describe('SessionService', () => {
       updateUserPassword: jest.fn(),
       deleteUserPassword: jest.fn(),
       deleteExpiredSessions: jest.fn(),
-      invalidateUserSessions: jest.fn()
+      invalidateUserSessions: jest.fn(),
+      createSessionAnalytics: jest.fn(),
+      findSessionAnalyticsById: jest.fn(),
+      findSessionAnalyticsBySessionId: jest.fn(),
+      findSessionAnalyticsByUserId: jest.fn(),
+      updateSessionAnalytics: jest.fn(),
+      deleteSessionAnalytics: jest.fn(),
+      deleteSessionAnalyticsByUserId: jest.fn(),
+      deleteSessionAnalyticsBySessionId: jest.fn()
     };
 
     mockLogger = {
