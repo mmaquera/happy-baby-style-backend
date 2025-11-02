@@ -1,7 +1,7 @@
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import express, { Express } from 'express';
-import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.mjs';
+import { graphqlUploadExpress } from 'graphql-upload-cjs';
 import { typeDefs } from './schema';
 import { resolvers } from './resolvers';
 import { GraphQLError } from 'graphql';
@@ -76,7 +76,7 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
     ...(config.enableRateLimit ? [rateLimitMiddleware.createAuthMiddleware()] : []),
     // CORS is configured globally in index.ts
     express.json({ limit: '10mb' }),
-    // File upload middleware using graphql-upload
+    // File upload middleware using graphql-upload-cjs (CommonJS compatible)
     graphqlUploadExpress({
       maxFileSize: 10 * 1024 * 1024, // 10MB
       maxFiles: 10
