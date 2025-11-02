@@ -1,5 +1,7 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { Container } from '@shared/container';
+import { IAuditRepository } from '@domain/repositories/IAuditRepository';
+import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { GraphQLErrorHandler, handleResolverError } from './error-handler';
 import { ResponseFactory } from '@shared/factories/ResponseFactory';
 import { Context } from './server';
@@ -25,20 +27,24 @@ import { AuthenticateUserUseCase } from '@application/use-cases/user/Authenticat
 import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUserFavoritesUseCase';
 import { GetUserOrderHistoryUseCase } from '@application/use-cases/user/GetUserOrderHistoryUseCase';
 import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUserPasswordUseCase';
+import { SetUserPasswordUseCase } from '@application/use-cases/user/SetUserPasswordUseCase';
 import { LogoutUserUseCase } from '@application/use-cases/user/LogoutUserUseCase';
 import { RefreshTokenUseCase } from '@application/use-cases/user/RefreshTokenUseCase';
 import { CreateUserAddressUseCase } from '@application/use-cases/user/CreateUserAddressUseCase';
-import { UnauthorizedError, NotFoundError } from '@domain/errors/DomainError';
+import { UnauthorizedError, NotFoundError, ForbiddenError } from '@domain/errors/DomainError';
+import { UserRole } from '@application/auth/AuthService';
 import { UpdateUserAddressUseCase } from '@application/use-cases/user/UpdateUserAddressUseCase';
 import { DeleteUserAddressUseCase } from '@application/use-cases/user/DeleteUserAddressUseCase';
 import { GetUserAddressByIdUseCase } from '@application/use-cases/user/GetUserAddressByIdUseCase';
 import { SetDefaultAddressUseCase } from '@application/use-cases/user/SetDefaultAddressUseCase';
 import { UploadImageUseCase } from '@application/use-cases/image/UploadImageUseCase';
+import { UploadSvgUseCase } from '@application/use-cases/svg/UploadSvgUseCase';
 import { AuthService } from '@application/auth/AuthService';
 import { CreateCategoryUseCase } from '@application/use-cases/category/CreateCategoryUseCase';
 import { UpdateCategoryUseCase } from '@application/use-cases/category/UpdateCategoryUseCase';
 import { DeleteCategoryUseCase } from '@application/use-cases/category/DeleteCategoryUseCase';
 import { transformCategory } from './transformers/categoryTransformer';
+import { transformProduct } from './transformers/productTransformer';
 import { GetCategoriesUseCase } from '@application/use-cases/category/GetCategoriesUseCase';
 import { GetCategoryByIdUseCase } from '@application/use-cases/category/GetCategoryByIdUseCase';
 import { GetCategoryBySlugUseCase } from '@application/use-cases/category/GetCategoryBySlugUseCase';
@@ -47,6 +53,8 @@ import { UpdateUserSessionAnalyticsUseCase } from '@application/use-cases/user/U
 import { GetUserSessionAnalyticsUseCase } from '@application/use-cases/user/GetUserSessionAnalyticsUseCase';
 import { RevokeUserSessionUseCase } from '@application/use-cases/user/RevokeUserSessionUseCase';
 import { RevokeAllUserSessionsUseCase } from '@application/use-cases/user/RevokeAllUserSessionsUseCase';
+import { storageConfig } from '@config/storage';
+import { UrlBuilder } from '@shared/utils/UrlBuilder';
 import { transformUserSessionAnalytics } from './transformers/userSessionAnalyticsTransformer';
 
 // Initialize container
@@ -140,29 +148,7 @@ const transformUserAddress = (address: any) => ({
     .join(', ')
 });
 
-const transformProduct = (product: any) => ({
-  ...product,
-  categoryId: product.categoryId || product.category_id || '',
-  salePrice: product.salePrice || product.sale_price,
-  stockQuantity: product.stockQuantity || parseInt(product.stock_quantity) || 0, // Use existing field first
-  isActive: Boolean(product.isActive !== undefined ? product.isActive : product.is_active), // Use existing field first
-  reviewCount: product.reviewCount || parseInt(product.review_count) || 0, // Use existing field first
-  createdAt: product.createdAt || product.created_at || new Date(),
-  updatedAt: product.updatedAt || product.updated_at || new Date(),
-  // Relations - ensure arrays are never null
-  variants: product.variants || [], // Ensure array is never null
-  cartItems: product.cartItems || [], // Ensure array is never null
-  favorites: product.favorites || [], // Ensure array is never null
-  orderItems: product.orderItems || [], // Ensure array is never null
-  // Computed fields - use the correct values from above
-  currentPrice: product.salePrice || product.sale_price || product.price || 0,
-  hasDiscount: Boolean((product.salePrice || product.sale_price) && product.price && (product.salePrice || product.sale_price) < product.price),
-  discountPercentage: (product.salePrice || product.sale_price) && product.price && product.price > 0 
-    ? Math.round(((product.price - (product.salePrice || product.sale_price)) / product.price) * 100)
-    : 0,
-  totalStock: product.stockQuantity || parseInt(product.stock_quantity) || 0, // Use the corrected stockQuantity
-  isInStock: (product.stockQuantity || parseInt(product.stock_quantity) || 0) > 0, // Use the corrected stockQuantity
-});
+// Remove the old transformProduct function - now using the imported one
 
 const transformOrder = (order: any) => ({
   ...order,
@@ -3088,36 +3074,116 @@ export const resolvers = {
       ];
     },
 
-    userAuditLogs: async (_: any, { userId }: { userId: string }) => {
-      return [
-        {
-          id: 'audit-1',
-          userId: userId,
-          action: 'login',
-          tableName: 'users',
-          recordId: userId,
-          oldValues: null,
-          newValues: { lastLoginAt: new Date() },
-          ipAddress: '192.168.1.1',
-          userAgent: 'Mozilla/5.0...',
-          createdAt: new Date()
-        }
-      ];
+    userAuditLogs: async (_: any, { userId }: { userId: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = context.traceId || `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+
+      try {
+        logger.info('Fetching user audit logs', {
+          userId,
+          operation: 'userAuditLogs'
+        });
+
+        const auditRepository = container.get<IAuditRepository>('auditRepository');
+        const auditLogs = await auditRepository.findByUserId(userId);
+
+        const duration = Date.now() - startTime;
+        
+        logger.info('User audit logs retrieved successfully', {
+          userId,
+          count: auditLogs.length,
+          duration
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            items: auditLogs
+          },
+          'User audit logs retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        logger.error('Failed to fetch user audit logs', error, {
+          userId,
+          duration,
+          errorCode: 'FETCH_AUDIT_LOGS_FAILED'
+        });
+
+        return ResponseFactory.createErrorResponse(
+          error.message || 'Failed to fetch user audit logs',
+          error.code || RESPONSE_CODES.INTERNAL_ERROR,
+          { userId },
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
-    userSecurityEvents: async (_: any, { userId }: { userId: string }) => {
-      return [
-        {
-          id: 'security-1',
-          userId: userId,
-          eventType: 'failed_login',
-          description: 'Failed login attempt',
-          ipAddress: '192.168.1.1',
-          userAgent: 'Mozilla/5.0...',
-          metadata: { reason: 'invalid_password' },
-          createdAt: new Date()
-        }
-      ];
+    userSecurityEvents: async (_: any, { userId }: { userId: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = context.traceId || `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+
+      try {
+        logger.info('Fetching user security events', {
+          userId,
+          operation: 'userSecurityEvents'
+        });
+
+        const securityEventRepository = container.get<ISecurityEventRepository>('securityEventRepository');
+        const securityEvents = await securityEventRepository.findByUserId(userId);
+
+        const duration = Date.now() - startTime;
+        
+        logger.info('User security events retrieved successfully', {
+          userId,
+          count: securityEvents.length,
+          duration
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            items: securityEvents
+          },
+          'User security events retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        logger.error('Failed to fetch user security events', error, {
+          userId,
+          duration,
+          errorCode: 'FETCH_SECURITY_EVENTS_FAILED'
+        });
+
+        return ResponseFactory.createErrorResponse(
+          error.message || 'Failed to fetch user security events',
+          error.code || RESPONSE_CODES.INTERNAL_ERROR,
+          { userId },
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
+      }
     },
 
     storeSettings: async () => {
@@ -4393,59 +4459,294 @@ export const resolvers = {
     },
 
     // Password management mutations
-    updateUserPassword: async (_: any, { input }: { input: any }) => {
+    updateUserPassword: async (_: any, { email, currentPassword, newPassword }: { 
+      email: string; 
+      currentPassword: string; 
+      newPassword: string; 
+    }, context: any) => {
+      const startTime = Date.now();
+      const traceId = context.traceId;
+      const logger = LoggerFactory.getInstance().createLoggerWithContext({
+        module: 'User',
+        operation: 'updateUserPassword',
+        userId: context.user?.id,
+        traceId
+      });
+      
+      logger.info('Starting password update operation', {
+        email,
+        hasCurrentPassword: !!currentPassword,
+        hasNewPassword: !!newPassword
+      });
+      
       try {
         const updatePasswordUseCase = container.get<UpdateUserPasswordUseCase>('updateUserPasswordUseCase');
         await updatePasswordUseCase.execute({
-          userId: input.userId || 'current_user_id', // Would come from context
-          currentPassword: input.currentPassword,
-          newPassword: input.newPassword,
-          confirmPassword: input.confirmPassword
+          email,
+          currentPassword,
+          newPassword,
+          confirmPassword: newPassword, // Using newPassword as confirmation for now
+          ipAddress: context.req?.ip || context.req?.connection?.remoteAddress,
+          userAgent: context.req?.headers?.['user-agent']
         });
 
-        return {
-          success: true,
-          message: 'Password updated successfully'
-        };
+        const duration = Date.now() - startTime;
+        
+        logger.info('Password updated successfully', {
+          email,
+          duration
+        });
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            email,
+            updatedAt: new Date().toISOString()
+          },
+          'Password updated successfully',
+          RESPONSE_CODES.UPDATED,
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
       } catch (error: any) {
-        return {
-          success: false,
-          message: error.message || 'Password update failed'
-        };
+        const duration = Date.now() - startTime;
+        
+        logger.error('Password update failed', error, {
+          email,
+          duration,
+          errorCode: error.code || 'UNKNOWN_ERROR'
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          error.message || 'Password update failed',
+          error.code || RESPONSE_CODES.VALIDATION_ERROR,
+          error.details,
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    requestPasswordReset: async (_: any, { email }: { email: string }) => {
+    requestPasswordReset: async (_: any, { email }: { email: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = context.traceId || `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
       try {
         const updatePasswordUseCase = container.get<UpdateUserPasswordUseCase>('updateUserPasswordUseCase');
         await updatePasswordUseCase.generatePasswordResetToken(email);
 
-        return {
-          success: true,
-          message: 'Password reset email sent'
-        };
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            email,
+            timestamp: new Date().toISOString()
+          },
+          'Password reset email sent successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
       } catch (error: any) {
-        return {
-          success: false,
-          message: error.message || 'Password reset request failed'
-        };
+        const duration = Date.now() - startTime;
+        
+        logger.error('Password reset request failed', error, {
+          email,
+          duration,
+          errorCode: error.code || 'PASSWORD_RESET_REQUEST_FAILED'
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          error.message || 'Password reset request failed',
+          error.code || RESPONSE_CODES.VALIDATION_ERROR,
+          { email },
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
-    resetPassword: async (_: any, { token, newPassword }: { token: string; newPassword: string }) => {
+    resetPassword: async (_: any, { token, newPassword }: { token: string; newPassword: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = context.traceId || `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const logger = LoggerFactory.getInstance().createGraphQLLogger();
+      
       try {
         const updatePasswordUseCase = container.get<UpdateUserPasswordUseCase>('updateUserPasswordUseCase');
         await updatePasswordUseCase.resetPasswordWithToken(token, newPassword);
 
-        return {
-          success: true,
-          message: 'Password reset successfully'
-        };
+        const duration = Date.now() - startTime;
+        
+        return ResponseFactory.createSuccessResponse(
+          {
+            timestamp: new Date().toISOString(),
+            passwordUpdated: true
+          },
+          'Password reset successfully',
+          RESPONSE_CODES.SUCCESS,
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
       } catch (error: any) {
-        return {
-          success: false,
-          message: error.message || 'Password reset failed'
-        };
+        const duration = Date.now() - startTime;
+        
+        logger.error('Password reset failed', error, {
+          tokenLength: token ? token.length : 0,
+          hasNewPassword: !!newPassword,
+          duration,
+          errorCode: error.code || 'PASSWORD_RESET_FAILED'
+        });
+        
+        return ResponseFactory.createErrorResponse(
+          error.message || 'Password reset failed',
+          error.code || RESPONSE_CODES.VALIDATION_ERROR,
+          { 
+            tokenLength: token ? token.length : 0,
+            hasNewPassword: !!newPassword
+          },
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
+      }
+    },
+
+    setUserPassword: async (_: any, { userId, newPassword }: { userId: string; newPassword: string }, context: any) => {
+      const startTime = Date.now();
+      const traceId = context.traceId || `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const logger = LoggerFactory.getInstance().createLoggerWithContext({
+        module: 'User',
+        operation: 'setUserPassword',
+        userId: context.user?.id,
+        traceId
+      });
+
+      try {
+        // 1. Verificar autenticación
+        if (!context.user) {
+          const duration = Date.now() - startTime;
+          logger.warn('SetUserPassword failed: Authentication required', {
+            targetUserId: userId,
+            duration
+          });
+
+          return ResponseFactory.createErrorResponse(
+            'Authentication required',
+            RESPONSE_CODES.AUTHENTICATION_FAILED,
+            { operation: 'setUserPassword' },
+            {
+              requestId: context.requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        // 2. Verificar que el usuario es administrador
+        if (context.user.role !== UserRole.ADMIN) {
+          const duration = Date.now() - startTime;
+          logger.warn('SetUserPassword failed: Insufficient permissions', {
+            adminUserId: context.user.id,
+            adminRole: context.user.role,
+            targetUserId: userId,
+            duration
+          });
+
+          return ResponseFactory.createErrorResponse(
+            'Only administrators can set user passwords',
+            RESPONSE_CODES.INSUFFICIENT_PERMISSIONS,
+            { 
+              operation: 'setUserPassword',
+              requiredRole: UserRole.ADMIN,
+              currentRole: context.user.role
+            },
+            {
+              requestId: context.requestId,
+              traceId,
+              duration
+            }
+          );
+        }
+
+        // 3. Ejecutar caso de uso
+        logger.info('Starting administrative password set operation', {
+          adminUserId: context.user.id,
+          targetUserId: userId,
+          hasNewPassword: !!newPassword
+        });
+
+        const setUserPasswordUseCase = container.get<SetUserPasswordUseCase>('setUserPasswordUseCase');
+        await setUserPasswordUseCase.execute({
+          userId,
+          newPassword,
+          adminUserId: context.user.id,
+          adminEmail: context.user.email,
+          ipAddress: context.req?.ip || context.req?.connection?.remoteAddress,
+          userAgent: context.req?.headers?.['user-agent']
+        });
+
+        const duration = Date.now() - startTime;
+
+        logger.info('Administrative password set completed successfully', {
+          adminUserId: context.user.id,
+          targetUserId: userId,
+          duration
+        });
+
+        return ResponseFactory.createSuccessResponse(
+          {
+            userId,
+            timestamp: new Date().toISOString(),
+            passwordUpdated: true
+          },
+          'User password set successfully by administrator',
+          RESPONSE_CODES.UPDATED,
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+
+        logger.error('Administrative password set failed', error, {
+          adminUserId: context.user?.id,
+          targetUserId: userId,
+          duration,
+          errorCode: error.code || 'SET_USER_PASSWORD_FAILED'
+        });
+
+        return ResponseFactory.createErrorResponse(
+          error.message || 'Failed to set user password',
+          error.code || RESPONSE_CODES.VALIDATION_ERROR,
+          { 
+            userId,
+            hasNewPassword: !!newPassword
+          },
+          {
+            requestId: context.requestId,
+            traceId,
+            duration
+          }
+        );
       }
     },
 
@@ -4790,13 +5091,16 @@ export const resolvers = {
 
         const duration = Date.now() - startTime;
         
+        const fullUrl = UrlBuilder.buildImageUrl(result.url);
+
         logger.info('GraphQL uploadImage mutation completed successfully', {
           operation: 'uploadImage',
           entityType,
           entityId,
           imageId: result.id,
           fileName: result.fileName,
-          url: result.url,
+          relativePath: result.url, // Now contains relative path
+          fullUrl, // Full URL constructed using UrlBuilder
           duration,
           requestId,
           context: 'GraphQLResolver.uploadImage'
@@ -4804,7 +5108,7 @@ export const resolvers = {
 
         return ResponseFactory.createSuccessResponse(
           {
-            url: result.url,
+            url: fullUrl, // Construct full URL using UrlBuilder
             filename: result.fileName || result.url,
             imageId: result.id
           },
@@ -4854,6 +5158,177 @@ export const resolvers = {
             operation: 'uploadImage',
             entityType,
             entityId,
+            error: error.message || 'Unknown error'
+          },
+          { requestId, traceId, duration }
+        );
+      }
+    },
+
+    // SVG upload mutation (independent implementation)
+    uploadSvg: async (_: any, { file, entityType, entityId, optimize = true, sanitize = true }: { 
+      file: any; 
+      entityType: string; 
+      entityId: string; 
+      optimize?: boolean; 
+      sanitize?: boolean; 
+    }, context: any) => {
+      const startTime = Date.now();
+      const traceId = `upload-svg-${Date.now()}-${entityId}`;
+      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+      
+      const logger = LoggerFactory.getInstance().createServiceLogger('GraphQLResolver.uploadSvg');
+      
+      try {
+        // Validate required parameters
+        if (!file) {
+          throw new Error('No SVG file uploaded. Please select a file to upload.');
+        }
+        
+        // Handle GraphQL Upload Promise
+        let resolvedFile;
+        if (file && typeof file.then === 'function') {
+          resolvedFile = await file;
+        } else if (file && file.promise && typeof file.promise.then === 'function') {
+          resolvedFile = await file.promise;
+        } else {
+          resolvedFile = file;
+        }
+        
+        // Extract file information
+        const fileInfo = {
+          filename: resolvedFile?.file?.filename || resolvedFile?.filename || 'unknown',
+          mimetype: resolvedFile?.file?.mimetype || resolvedFile?.mimetype || 'unknown',
+          size: resolvedFile?.file?.size || resolvedFile?.size || 0,
+          encoding: resolvedFile?.file?.encoding || resolvedFile?.encoding || 'unknown'
+        };
+        
+        logger.info('File object structure', {
+          fileKeys: Object.keys(resolvedFile || {}),
+          fileFileKeys: resolvedFile?.file ? Object.keys(resolvedFile.file) : 'no file.file',
+          fileInfo,
+          context: 'GraphQLResolver.uploadSvg.debug'
+        }, traceId);
+        
+        logger.info('GraphQL uploadSvg mutation started', {
+          operation: 'uploadSvg',
+          entityType,
+          entityId,
+          fileName: fileInfo.filename,
+          fileSize: fileInfo.size,
+          mimeType: fileInfo.mimetype,
+          encoding: fileInfo.encoding,
+          optimize,
+          sanitize,
+          requestId,
+          context: 'GraphQLResolver.uploadSvg'
+        }, traceId);
+
+        const uploadSvgUseCase = container.get<UploadSvgUseCase>('uploadSvgUseCase');
+        
+        const result = await uploadSvgUseCase.execute({
+          file: resolvedFile,
+          entityType: entityType as any,
+          entityId,
+          optimize,
+          sanitize
+        });
+
+        const duration = Date.now() - startTime;
+        
+        const fullUrl = UrlBuilder.buildSvgUrl(result.url);
+
+        logger.info('GraphQL uploadSvg mutation completed successfully', {
+          operation: 'uploadSvg',
+          entityType,
+          entityId,
+          svgId: result.id,
+          fileName: result.fileName,
+          relativePath: result.url, // Now contains relative path
+          fullUrl, // Full URL constructed using UrlBuilder
+          dimensions: result.dimensions,
+          viewBox: result.viewBox,
+          optimized: result.optimized,
+          duration,
+          requestId,
+          context: 'GraphQLResolver.uploadSvg'
+        }, traceId);
+
+        return ResponseFactory.createSvgUploadResponse(
+          {
+            url: fullUrl, // Construct full URL using UrlBuilder
+            filename: result.fileName,
+            svgId: result.id,
+            dimensions: result.dimensions,
+            viewBox: result.viewBox,
+            optimized: result.optimized
+          },
+          'SVG uploaded successfully',
+          { requestId, traceId, duration }
+        );
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        
+        // Extract file information for error logging
+        let resolvedFile;
+        if (file && typeof file.then === 'function') {
+          resolvedFile = await file;
+        } else if (file && file.promise && typeof file.promise.then === 'function') {
+          resolvedFile = await file.promise;
+        } else {
+          resolvedFile = file;
+        }
+        const fileInfo = {
+          filename: resolvedFile?.file?.filename || resolvedFile?.filename || 'unknown',
+          mimetype: resolvedFile?.file?.mimetype || resolvedFile?.mimetype || 'unknown',
+          size: resolvedFile?.file?.size || resolvedFile?.size || 0,
+          encoding: resolvedFile?.file?.encoding || resolvedFile?.encoding || 'unknown'
+        };
+        
+        logger.error('GraphQL uploadSvg mutation failed', error, {
+          operation: 'uploadSvg',
+          entityType,
+          entityId,
+          fileName: fileInfo.filename,
+          fileSize: fileInfo.size,
+          mimeType: fileInfo.mimetype,
+          encoding: fileInfo.encoding,
+          optimize,
+          sanitize,
+          error: error.message || 'Unknown error',
+          duration,
+          requestId,
+          context: 'GraphQLResolver.uploadSvg'
+        }, traceId);
+
+        // Determine appropriate error code based on error type
+        let errorCode: string = RESPONSE_CODES.SVG_UPLOAD_ERROR;
+        if (error.message?.includes('Invalid SVG format') || error.message?.includes('Invalid MIME type')) {
+          errorCode = RESPONSE_CODES.INVALID_SVG_FORMAT;
+        } else if (error.message?.includes('SVG content') || error.message?.includes('Invalid XML')) {
+          errorCode = RESPONSE_CODES.INVALID_SVG_CONTENT;
+        } else if (error.message?.includes('File size') || error.message?.includes('too large')) {
+          errorCode = RESPONSE_CODES.SVG_SIZE_EXCEEDED;
+        } else if (error.message?.includes('security') || error.message?.includes('script') || error.message?.includes('javascript')) {
+          errorCode = RESPONSE_CODES.SVG_SECURITY_VIOLATION;
+        } else if (error.message?.includes('validation') || error.message?.includes('required')) {
+          errorCode = RESPONSE_CODES.VALIDATION_ERROR;
+        } else if (error.message?.includes('Failed to upload') || error.message?.includes('storage')) {
+          errorCode = RESPONSE_CODES.SERVICE_UNAVAILABLE;
+        }
+
+        return ResponseFactory.createSvgErrorResponse(
+          error.message || 'Failed to upload SVG',
+          errorCode,
+          {
+            operation: 'uploadSvg',
+            entityType,
+            entityId,
+            fileName: fileInfo.filename,
+            fileSize: fileInfo.size,
+            mimeType: fileInfo.mimetype,
+            optimize,
+            sanitize,
             error: error.message || 'Unknown error'
           },
           { requestId, traceId, duration }

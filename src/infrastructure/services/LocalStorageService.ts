@@ -112,30 +112,28 @@ export class LocalStorageService implements IStorageService {
       // Write file
       await writeFile(filePath, buffer);
 
-      // Return public URL
+      // Return relative path (without baseUrl for flexibility)
       const relativePath = folder 
         ? `${storageConfig.uploadDir}/${folder}/${uniqueFileName}`
         : `${storageConfig.uploadDir}/${uniqueFileName}`;
-        
-      const publicUrl = `${this.baseUrl}/${relativePath}`;
 
       const duration = Date.now() - startTime;
       this.performanceLogger.endTimer(operationId, { 
         success: true,
-        publicUrl,
+        relativePath,
         uniqueFileName
       });
 
       this.logger.info('File upload completed successfully', { 
         fileName, 
         uniqueFileName,
-        publicUrl,
+        relativePath,
         fileSize: buffer.length,
         duration,
         context: 'LocalStorageService.uploadFile'
       });
 
-      return publicUrl;
+      return relativePath;
     } catch (error) {
       const duration = Date.now() - startTime;
       this.performanceLogger.endTimer(operationId, { 
@@ -247,6 +245,16 @@ export class LocalStorageService implements IStorageService {
       : `${storageConfig.uploadDir}/${fileName}`;
       
     return `${this.baseUrl}/${relativePath}`;
+  }
+
+  /**
+   * Constructs a full public URL from a relative path stored in the database
+   * This method provides flexibility for different environments and CDNs
+   */
+  getFullUrlFromRelativePath(relativePath: string): string {
+    // Remove leading slash if present to avoid double slashes
+    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+    return `${this.baseUrl}/${cleanPath}`;
   }
 
   validateFile(fileName: string, mimeType: string, fileSize: number): boolean {

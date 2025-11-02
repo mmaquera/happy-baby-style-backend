@@ -1,80 +1,158 @@
+import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { 
+  ValidationError, 
+  NotFoundError, 
+  UnauthorizedError, 
+  BusinessLogicError 
+} from '@domain/errors/DomainError';
+import { UserValidationService } from '@application/validation/UserValidationService';
+import { IAuthRepository } from '@domain/repositories/IAuthRepository';
+import { IAuditRepository } from '@domain/repositories/IAuditRepository';
+import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
+import { IEmailService } from '@domain/interfaces/IEmailService';
+import { ILogger } from '@domain/interfaces/ILogger';
+import { SecurityEventType, AuditAction } from '@domain/entities/Audit';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+
 export interface UpdateUserPasswordRequest {
-  userId: string;
+  email: string;
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
-}
-
-export interface IUserAuthRepository {
-  verifyPassword(userId: string, password: string): Promise<boolean>;
-  updatePassword(userId: string, newPassword: string): Promise<void>;
-  getUserById(userId: string): Promise<{ id: string; email: string; isActive: boolean } | null>;
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 export class UpdateUserPasswordUseCase {
-  constructor(private authRepository: IUserAuthRepository) {}
+  private userValidationService: UserValidationService;
 
+  constructor(
+    private authRepository: IAuthRepository,
+    private auditRepository: IAuditRepository,
+    private securityEventRepository: ISecurityEventRepository,
+    private emailService: IEmailService,
+    private logger: ILogger
+  ) {
+    this.userValidationService = new UserValidationService();
+  }
+
+  @LoggingDecorator.logUseCase({
+    includeArgs: true,
+    includeResult: false, // Don't log password data
+    includeDuration: true,
+    context: { useCase: 'UpdateUserPassword' }
+  })
   async execute(data: UpdateUserPasswordRequest): Promise<void> {
-    // Validate inputs
-    if (!data.userId) {
-      throw new Error('User ID is required');
-    }
+    // Validate inputs using ValidationService
+    this.validateInputs(data);
 
-    if (!data.currentPassword) {
-      throw new Error('Current password is required');
-    }
-
-    if (!data.newPassword) {
-      throw new Error('New password is required');
-    }
-
-    if (!data.confirmPassword) {
-      throw new Error('Password confirmation is required');
-    }
-
-    // Validate new password
-    if (data.newPassword.length < 8) {
-      throw new Error('New password must be at least 8 characters long');
-    }
-
-    // Check password complexity
-    const hasUpperCase = /[A-Z]/.test(data.newPassword);
-    const hasLowerCase = /[a-z]/.test(data.newPassword);
-    const hasNumbers = /\d/.test(data.newPassword);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(data.newPassword);
-
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
-      throw new Error('New password must contain at least one uppercase letter, one lowercase letter, and one number');
+    // Validate new password using UserValidationService
+    const passwordValidation = this.userValidationService.validatePassword(data.newPassword);
+    if (!passwordValidation.isValid) {
+      throw new ValidationError(
+        `Password validation failed: ${passwordValidation.errors.join(', ')}`,
+        'PASSWORD_VALIDATION_FAILED'
+      );
     }
 
     // Check if passwords match
     if (data.newPassword !== data.confirmPassword) {
-      throw new Error('New password and confirmation do not match');
+      throw new ValidationError('New password and confirmation do not match', 'PASSWORD_MISMATCH');
     }
 
     // Check if new password is different from current
     if (data.currentPassword === data.newPassword) {
-      throw new Error('New password must be different from current password');
+      throw new BusinessLogicError('New password must be different from current password', { code: 'PASSWORD_SAME_AS_CURRENT' });
     }
 
     // Verify user exists and is active
-    const user = await this.authRepository.getUserById(data.userId);
+    const user = await this.authRepository.getUserByEmail(data.email);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundError('User', data.email);
     }
 
     if (!user.isActive) {
-      throw new Error('User account is deactivated');
+      throw new UnauthorizedError('User account is deactivated');
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await this.authRepository.verifyPassword(data.userId, data.currentPassword);
+    const isCurrentPasswordValid = await this.authRepository.verifyPassword(user.id, data.currentPassword);
     if (!isCurrentPasswordValid) {
-      throw new Error('Current password is incorrect');
+      throw new UnauthorizedError('Current password is incorrect');
     }
 
+    // Get current password hash for audit
+    const currentPassword = await this.authRepository.findUserPasswordByUserId(user.id);
+    const oldPasswordHash = currentPassword?.passwordHash;
+
     // Update password
-    await this.authRepository.updatePassword(data.userId, data.newPassword);
+    await this.authRepository.updatePassword(user.id, data.newPassword);
+
+    // Register security event
+    try {
+      await this.securityEventRepository.create({
+        userId: user.id,
+        eventType: SecurityEventType.PASSWORD_CHANGED,
+        description: 'User changed their password',
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+        metadata: {
+          userEmail: data.email,
+          action: 'password_changed_by_user'
+        }
+      });
+      } catch (error) {
+        this.logger.warn('Failed to create security event for password change', {
+          userId: user.id,
+          email: data.email,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      // Register audit log
+      try {
+        await this.auditRepository.create({
+          userId: user.id,
+          action: AuditAction.PASSWORD_UPDATE,
+          tableName: 'user_passwords',
+          recordId: user.id,
+          oldValues: oldPasswordHash ? { passwordHash: '[REDACTED]' } : undefined,
+          newValues: { passwordHash: '[REDACTED]' },
+          ipAddress: data.ipAddress,
+          userAgent: data.userAgent
+        });
+      } catch (error) {
+        this.logger.warn('Failed to create audit log for password change', {
+          userId: user.id,
+          email: data.email,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+  }
+
+  private validateInputs(data: UpdateUserPasswordRequest): void {
+    if (!data.email) {
+      throw new ValidationError('Email is required', 'EMAIL_REQUIRED');
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new ValidationError('Invalid email format', 'INVALID_EMAIL_FORMAT');
+    }
+
+    if (!data.currentPassword) {
+      throw new ValidationError('Current password is required', 'CURRENT_PASSWORD_REQUIRED');
+    }
+
+    if (!data.newPassword) {
+      throw new ValidationError('New password is required', 'NEW_PASSWORD_REQUIRED');
+    }
+
+    if (!data.confirmPassword) {
+      throw new ValidationError('Password confirmation is required', 'CONFIRM_PASSWORD_REQUIRED');
+    }
   }
 
   async validatePasswordStrength(password: string): Promise<{
@@ -147,49 +225,279 @@ export class UpdateUserPasswordUseCase {
   }
 
   async generatePasswordResetToken(email: string): Promise<string> {
-    // This would integrate with Supabase Auth to send password reset email
-    // For now, we'll return a mock token
-    if (!email) {
-      throw new Error('Email is required');
+    const startTime = Date.now();
+    
+    try {
+      // 1. Validar parámetros de entrada
+      if (!email) {
+        throw new ValidationError('Email is required', 'EMAIL_REQUIRED');
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new ValidationError('Invalid email format', 'INVALID_EMAIL_FORMAT');
+      }
+
+      this.logger.info('Starting password reset token generation', { email });
+
+      // 2. Verificar si el usuario existe
+      const user = await this.authRepository.getUserByEmail(email);
+      if (!user) {
+        // Por seguridad, no revelar si el email existe o no
+        this.logger.warn('Password reset requested for non-existent email', { 
+          email,
+          ipAddress: 'unknown', // Se puede pasar desde el contexto
+          userAgent: 'unknown'
+        });
+        
+        // Retornar éxito aunque no exista para no revelar información
+        return 'success';
+      }
+
+      // 3. Generar token JWT seguro
+      const jwtSecret = process.env.JWT_SECRET || 'default-secret-key';
+      const resetToken = jwt.sign(
+        { 
+          userId: user.id, 
+          email, 
+          type: 'password_reset',
+          iat: Math.floor(Date.now() / 1000)
+        },
+        jwtSecret,
+        { expiresIn: '1h' }
+      );
+
+      // 4. Almacenar token en base de datos
+      await this.authRepository.updateUserPassword(user.id, {
+        resetToken,
+        resetExpiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hora
+      });
+
+      // 4.1 Registrar evento de seguridad para solicitud de reset
+      try {
+        await this.securityEventRepository.create({
+          userId: user.id,
+          eventType: SecurityEventType.PASSWORD_RESET_REQUESTED,
+          description: 'User requested password reset',
+          metadata: {
+            userEmail: email,
+            action: 'password_reset_requested'
+          }
+        });
+      } catch (error) {
+        this.logger.warn('Failed to create security event for password reset request', {
+          userId: user.id,
+          email,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      // 5. Enviar email de reseteo
+      try {
+        const resetPasswordUrl = process.env.RESET_PASSWORD_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+        await this.emailService.sendPasswordResetEmail(
+          email, 
+          resetToken, 
+          'Usuario', // Usar nombre genérico ya que getUserByEmail no retorna firstName
+          `${resetPasswordUrl}/reset-password.html?token=${resetToken}`
+        );
+        
+        const duration = Date.now() - startTime;
+        this.logger.info('Password reset email sent successfully', { 
+          email, 
+          userId: user.id,
+          duration,
+          tokenGenerated: true
+        });
+      } catch (emailError) {
+        const duration = Date.now() - startTime;
+        this.logger.error('Failed to send password reset email', emailError as Error, { 
+          email, 
+          userId: user.id,
+          duration,
+          tokenGenerated: true
+        });
+        
+        // No lanzar error aquí para no revelar que el usuario existe
+        // El token ya fue generado y almacenado
+      }
+
+      return 'success';
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      this.logger.error('Password reset token generation failed', error as Error, {
+        email,
+        duration,
+        errorCode: 'PASSWORD_RESET_TOKEN_GENERATION_FAILED'
+      });
+
+      // Re-lanzar errores de validación
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+
+      // Para otros errores, lanzar error genérico
+      throw new BusinessLogicError(
+        'Failed to process password reset request',
+        { email }
+      );
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new Error('Invalid email format');
-    }
-
-    // In real implementation, this would:
-    // 1. Generate a secure reset token
-    // 2. Store it with expiration time
-    // 3. Send email with reset link
-    // 4. Return success status
-
-    return 'mock_reset_token_' + Date.now();
   }
 
   async resetPasswordWithToken(token: string, newPassword: string): Promise<void> {
-    // Validate inputs
-    if (!token) {
-      throw new Error('Reset token is required');
+    const startTime = Date.now();
+    
+    try {
+      // 1. Validar parámetros de entrada
+      if (!token) {
+        throw new ValidationError('Reset token is required', 'TOKEN_REQUIRED');
+      }
+
+      if (!newPassword) {
+        throw new ValidationError('New password is required', 'NEW_PASSWORD_REQUIRED');
+      }
+
+      this.logger.info('Starting password reset with token', { 
+        tokenLength: token.length,
+        hasNewPassword: !!newPassword
+      });
+
+      // 2. Validar fuerza de contraseña
+      const validation = await this.validatePasswordStrength(newPassword);
+      if (!validation.isValid) {
+        throw new ValidationError(
+          `Password is too weak: ${validation.feedback.join(', ')}`, 
+          'PASSWORD_TOO_WEAK'
+        );
+      }
+
+      // 3. Verificar token JWT
+      const jwtSecret = process.env.JWT_SECRET || 'default-secret-key';
+      let payload: any;
+      
+      try {
+        payload = jwt.verify(token, jwtSecret) as any;
+      } catch (jwtError) {
+        this.logger.warn('Invalid JWT token provided for password reset', {
+          error: jwtError instanceof Error ? jwtError.message : 'Unknown JWT error',
+          tokenLength: token.length
+        });
+        throw new ValidationError('Invalid or expired token', 'INVALID_TOKEN');
+      }
+
+      // 4. Verificar tipo de token
+      if (payload.type !== 'password_reset') {
+        this.logger.warn('Invalid token type for password reset', {
+          tokenType: payload.type,
+          userId: payload.userId
+        });
+        throw new ValidationError('Invalid token type', 'INVALID_TOKEN_TYPE');
+      }
+
+      // 5. Verificar token en base de datos
+      const userPassword = await this.authRepository.findUserPasswordByUserId(payload.userId);
+      if (!userPassword?.resetToken || userPassword.resetToken !== token) {
+        this.logger.warn('Token not found in database or mismatch', {
+          userId: payload.userId,
+          hasStoredToken: !!userPassword?.resetToken,
+          tokenMatch: userPassword?.resetToken === token
+        });
+        throw new ValidationError('Invalid or expired token', 'INVALID_TOKEN');
+      }
+
+      // 6. Verificar expiración
+      if (!userPassword.resetExpiresAt || userPassword.resetExpiresAt < new Date()) {
+        this.logger.warn('Expired token used for password reset', {
+          userId: payload.userId,
+          expiresAt: userPassword.resetExpiresAt,
+          currentTime: new Date()
+        });
+        throw new ValidationError('Token has expired', 'TOKEN_EXPIRED');
+      }
+
+      // 7. Obtener contraseña actual para auditoría
+      const oldPasswordHash = userPassword?.passwordHash;
+
+      // 8. Actualizar contraseña
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      
+      await this.authRepository.updateUserPassword(payload.userId, {
+        passwordHash: hashedPassword,
+        resetToken: undefined,
+        resetExpiresAt: undefined
+      });
+
+      // 9. Registrar evento de seguridad
+      try {
+        await this.securityEventRepository.create({
+          userId: payload.userId,
+          eventType: SecurityEventType.PASSWORD_RESET_COMPLETED,
+          description: 'Password reset completed via token',
+          metadata: {
+            userEmail: payload.email,
+            action: 'password_reset_completed',
+            resetMethod: 'token'
+          }
+        });
+      } catch (error) {
+        this.logger.warn('Failed to create security event for password reset completion', {
+          userId: payload.userId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      // 10. Registrar log de auditoría
+      try {
+        await this.auditRepository.create({
+          userId: payload.userId,
+          action: AuditAction.PASSWORD_RESET,
+          tableName: 'user_passwords',
+          recordId: payload.userId,
+          oldValues: oldPasswordHash ? { passwordHash: '[REDACTED]' } : undefined,
+          newValues: { passwordHash: '[REDACTED]' }
+        });
+      } catch (error) {
+        this.logger.warn('Failed to create audit log for password reset', {
+          userId: payload.userId,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      const duration = Date.now() - startTime;
+      
+      this.logger.info('Password reset completed successfully', { 
+        userId: payload.userId,
+        email: payload.email,
+        duration,
+        passwordUpdated: true,
+        tokenInvalidated: true,
+        auditLogged: true,
+        securityEventLogged: true
+      });
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      this.logger.error('Password reset with token failed', error as Error, {
+        tokenLength: token ? token.length : 0,
+        hasNewPassword: !!newPassword,
+        duration,
+        errorCode: 'PASSWORD_RESET_WITH_TOKEN_FAILED'
+      });
+
+      // Re-lanzar errores de validación
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+
+      // Para otros errores, lanzar error genérico
+      throw new BusinessLogicError(
+        'Failed to reset password',
+        { tokenLength: token ? token.length : 0 }
+      );
     }
-
-    if (!newPassword) {
-      throw new Error('New password is required');
-    }
-
-    // Validate password strength
-    const validation = await this.validatePasswordStrength(newPassword);
-    if (!validation.isValid) {
-      throw new Error(`Password is too weak: ${validation.feedback.join(', ')}`);
-    }
-
-    // In real implementation, this would:
-    // 1. Verify token is valid and not expired
-    // 2. Get user ID from token
-    // 3. Update user password
-    // 4. Invalidate the reset token
-
-    // For now, we'll simulate success
-    console.log(`Password reset with token: ${token}`);
   }
 }

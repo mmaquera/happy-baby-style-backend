@@ -36,6 +36,12 @@ export interface IAuthRepository {
   findUserPasswordByUserId(userId: string): Promise<UserPassword | null>;
   updateUserPassword(userId: string, data: Partial<UserPassword>): Promise<UserPassword>;
   deleteUserPassword(userId: string): Promise<void>;
+  
+  // Additional methods for UpdateUserPasswordUseCase
+  verifyPassword(userId: string, password: string): Promise<boolean>;
+  updatePassword(userId: string, newPassword: string): Promise<void>;
+  getUserById(userId: string): Promise<{ id: string; email: string; isActive: boolean } | null>;
+  getUserByEmail(email: string): Promise<{ id: string; email: string; isActive: boolean } | null>;
 
   // Authentication Methods
   authenticateWithEmail(credentials: EmailLoginRequest): Promise<AuthResult>;

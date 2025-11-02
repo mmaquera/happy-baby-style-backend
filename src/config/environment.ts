@@ -29,6 +29,8 @@ export interface EnvironmentConfig {
   port: number;
   nodeEnv: string;
   frontendUrl: string;
+  frontendUrls: string[];
+  resetPasswordUrl: string;
   
   // Database Configuration
   databaseUrl: string;
@@ -70,6 +72,14 @@ export interface EnvironmentConfig {
   logIncludeUserId: boolean;
   logEnableErrorStack: boolean;
   logEnablePerformance: boolean;
+  
+  // Email Configuration
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  smtpFromEmail: string;
   
   // Feature Flags
   enableGraphQLPlayground: boolean;
@@ -139,6 +149,8 @@ class EnvironmentService {
       port: parseInt(process.env.PORT || '3001'),
       nodeEnv: process.env.NODE_ENV || 'development',
       frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+      frontendUrls: process.env.FRONTEND_URLS?.split(',').map(url => url.trim()) || ['http://localhost:3000'],
+      resetPasswordUrl: process.env.RESET_PASSWORD_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
       
       // Database Configuration
       databaseUrl: rawDatabaseUrl,
@@ -181,6 +193,14 @@ class EnvironmentService {
       logEnableErrorStack: process.env.LOG_ENABLE_ERROR_STACK !== 'false',
       logEnablePerformance: process.env.LOG_ENABLE_PERFORMANCE !== 'false',
       
+      // Email Configuration
+      smtpHost: process.env.SMTP_HOST || 'localhost',
+      smtpPort: parseInt(process.env.SMTP_PORT || '587'),
+      smtpSecure: process.env.SMTP_SECURE === 'true',
+      smtpUser: process.env.SMTP_USER || '',
+      smtpPass: process.env.SMTP_PASS || '',
+      smtpFromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'noreply@happybabystyle.com',
+      
       // Feature Flags
       enableGraphQLPlayground: !isProduction,
       enableCors: true,
@@ -205,6 +225,23 @@ class EnvironmentService {
       user: databaseUser,
       password: databasePassword,
       ssl: databaseSsl ? { rejectUnauthorized: false } : false,
+    };
+  }
+
+  public getEmailConfig() {
+    const { smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass, smtpFromEmail, frontendUrl, resetPasswordUrl } = this.config;
+    
+    return {
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass
+      },
+      fromEmail: smtpFromEmail,
+      frontendUrl: frontendUrl,
+      resetPasswordUrl: resetPasswordUrl
     };
   }
 

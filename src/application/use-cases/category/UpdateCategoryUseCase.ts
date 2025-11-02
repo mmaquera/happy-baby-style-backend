@@ -238,9 +238,7 @@ export class UpdateCategoryUseCase {
 
     // Validar URL de imagen si se proporciona
     if (request.imageUrl !== undefined) {
-      this.validateString('imageUrl', request.imageUrl, {
-        pattern: /^https?:\/\/.+/
-      });
+      this.validateImageUrl('imageUrl', request.imageUrl);
     }
 
     // Validar orden de clasificación si se proporciona
@@ -305,6 +303,38 @@ export class UpdateCategoryUseCase {
 
       if (options?.max !== undefined && value > options.max) {
         throw new ValidationError(`Field '${field}' must not exceed ${options.max}`);
+      }
+    }
+  }
+
+  private validateImageUrl(field: string, value: any): void {
+    if (value !== undefined && value !== null) {
+      if (typeof value !== 'string') {
+        throw new ValidationError(`Field '${field}' must be a string`);
+      }
+
+      if (value.trim().length === 0) {
+        throw new ValidationError(`Field '${field}' must not be empty`);
+      }
+
+      const trimmedUrl = value.trim();
+      
+      // Si es una URL absoluta, validar con URL constructor
+      if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+        try {
+          new URL(trimmedUrl);
+        } catch {
+          throw new ValidationError(`Field '${field}' has an invalid format`);
+        }
+      } 
+      // Si es una ruta relativa, validar que tenga formato válido
+      else if (trimmedUrl.startsWith('/')) {
+        // Validar que la ruta relativa tenga formato válido
+        if (!/^\/[a-zA-Z0-9\/\-_\.]+$/.test(trimmedUrl)) {
+          throw new ValidationError(`Field '${field}' has an invalid format`);
+        }
+      } else {
+        throw new ValidationError(`Field '${field}' has an invalid format`);
       }
     }
   }

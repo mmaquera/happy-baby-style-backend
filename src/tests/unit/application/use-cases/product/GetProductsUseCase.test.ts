@@ -95,7 +95,7 @@ describe('GetProductsUseCase', () => {
       // Arrange
       const request: GetProductsRequest = {
         filters: {
-          category: 'cat-1',
+          categoryId: 'cat-1',
           isActive: true,
           minPrice: 20,
           maxPrice: 50,
@@ -205,7 +205,7 @@ describe('GetProductsUseCase', () => {
       // Arrange
       const request: GetProductsRequest = {
         filters: {
-          category: 'cat-1'
+          categoryId: 'cat-1'
         }
         // No pagination provided
       };

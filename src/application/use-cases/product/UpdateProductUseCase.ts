@@ -1,5 +1,6 @@
 import { ProductEntity } from '@domain/entities/Product';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
+import { ValidationError } from '@domain/errors/DomainError';
 
 export interface UpdateProductRequest {
   id: string;
@@ -70,6 +71,11 @@ export class UpdateProductUseCase {
       throw new Error('Review count must be non-negative');
     }
 
+    // Validar imágenes si se proporcionan
+    if (request.images !== undefined) {
+      this.validateImages(request.images);
+    }
+
     const updateData: Partial<ProductEntity> = {
       categoryId: request.categoryId,
       name: request.name,
@@ -87,5 +93,51 @@ export class UpdateProductUseCase {
     };
 
     return await this.productRepository.update(request.id, updateData);
+  }
+
+  private validateImages(images: string[]): void {
+    if (!Array.isArray(images)) {
+      throw new ValidationError('Images must be an array');
+    }
+
+    if (images.length > 10) {
+      throw new ValidationError('Images must not exceed 10 items');
+    }
+
+    images.forEach((image, index) => {
+      this.validateImageUrl(`images[${index}]`, image);
+    });
+  }
+
+  private validateImageUrl(field: string, value: any): void {
+    if (value !== undefined && value !== null) {
+      if (typeof value !== 'string') {
+        throw new ValidationError(`Field '${field}' must be a string`);
+      }
+
+      if (value.trim().length === 0) {
+        throw new ValidationError(`Field '${field}' must not be empty`);
+      }
+
+      const trimmedUrl = value.trim();
+      
+      // Si es una URL absoluta, validar con URL constructor
+      if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+        try {
+          new URL(trimmedUrl);
+        } catch {
+          throw new ValidationError(`Field '${field}' has an invalid format`);
+        }
+      } 
+      // Si es una ruta relativa, validar que tenga formato válido
+      else if (trimmedUrl.startsWith('/')) {
+        // Validar que la ruta relativa tenga formato válido
+        if (!/^\/[a-zA-Z0-9\/\-_\.]+$/.test(trimmedUrl)) {
+          throw new ValidationError(`Field '${field}' has an invalid format`);
+        }
+      } else {
+        throw new ValidationError(`Field '${field}' has an invalid format`);
+      }
+    }
   }
 } 

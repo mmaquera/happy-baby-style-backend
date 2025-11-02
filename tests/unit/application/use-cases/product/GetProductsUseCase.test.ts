@@ -77,7 +77,7 @@ describe('GetProductsUseCase', () => {
       // Arrange
       const request: GetProductsRequest = {
         filters: {
-          category: 'category-1',
+          categoryId: 'category-1',
           isActive: true,
           minPrice: 10,
           maxPrice: 50,

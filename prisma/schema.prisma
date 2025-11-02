@@ -806,6 +806,11 @@ model Image {
   entityType   String?  @map("entity_type")
   entityId     String?  @map("entity_id")
   createdAt    DateTime @default(now()) @map("created_at")
+  
+  // SVG specific fields
+  dimensions   String?  // JSON string for {width, height}
+  viewBox      String?  @map("view_box")
+  optimized    Boolean  @default(false)
 
   @@map("images")
 }

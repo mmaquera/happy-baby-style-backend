@@ -8,6 +8,8 @@ export class FileValidationService implements IFileValidationService {
     'image/png',
     'image/gif',
     'image/webp',
+    'image/svg+xml',
+    'application/svg+xml',
     'application/pdf',
     'text/plain'
   ];
@@ -43,6 +45,8 @@ export class FileValidationService implements IFileValidationService {
       'image/png': '.png',
       'image/gif': '.gif',
       'image/webp': '.webp',
+      'image/svg+xml': '.svg',
+      'application/svg+xml': '.svg',
       'application/pdf': '.pdf',
       'text/plain': '.txt'
     };

@@ -1,11 +1,12 @@
 import { CategoryEntity } from '@domain/entities/Product';
+import { UrlBuilder } from '@shared/utils/UrlBuilder';
 
 export interface GraphQLCategory {
   id: string;
   name: string;
   description?: string;
   slug: string;
-  imageUrl?: string;
+  image?: string;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
@@ -18,7 +19,7 @@ export function transformCategory(category: CategoryEntity): GraphQLCategory {
     name: category.name,
     description: category.description,
     slug: category.slug,
-    imageUrl: category.imageUrl,
+    image: category.imageUrl ? UrlBuilder.buildImageUrl(category.imageUrl) : undefined,
     isActive: category.isActive,
     sortOrder: category.sortOrder,
     createdAt: category.createdAt.toISOString(),

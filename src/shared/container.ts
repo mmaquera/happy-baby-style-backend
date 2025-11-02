@@ -1,5 +1,6 @@
 import { PrismaProductRepository } from '@infrastructure/repositories/PrismaProductRepository';
 import { PrismaImageRepository } from '@infrastructure/repositories/PrismaImageRepository';
+import { PrismaSvgRepository } from '@infrastructure/repositories/PrismaSvgRepository';
 import { PrismaOrderRepository } from '@infrastructure/repositories/PrismaOrderRepository';
 //import { InMemoryUserRepository } from '@infrastructure/repositories/InMemoryUserRepository';
 import { PrismaUserProfileRepository } from '@infrastructure/repositories/PrismaUserProfileRepository';
@@ -8,6 +9,8 @@ import { prisma } from '@infrastructure/database/prisma';
 import { LocalStorageService } from '@infrastructure/services/LocalStorageService';
 import { JwtAuthService } from '@infrastructure/auth/JwtAuthService';
 import { PrismaAuthRepository } from '@infrastructure/repositories/PrismaAuthRepository';
+import { PrismaAuditRepository } from '@infrastructure/repositories/PrismaAuditRepository';
+import { PrismaSecurityEventRepository } from '@infrastructure/repositories/PrismaSecurityEventRepository';
 import { GoogleOAuthService } from '@infrastructure/auth/GoogleOAuthService';
 import { CreateProductUseCase } from '@application/use-cases/product/CreateProductUseCase';
 import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUseCase';
@@ -21,6 +24,7 @@ import { GetCategoryBySlugUseCase } from '@application/use-cases/category/GetCat
 import { UpdateCategoryUseCase } from '@application/use-cases/category/UpdateCategoryUseCase';
 import { DeleteCategoryUseCase } from '@application/use-cases/category/DeleteCategoryUseCase';
 import { UploadImageUseCase } from '@application/use-cases/image/UploadImageUseCase';
+import { UploadSvgUseCase } from '@application/use-cases/svg/UploadSvgUseCase';
 import { CreateOrderUseCase } from '@application/use-cases/order/CreateOrderUseCase';
 import { GetOrdersUseCase } from '@application/use-cases/order/GetOrdersUseCase';
 import { GetOrderByIdUseCase } from '@application/use-cases/order/GetOrderByIdUseCase';
@@ -35,6 +39,7 @@ import { AuthenticateUserUseCase } from '@application/use-cases/user/Authenticat
 import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUserFavoritesUseCase';
 import { GetUserOrderHistoryUseCase } from '@application/use-cases/user/GetUserOrderHistoryUseCase';
 import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUserPasswordUseCase';
+import { SetUserPasswordUseCase } from '@application/use-cases/user/SetUserPasswordUseCase';
 import { LogoutUserUseCase } from '@application/use-cases/user/LogoutUserUseCase';
 import { RefreshTokenUseCase } from '@application/use-cases/user/RefreshTokenUseCase';
 import { CreateUserAddressUseCase } from '@application/use-cases/user/CreateUserAddressUseCase';
@@ -52,10 +57,13 @@ import { RateLimitService } from '@application/services/RateLimitService';
 // Controllers removed - GraphQL only architecture
 import { IProductRepository } from '@domain/repositories/IProductRepository';
 import { IImageRepository } from '@domain/repositories/IImageRepository';
+import { ISvgRepository } from '@domain/repositories/ISvgRepository';
 import { IStorageService } from '@domain/interfaces/IStorageService';
 import { IOrderRepository } from '@domain/repositories/IOrderRepository';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
+import { IAuditRepository } from '@domain/repositories/IAuditRepository';
+import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 // Logging system imports
 import { ILogger } from '@domain/interfaces/ILogger';
@@ -64,6 +72,9 @@ import { WinstonLogger } from '@infrastructure/logging/WinstonLogger';
 import { RequestLogger } from '@infrastructure/logging/RequestLogger';
 import { PerformanceLogger } from '@infrastructure/logging/PerformanceLogger';
 import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { IEmailService } from '@domain/interfaces/IEmailService';
+import { NodemailerEmailService } from '@infrastructure/services/NodemailerEmailService';
+import { environment } from '@config/environment';
 
 export class Container {
   private static instance: Container;
@@ -90,17 +101,24 @@ export class Container {
     // Repositorios Prisma with logging  
     const productRepository: IProductRepository = new PrismaProductRepository(prisma);
     const imageRepository: IImageRepository = new PrismaImageRepository(prisma);
+    const svgRepository: ISvgRepository = new PrismaSvgRepository(prisma);
     const orderRepository: IOrderRepository = new PrismaOrderRepository(prisma);
     const categoryRepository: ICategoryRepository = new PrismaCategoryRepository(prisma);
     // Usar repositorio PostgreSQL real con AWS RDS
     const userRepository: IUserRepository = new PrismaUserProfileRepository(prisma);
     // const userRepository: IUserRepository = new InMemoryUserRepository();
     const authRepository: IAuthRepository = new PrismaAuthRepository(prisma);
+    const auditRepository: IAuditRepository = new PrismaAuditRepository(prisma);
+    const securityEventRepository: ISecurityEventRepository = new PrismaSecurityEventRepository(prisma);
     
     // Servicios
     const storageService: IStorageService = new LocalStorageService();
     const authService = new JwtAuthService(userRepository);
     const googleOAuthService = new GoogleOAuthService();
+    
+    // Email Service
+    const emailConfig = environment.getEmailConfig();
+    const emailService: IEmailService = new NodemailerEmailService(emailConfig, defaultLogger);
     
     // Casos de uso de Productos with logging
     const createProductUseCase = new CreateProductUseCase(productRepository);
@@ -119,6 +137,9 @@ export class Container {
     
     // Casos de uso de Imágenes
     const uploadImageUseCase = new UploadImageUseCase(imageRepository, storageService);
+    
+    // Casos de uso de SVG
+    const uploadSvgUseCase = new UploadSvgUseCase(svgRepository, storageService);
     
     // Casos de uso de Pedidos
     const createOrderUseCase = new CreateOrderUseCase(orderRepository, productRepository);
@@ -151,11 +172,19 @@ export class Container {
         averageOrderValue: 0
       })
     });
-    const updateUserPasswordUseCase = new UpdateUserPasswordUseCase({
-      verifyPassword: async () => false,
-      updatePassword: async () => {},
-      getUserById: async () => null
-    });
+    const updateUserPasswordUseCase = new UpdateUserPasswordUseCase(
+      authRepository, 
+      auditRepository, 
+      securityEventRepository, 
+      emailService, 
+      defaultLogger
+    );
+    const setUserPasswordUseCase = new SetUserPasswordUseCase(
+      authRepository, 
+      auditRepository, 
+      securityEventRepository, 
+      defaultLogger
+    );
     
     // Caso de uso de logout
     const logoutUserUseCase = new LogoutUserUseCase(authRepository, defaultLogger);
@@ -190,13 +219,17 @@ export class Container {
     // Registrar dependencias
     this.dependencies.set('authService', authService);
     this.dependencies.set('authRepository', authRepository);
+    this.dependencies.set('auditRepository', auditRepository);
+    this.dependencies.set('securityEventRepository', securityEventRepository);
     this.dependencies.set('googleOAuthService', googleOAuthService);
     this.dependencies.set('productRepository', productRepository);
     this.dependencies.set('imageRepository', imageRepository);
+    this.dependencies.set('svgRepository', svgRepository);
     this.dependencies.set('orderRepository', orderRepository);
     this.dependencies.set('categoryRepository', categoryRepository);
     this.dependencies.set('userRepository', userRepository);
     this.dependencies.set('storageService', storageService);
+    this.dependencies.set('emailService', emailService);
     
     // Logging dependencies
     this.dependencies.set('loggerFactory', loggerFactory);
@@ -217,6 +250,7 @@ export class Container {
     this.dependencies.set('updateCategoryUseCase', updateCategoryUseCase);
     this.dependencies.set('deleteCategoryUseCase', deleteCategoryUseCase);
     this.dependencies.set('uploadImageUseCase', uploadImageUseCase);
+    this.dependencies.set('uploadSvgUseCase', uploadSvgUseCase);
     this.dependencies.set('createOrderUseCase', createOrderUseCase);
     this.dependencies.set('getOrdersUseCase', getOrdersUseCase);
     this.dependencies.set('getOrderByIdUseCase', getOrderByIdUseCase);
@@ -231,6 +265,7 @@ export class Container {
     this.dependencies.set('manageUserFavoritesUseCase', manageUserFavoritesUseCase);
     this.dependencies.set('getUserOrderHistoryUseCase', getUserOrderHistoryUseCase);
     this.dependencies.set('updateUserPasswordUseCase', updateUserPasswordUseCase);
+    this.dependencies.set('setUserPasswordUseCase', setUserPasswordUseCase);
     this.dependencies.set('createUserAddressUseCase', createUserAddressUseCase);
     this.dependencies.set('updateUserAddressUseCase', updateUserAddressUseCase);
     this.dependencies.set('deleteUserAddressUseCase', deleteUserAddressUseCase);

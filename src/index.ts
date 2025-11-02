@@ -47,8 +47,14 @@ app.use(requestLogger.middleware());
 if (config.enableCors) {
   app.use(cors({
     origin: (origin, callback) => {
-      // Permitir el frontend configurado
+      const allowedOrigins = config.frontendUrls;
+      
+      // Permitir el frontend configurado (compatibilidad con configuración anterior)
       if (origin === config.frontendUrl) {
+        callback(null, true);
+      }
+      // Permitir cualquier URL del array de URLs permitidas
+      else if (origin && allowedOrigins.includes(origin)) {
         callback(null, true);
       }
       // Permitir aplicaciones móviles (sin origen)

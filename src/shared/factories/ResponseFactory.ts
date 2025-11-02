@@ -65,5 +65,40 @@ export class ResponseFactory {
       metadata
     );
   }
+
+  // SVG specific response methods
+  static createSvgUploadResponse(
+    svgData: {
+      url: string;
+      filename: string;
+      svgId: string;
+      dimensions?: { width?: number; height?: number };
+      viewBox?: string;
+      optimized: boolean;
+    },
+    message: string = 'SVG uploaded successfully',
+    metadata?: Partial<ResponseMetadata>
+  ): BaseResponse<typeof svgData> {
+    return this.createSuccessResponse(
+      svgData,
+      message,
+      'SVG_UPLOADED',
+      metadata
+    );
+  }
+
+  static createSvgErrorResponse(
+    message: string,
+    code: string = 'SVG_UPLOAD_ERROR',
+    details?: any,
+    metadata?: Partial<ResponseMetadata>
+  ): BaseResponse<null> {
+    return this.createErrorResponse(
+      message,
+      code,
+      details,
+      metadata
+    );
+  }
 }
 

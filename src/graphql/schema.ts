@@ -819,6 +819,26 @@ export const typeDefs = gql`
     createdAt: DateTime!
   }
 
+  type Svg {
+    id: ID!
+    fileName: String!
+    originalName: String!
+    url: String!
+    path: String
+    entityType: String
+    entityId: String
+    dimensions: SvgDimensions
+    viewBox: String
+    optimized: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type SvgDimensions {
+    width: Float
+    height: Float
+  }
+
   # =====================================================
   # INPUT TYPES
   # =====================================================
@@ -1221,16 +1241,6 @@ export const typeDefs = gql`
     totalPages: Int!
   }
 
-  # Standardized response for currentUser query
-  type GetCurrentUserResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: User
-    metadata: ResponseMetadata
-  }
-
   # Standardized response for usersByProvider query
   type GetUsersByProviderResponse {
     success: Boolean!
@@ -1238,6 +1248,16 @@ export const typeDefs = gql`
     code: String!
     timestamp: String!
     data: [User!]!
+    metadata: ResponseMetadata
+  }
+
+  # Standardized response for currentUser query
+  type GetCurrentUserResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: User
     metadata: ResponseMetadata
   }
 
@@ -1735,6 +1755,77 @@ export const typeDefs = gql`
     refreshToken: String
   }
 
+  # Password Reset Response Types
+  type PasswordResetRequestResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: PasswordResetRequestData
+    metadata: ResponseMetadata
+  }
+
+  type PasswordResetRequestData {
+    email: String!
+    timestamp: String!
+  }
+
+  type PasswordResetConfirmResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: PasswordResetConfirmData
+    metadata: ResponseMetadata
+  }
+
+  type PasswordResetConfirmData {
+    timestamp: String!
+    passwordUpdated: Boolean!
+  }
+
+  type SetUserPasswordResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: SetUserPasswordData
+    metadata: ResponseMetadata
+  }
+
+  type SetUserPasswordData {
+    userId: ID!
+    timestamp: String!
+    passwordUpdated: Boolean!
+  }
+
+  # Audit and Security Response Types
+  type GetUserAuditLogsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GetUserAuditLogsData
+    metadata: ResponseMetadata
+  }
+
+  type GetUserAuditLogsData {
+    items: [AuditLog!]!
+  }
+
+  type GetUserSecurityEventsResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GetUserSecurityEventsData
+    metadata: ResponseMetadata
+  }
+
+  type GetUserSecurityEventsData {
+    items: [SecurityEvent!]!
+  }
+
   type SuccessResponse {
     success: Boolean!
     message: String!
@@ -1753,6 +1844,24 @@ export const typeDefs = gql`
     url: String!
     filename: String!
     imageId: ID!
+  }
+
+  type UploadSvgResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UploadSvgData
+    metadata: ResponseMetadata
+  }
+
+  type UploadSvgData {
+    url: String!
+    filename: String!
+    svgId: ID!
+    dimensions: SvgDimensions
+    viewBox: String
+    optimized: Boolean!
   }
 
   # Analytics Response Types
@@ -1926,8 +2035,8 @@ export const typeDefs = gql`
     # Analytics & Tracking queries
     userAppEvents(userId: ID!): [AppEvent!]!
     productAppEvents(productId: ID!): [AppEvent!]!
-    userAuditLogs(userId: ID!): [AuditLog!]!
-    userSecurityEvents(userId: ID!): [SecurityEvent!]!
+    userAuditLogs(userId: ID!): GetUserAuditLogsResponse!
+    userSecurityEvents(userId: ID!): GetUserSecurityEventsResponse!
     
     # Configuration queries
     storeSettings: [StoreSettings!]!
@@ -1957,9 +2066,10 @@ export const typeDefs = gql`
     deleteUser(id: ID!): SuccessResponse!
     activateUser(id: ID!): User!
     deactivateUser(id: ID!): User!
-    updateUserPassword(userId: ID!, currentPassword: String!, newPassword: String!): SuccessResponse!
-    requestPasswordReset(email: String!): SuccessResponse!
-    resetPassword(token: String!, newPassword: String!): SuccessResponse!
+    updateUserPassword(email: String!, currentPassword: String!, newPassword: String!): SuccessResponse!
+    requestPasswordReset(email: String!): PasswordResetRequestResponse!
+    resetPassword(token: String!, newPassword: String!): PasswordResetConfirmResponse!
+    setUserPassword(userId: ID!, newPassword: String!): SetUserPasswordResponse!
     
     # User session management
     revokeUserSession(sessionId: ID!, userId: ID!, reason: String): RevokeUserSessionResponse!
@@ -2073,6 +2183,9 @@ export const typeDefs = gql`
     
     # Image upload
     uploadImage(file: Upload!, entityType: String!, entityId: String!): UploadImageResponse!
+    
+    # SVG upload
+    uploadSvg(file: Upload!, entityType: String!, entityId: String!, optimize: Boolean, sanitize: Boolean): UploadSvgResponse!
     
     # Bulk operations
     bulkUpdateProducts(updates: [UpdateProductInput!]!): [Product!]!

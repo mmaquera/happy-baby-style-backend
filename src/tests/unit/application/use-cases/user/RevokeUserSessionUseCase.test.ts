@@ -37,7 +37,12 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   updateUserLastLogin: jest.fn(),
   validateSession: jest.fn(),
   refreshUserSession: jest.fn(),
-  logoutUser: jest.fn()
+  logoutUser: jest.fn(),
+  // Additional methods for UpdateUserPasswordUseCase
+  verifyPassword: jest.fn(),
+  updatePassword: jest.fn(),
+  getUserById: jest.fn(),
+  getUserByEmail: jest.fn()
 };
 
 const mockLogger: jest.Mocked<ILogger> = {

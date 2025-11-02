@@ -207,6 +207,49 @@ export class PrismaAuthRepository implements IAuthRepository {
     });
   }
 
+  // Additional methods required by UpdateUserPasswordUseCase
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const userPassword = await this.findUserPasswordByUserId(userId);
+    if (!userPassword) {
+      return false;
+    }
+    
+    return await bcrypt.compare(password, userPassword.passwordHash);
+  }
+
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+    
+    await this.updateUserPassword(userId, { passwordHash });
+  }
+
+  async getUserById(userId: string): Promise<{ id: string; email: string; isActive: boolean } | null> {
+    const user = await this.prisma.userProfile.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        email: true, 
+        isActive: true 
+      }
+    });
+    
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<{ id: string; email: string; isActive: boolean } | null> {
+    const user = await this.prisma.userProfile.findUnique({
+      where: { email },
+      select: { 
+        id: true, 
+        email: true, 
+        isActive: true 
+      }
+    });
+    
+    return user;
+  }
+
   // Authentication Methods
   async authenticateWithEmail(credentials: EmailLoginRequest): Promise<AuthResult> {
     // Find user by email

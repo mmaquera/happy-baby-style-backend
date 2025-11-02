@@ -380,7 +380,7 @@ export class UserValidationService {
     return emailRegex.test(email) && email.length <= 254;
   }
 
-  private validatePassword(password: string): ValidationResult {
+  validatePassword(password: string): ValidationResult {
     const errors: string[] = [];
 
     if (!password) {

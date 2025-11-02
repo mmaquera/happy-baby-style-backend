@@ -146,11 +146,25 @@ export class CreateCategoryUseCase {
         throw new InvalidFormatError('imageUrl', 'non-empty string');
       }
       
-      // Basic URL validation
-      try {
-        new URL(request.imageUrl);
-      } catch {
-        throw new InvalidRangeError('imageUrl', undefined, undefined);
+      // Validar que sea una URL válida (absoluta) o una ruta relativa válida
+      const trimmedUrl = request.imageUrl.trim();
+      
+      // Si es una URL absoluta, validar con URL constructor
+      if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+        try {
+          new URL(trimmedUrl);
+        } catch {
+          throw new InvalidFormatError('imageUrl', 'valid URL format');
+        }
+      } 
+      // Si es una ruta relativa, validar que tenga formato válido
+      else if (trimmedUrl.startsWith('/')) {
+        // Validar que la ruta relativa tenga formato válido
+        if (!/^\/[a-zA-Z0-9\/\-_\.]+$/.test(trimmedUrl)) {
+          throw new InvalidFormatError('imageUrl', 'valid relative path format');
+        }
+      } else {
+        throw new InvalidFormatError('imageUrl', 'valid URL or relative path format');
       }
     }
 
