@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 export interface Category {
   id: string;
   name: string;
@@ -26,7 +28,7 @@ export class CategoryEntity implements Category {
   static create(data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): CategoryEntity {
     const now = new Date();
     return new CategoryEntity(
-      globalThis.crypto.randomUUID(),
+      crypto.randomUUID(),
       data.name,
       data.description,
       data.slug,

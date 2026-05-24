@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -71,7 +73,7 @@ export class ProductEntity implements Product {
   static create(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount'>): ProductEntity {
     const now = new Date();
     return new ProductEntity(
-      globalThis.crypto.randomUUID(),
+      crypto.randomUUID(),
       data.categoryId,
       data.name,
       data.description,
@@ -153,7 +155,7 @@ export class ProductVariantEntity implements ProductVariant {
   static create(data: Omit<ProductVariant, 'id' | 'createdAt' | 'updatedAt'>): ProductVariantEntity {
     const now = new Date();
     return new ProductVariantEntity(
-      globalThis.crypto.randomUUID(),
+      crypto.randomUUID(),
       data.productId,
       data.size,
       data.color,
@@ -202,7 +204,7 @@ export class CategoryEntity implements Category {
   static create(data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): CategoryEntity {
     const now = new Date();
     return new CategoryEntity(
-      globalThis.crypto.randomUUID(),
+      crypto.randomUUID(),
       data.name,
       data.description,
       data.slug,

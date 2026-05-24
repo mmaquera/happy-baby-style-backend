@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 export interface Image {
   id: string;
   fileName: string;
