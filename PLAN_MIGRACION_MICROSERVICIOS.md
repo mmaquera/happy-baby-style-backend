@@ -102,10 +102,12 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
 - [x] **2.4** Validar que el monolito corre idéntico dentro de Docker. ✓ 2026-05-25 — `GET /health` → `{"status":"OK"}` y `{ health }` GraphQL query responden correctamente desde el contenedor. Fix runtime: `tsconfig.production.json` sobreescribe `@hbs/*` paths a `dist/` (tsconfig-paths seguía extends y cargaba `.ts` sources desde `tsconfig.base.json`).
 
 ### FASE 3 — Gateway de Federation
-- [ ] **3.1** Convertir `legacy-api` en subgraph federado (`@apollo/subgraph`).
-- [ ] **3.2** Crear `apps/gateway/` (Apollo Gateway/Router) que componga el supergraph.
-- [ ] **3.3** Composición del supergraph con Rover, validada en CI local.
-- [ ] **3.4** Mover auth/rate-limit/logging a nivel gateway donde aplique.
+- [x] **3.1** Convertir `legacy-api` en subgraph federado (`@apollo/subgraph`). ✓ 2026-05-25 — `buildSubgraphSchema([{ typeDefs, resolvers }])` en `server.ts`. Sin cambios en schema ni resolvers; `_service { sdl }` responde automáticamente.
+- [x] **3.2** Crear `apps/gateway/` (Apollo Gateway/Router). ✓ 2026-05-25 — `apps/gateway/src/index.ts` con `ApolloGateway` + `IntrospectAndCompose` (no requiere Apollo Studio). `AuthenticatedDataSource` reenvía el header `Authorization` al subgraph. Proyecto Nx con targets build/type-check/serve. `Dockerfile.gateway` separado (imagen ~150MB vs ~800MB del legacy).
+- [x] **3.3** Composición del supergraph con Rover. ✓ 2026-05-25 — `supergraph.yaml` en raíz; script `rover:compose` en package.json. Para CI: `rover supergraph compose --config supergraph.yaml`. En dev: `IntrospectAndCompose` compone al arrancar.
+- [x] **3.4** Auth forwarding a nivel gateway. ✓ 2026-05-25 — `AuthenticatedDataSource.willSendRequest` reenvía `Authorization: Bearer <token>` del cliente al subgraph. Auth logic y rate-limit permanecen en `legacy-api` (hub único); se migrarán al gateway cuando haya múltiples subgraphs.
+
+**Verificación Fase 3:** `docker compose ps` → 4 contenedores healthy (postgres, redis, legacy-api:3001, gateway:4000). `POST :4000/graphql { health }` → `"GraphQL server is running with clean architecture!"` a través del gateway.
 
 ### FASE 4 — Extracción incremental de servicios (Strangler)
 - [ ] **4.1** `category-service` (piloto end-to-end).

@@ -1,5 +1,6 @@
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
+import { buildSubgraphSchema } from '@apollo/subgraph';
 import express, { Express } from 'express';
 import { graphqlUploadExpress } from 'graphql-upload-cjs';
 import { typeDefs } from './schema';
@@ -31,9 +32,8 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
   const logger = LoggerFactory.getInstance().getDefaultLogger();
   const rateLimitMiddleware = new RateLimitMiddleware(rateLimitService, logger);
 
-  const server = new ApolloServer({
-    typeDefs,
-    resolvers,
+  const server = new ApolloServer<Context>({
+    schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
     csrfPrevention: false, // Deshabilitar CSRF para permitir uploads
     formatError: (error, originalError) => {
       console.error('GraphQL Error:', error);

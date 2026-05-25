@@ -1,0 +1,7 @@
+federation_version: =2.0.0
+
+subgraphs:
+  legacy:
+    routing_url: http://legacy-api:3001/graphql
+    schema:
+      subgraph_url: http://localhost:3001/graphql
