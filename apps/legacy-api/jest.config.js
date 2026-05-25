@@ -22,7 +22,8 @@ module.exports = {
     '^@config/(.*)$': '<rootDir>/src/config/$1',
     '^@hbs/shared-kernel$': '<rootDir>/../../libs/shared-kernel/src/index',
     '^@hbs/logging$': '<rootDir>/../../libs/logging/src/index',
-    '^@hbs/prisma$': '<rootDir>/../../libs/prisma/src/index'
+    '^@hbs/prisma$': '<rootDir>/../../libs/prisma/src/index',
+    '^@hbs/auth$': '<rootDir>/../../libs/auth/src/index'
   },
   collectCoverageFrom: [
     'src/**/*.ts',

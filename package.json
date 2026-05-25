@@ -65,6 +65,7 @@
   },
   "dependencies": {
     "@apollo/server": "^4.11.2",
+    "@hbs/auth": "workspace:*",
     "@hbs/logging": "workspace:*",
     "@hbs/prisma": "workspace:*",
     "@hbs/shared-kernel": "workspace:*",
