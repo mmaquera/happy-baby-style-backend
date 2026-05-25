@@ -3,7 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "apps/legacy-api/src",
-  "implicitDependencies": ["shared-kernel", "logging"],
+  "implicitDependencies": ["shared-kernel", "logging", "prisma"],
   "targets": {
     "build": {
       "executor": "nx:run-commands",

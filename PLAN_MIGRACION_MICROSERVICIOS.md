@@ -92,7 +92,7 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - [x] `libs/shared-kernel` (`@hbs/shared-kernel`): BaseResponse, ResponseCodes, ResponseFactory. ✓ 2026-05-25. Imports del app actualizados (alias `@shared/*` y relativos `../../shared/*`); mapper de jest → fuente. Verificado: `nx build/type-check/lint legacy-api` verdes, test afectado pasa. **`UrlBuilder` NO se movió**: depende de `@config/storage` (config del app) → requiere desacople antes de extraerlo.
   - [x] `libs/logging` (`@hbs/logging`): Winston wrapper (LoggerConfig, LoggerFactory, LoggingDecorator, PerformanceLogger, RequestLogger, WinstonLogger) + el contrato `ILogger` (movido desde `domain/interfaces`). ✓ 2026-05-25. ~56 archivos actualizados (`@infrastructure/logging/*`, `@domain/interfaces/ILogger` y rutas relativas → `@hbs/logging`). `WinstonLogger` desacoplado de `DomainError` (chequeo estructural en vez de `instanceof`). Verificado: `nx build/type-check/lint legacy-api` verdes, test afectado pasa.
   - [ ] `libs/auth` (utilidades JWT).
-  - [ ] `libs/prisma` (PrismaService + mover schema desde la raíz).
+  - [x] `libs/prisma` (`@hbs/prisma`): PrismaService + schema.prisma + migrations movidos desde raíz. ✓ 2026-05-24. `prisma.config.ts` en raíz configura la nueva ruta; `PrismaService` desacoplado de `environment` (usa `process.env` directo); app re-exporta desde thin wrapper en `@infrastructure/database/prisma`. Verificado: `nx build legacy-api`, `type-check` y `prisma migrate status` en verde.
 - [ ] **1.4** Configurar `tsconfig` paths y validar `nx graph`.
 
 ### FASE 2 — Contenerización (Docker Compose)

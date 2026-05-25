@@ -14,6 +14,9 @@ importers:
       '@hbs/logging':
         specifier: workspace:*
         version: link:libs/logging
+      '@hbs/prisma':
+        specifier: workspace:*
+        version: link:libs/prisma
       '@hbs/shared-kernel':
         specifier: workspace:*
         version: link:libs/shared-kernel
@@ -203,6 +206,8 @@ importers:
         version: 8.59.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
   libs/logging: {}
+
+  libs/prisma: {}
 
   libs/shared-kernel: {}
 

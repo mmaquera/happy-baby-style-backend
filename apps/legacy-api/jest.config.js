@@ -21,7 +21,8 @@ module.exports = {
     '^@graphql/(.*)$': '<rootDir>/src/graphql/$1',
     '^@config/(.*)$': '<rootDir>/src/config/$1',
     '^@hbs/shared-kernel$': '<rootDir>/../../libs/shared-kernel/src/index',
-    '^@hbs/logging$': '<rootDir>/../../libs/logging/src/index'
+    '^@hbs/logging$': '<rootDir>/../../libs/logging/src/index',
+    '^@hbs/prisma$': '<rootDir>/../../libs/prisma/src/index'
   },
   collectCoverageFrom: [
     'src/**/*.ts',
