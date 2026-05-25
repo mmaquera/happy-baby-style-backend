@@ -1,9 +1,9 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { IAuthRepository } from '../../../domain/repositories/IAuthRepository';
-import { ILogger } from '../../../domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { User } from '../../../domain/entities/User';
 import { UserSession } from '../../../domain/entities/Auth';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { LoggingDecorator } from '@hbs/logging';
 import { ValidationError, NotFoundError, UnauthorizedError } from '../../../domain/errors/DomainError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';

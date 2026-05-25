@@ -1,6 +1,6 @@
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { LoggerFactory } from '@hbs/logging';
+import { ILogger } from '@hbs/logging';
 import { NotFoundError, BusinessLogicError } from '@domain/errors/DomainError';
 
 export interface DeleteCategoryRequest {

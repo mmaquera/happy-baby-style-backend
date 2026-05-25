@@ -1,6 +1,6 @@
 import { RateLimitService } from '@application/services/RateLimitService';
 import { IRateLimitService, RateLimitStatus, RateLimitConfig } from '@domain/interfaces/IRateLimitService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { RateLimitConfigService } from '../../../../config/rateLimitConfig';
 
 describe('RateLimitService', () => {

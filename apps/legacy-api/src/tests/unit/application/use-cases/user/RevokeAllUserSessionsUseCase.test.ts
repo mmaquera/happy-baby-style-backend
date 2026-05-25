@@ -1,6 +1,6 @@
 import { RevokeAllUserSessionsUseCase } from '@application/use-cases/user/RevokeAllUserSessionsUseCase';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { UserSession } from '@domain/entities/Auth';
 import { ValidationError } from '@domain/errors/DomainError';
 

@@ -2,7 +2,7 @@ import request from 'supertest';
 import express from 'express';
 import { RateLimitMiddleware } from '@presentation/middleware/RateLimitMiddleware';
 import { RateLimitService } from '@application/services/RateLimitService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { ResponseFactory } from '@hbs/shared-kernel';
 
 describe('RateLimitMiddleware Integration Tests', () => {

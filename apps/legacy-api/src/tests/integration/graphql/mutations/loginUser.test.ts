@@ -1,6 +1,6 @@
 import { Container } from '@shared/container';
 import { AuthenticateUserUseCase } from '@application/use-cases/user/AuthenticateUserUseCase';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { User, UserRole } from '@domain/entities/User';
 import { UserSession } from '@domain/entities/Auth';

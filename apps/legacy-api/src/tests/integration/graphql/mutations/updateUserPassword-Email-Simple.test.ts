@@ -3,12 +3,12 @@ import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { IEmailService } from '@domain/interfaces/IEmailService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { ResponseFactory } from '@hbs/shared-kernel';
 import { RESPONSE_CODES } from '@hbs/shared-kernel';
 
 // Mock the LoggingDecorator to avoid issues in tests
-jest.mock('@infrastructure/logging/LoggingDecorator', () => ({
+jest.mock('@hbs/logging', () => ({
   LoggingDecorator: {
     logUseCase: () => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
       return descriptor; // Return the original descriptor without modification

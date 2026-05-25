@@ -1,10 +1,10 @@
 import { SvgEntity, SvgEntityType } from '@domain/entities/Svg';
 import { ISvgRepository } from '@domain/repositories/ISvgRepository';
 import { IStorageService } from '@domain/interfaces/IStorageService';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
-import { PerformanceLogger } from '@infrastructure/logging/PerformanceLogger';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { LoggingDecorator } from '@hbs/logging';
+import { PerformanceLogger } from '@hbs/logging';
 import { SvgValidationService } from '@application/validation/SvgValidationService';
 import { ValidationError, RequiredFieldError, InvalidFormatError } from '@domain/errors/DomainError';
 import { storageConfig } from '@config/storage';

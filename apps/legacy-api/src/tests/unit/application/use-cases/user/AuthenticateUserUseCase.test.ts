@@ -1,7 +1,7 @@
 import { AuthenticateUserUseCase, AuthenticateUserRequest, AuthenticateUserResponse } from '@application/use-cases/user/AuthenticateUserUseCase';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { User, UserRole } from '@domain/entities/User';
 import { UserSession } from '@domain/entities/Auth';
 import { ValidationError, NotFoundError, UnauthorizedError } from '@domain/errors/DomainError';

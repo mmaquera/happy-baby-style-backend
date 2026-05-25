@@ -1,4 +1,4 @@
-import { LogLevel } from '@domain/interfaces/ILogger';
+import { LogLevel } from './ILogger';
 
 /**
  * Configuration for the logging system

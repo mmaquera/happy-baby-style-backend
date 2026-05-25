@@ -1,8 +1,8 @@
 import { ICategoryRepository, CategoryFilters } from '@domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '@domain/entities/Product';
 import { PrismaClient } from '@prisma/client';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
 
 export class PrismaCategoryRepository implements ICategoryRepository {
   private readonly logger: ILogger;

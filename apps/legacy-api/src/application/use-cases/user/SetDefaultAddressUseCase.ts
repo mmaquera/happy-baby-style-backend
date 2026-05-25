@@ -1,6 +1,6 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
-import { ILogger } from '../../../domain/interfaces/ILogger';
-import { LoggerFactory } from '../../../infrastructure/logging/LoggerFactory';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
 import { DomainError, ValidationError, NotFoundError, InfrastructureError } from '../../../domain/errors/DomainError';
 
 export class SetDefaultAddressUseCase {

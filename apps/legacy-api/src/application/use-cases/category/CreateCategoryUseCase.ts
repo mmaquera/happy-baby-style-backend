@@ -9,9 +9,9 @@ import {
   DatabaseError,
   ValidationError 
 } from '@domain/errors/DomainError';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { LoggingDecorator } from '@hbs/logging';
 
 export interface CreateCategoryRequest {
   name: string;

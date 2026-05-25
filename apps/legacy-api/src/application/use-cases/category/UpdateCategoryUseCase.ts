@@ -1,11 +1,11 @@
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '@domain/entities/Category';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { LoggerFactory } from '@hbs/logging';
+import { ILogger } from '@hbs/logging';
 import { NotFoundError, DuplicateError, ValidationError } from '@domain/errors/DomainError';
 import { ResponseFactory } from '@hbs/shared-kernel';
 import { RESPONSE_CODES } from '@hbs/shared-kernel';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { LoggingDecorator } from '@hbs/logging';
 
 export interface UpdateCategoryRequest {
   id: string;

@@ -66,12 +66,12 @@ import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 // Logging system imports
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { WinstonLogger } from '@infrastructure/logging/WinstonLogger';
-import { RequestLogger } from '@infrastructure/logging/RequestLogger';
-import { PerformanceLogger } from '@infrastructure/logging/PerformanceLogger';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { WinstonLogger } from '@hbs/logging';
+import { RequestLogger } from '@hbs/logging';
+import { PerformanceLogger } from '@hbs/logging';
+import { LoggingDecorator } from '@hbs/logging';
 import { IEmailService } from '@domain/interfaces/IEmailService';
 import { NodemailerEmailService } from '@infrastructure/services/NodemailerEmailService';
 import { environment } from '@config/environment';

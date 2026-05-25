@@ -1,4 +1,4 @@
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from './ILogger';
 import { WinstonLogger } from './WinstonLogger';
 import { LoggerConfigManager } from './LoggerConfig';
 

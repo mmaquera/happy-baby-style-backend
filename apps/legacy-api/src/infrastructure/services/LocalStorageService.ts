@@ -8,9 +8,9 @@ import {
   StorageConfigurationError
 } from '../../domain/errors/StorageError';
 import { storageConfig } from '../../config/storage';
-import { ILogger } from '../../domain/interfaces/ILogger';
-import { LoggerFactory } from '../logging/LoggerFactory';
-import { PerformanceLogger } from '../logging/PerformanceLogger';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { PerformanceLogger } from '@hbs/logging';
 import { BaseResponse } from '@hbs/shared-kernel';
 import { ResponseFactory } from '@hbs/shared-kernel';
 import { RESPONSE_CODES } from '@hbs/shared-kernel';

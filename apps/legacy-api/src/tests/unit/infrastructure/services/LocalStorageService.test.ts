@@ -1,5 +1,5 @@
 import { LocalStorageService } from '../../../../infrastructure/services/LocalStorageService';
-import { ILogger } from '../../../../domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { IFileValidationService } from '../../../../domain/interfaces/IFileValidationService';
 import { FileValidationError } from '../../../../domain/errors/StorageError';
 

@@ -1,7 +1,7 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { CreateUserRequest, User } from '../../../domain/entities/User';
 import { UserValidationService, UserRegistrationData } from '../../validation/UserValidationService';
-import { LoggerFactory } from '../../../infrastructure/logging/LoggerFactory';
+import { LoggerFactory } from '@hbs/logging';
 
 export class CreateUserUseCase {
   private logger = LoggerFactory.create('CreateUserUseCase');

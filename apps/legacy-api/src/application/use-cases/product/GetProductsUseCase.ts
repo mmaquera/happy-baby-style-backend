@@ -1,8 +1,8 @@
 import { ProductEntity } from '@domain/entities/Product';
 import { IProductRepository, ProductFilters } from '@domain/repositories/IProductRepository';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { LoggingDecorator } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { ILogger } from '@hbs/logging';
 
 export interface GetProductsRequest {
   filters?: {

@@ -1,6 +1,6 @@
 import { SessionService, SessionValidationResult, SessionRefreshResult } from '@application/auth/SessionService';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { ValidationError, UnauthorizedError } from '@domain/errors/DomainError';
 
 describe('SessionService', () => {

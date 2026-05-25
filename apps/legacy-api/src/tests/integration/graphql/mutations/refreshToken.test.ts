@@ -1,7 +1,7 @@
 import { Container } from '@shared/container';
 import { RefreshTokenUseCase, RefreshTokenResponse } from '@application/use-cases/user/RefreshTokenUseCase';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { AuthResult, AuthProvider } from '@domain/entities/Auth';
 import { UserRole } from '@domain/entities/User';
 import { ValidationError, NotFoundError, UnauthorizedError, InfrastructureError } from '@domain/errors/DomainError';

@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { SvgEntity, SvgEntityType } from '@domain/entities/Svg';
 import { ISvgRepository } from '@domain/repositories/ISvgRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { PerformanceLogger } from '@infrastructure/logging/PerformanceLogger';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { PerformanceLogger } from '@hbs/logging';
 
 export class PrismaSvgRepository implements ISvgRepository {
   private readonly logger: ILogger;

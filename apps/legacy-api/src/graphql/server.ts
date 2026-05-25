@@ -27,7 +27,7 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
   const { Container } = await import('@shared/container');
   const container = Container.getInstance();
   const rateLimitService = container.get<IRateLimitService>('rateLimitService');
-  const { LoggerFactory } = await import('@infrastructure/logging/LoggerFactory');
+  const { LoggerFactory } = await import('@hbs/logging');
   const logger = LoggerFactory.getInstance().getDefaultLogger();
   const rateLimitMiddleware = new RateLimitMiddleware(rateLimitService, logger);
 

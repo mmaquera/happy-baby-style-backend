@@ -1,8 +1,8 @@
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { UserSessionAnalytics, CreateUserSessionAnalyticsRequest } from '@domain/entities/Auth';
 import { ValidationError } from '@domain/errors/DomainError';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { LoggingDecorator } from '@hbs/logging';
 
 export interface CreateUserSessionAnalyticsResponse {
   analytics: UserSessionAnalytics;

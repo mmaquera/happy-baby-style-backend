@@ -1,8 +1,7 @@
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import { ILogger, LogLevel, LogContext } from '@domain/interfaces/ILogger';
+import { ILogger, LogLevel, LogContext } from './ILogger';
 import { LoggerConfigManager } from './LoggerConfig';
-import { DomainError } from '@domain/errors/DomainError';
 
 /**
  * Winston-based logger implementation
@@ -171,11 +170,12 @@ export class WinstonLogger implements ILogger {
       errorInfo.stack = error.stack;
     }
 
-    // Handle domain errors
-    if (error instanceof DomainError) {
-      errorInfo.code = error.code;
-      errorInfo.statusCode = error.statusCode;
-      errorInfo.details = error.details;
+    // Handle domain errors structurally (avoids coupling to the app's DomainError)
+    const anyErr = error as any;
+    if (anyErr.code !== undefined && anyErr.statusCode !== undefined) {
+      errorInfo.code = anyErr.code;
+      errorInfo.statusCode = anyErr.statusCode;
+      errorInfo.details = anyErr.details;
     }
 
     return errorInfo;

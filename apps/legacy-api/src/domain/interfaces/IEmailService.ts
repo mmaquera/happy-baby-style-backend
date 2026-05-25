@@ -1,4 +1,4 @@
-import { ILogger } from './ILogger';
+import { ILogger } from '@hbs/logging';
 
 /**
  * Interface para el servicio de envío de emails

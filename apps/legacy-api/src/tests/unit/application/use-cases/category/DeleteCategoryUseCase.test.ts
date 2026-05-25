@@ -17,7 +17,7 @@ const mockCategoryRepository: jest.Mocked<ICategoryRepository> = {
 };
 
 // Mock del logger
-jest.mock('@infrastructure/logging/LoggerFactory', () => ({
+jest.mock('@hbs/logging', () => ({
   LoggerFactory: {
     getInstance: () => ({
       createUseCaseLogger: () => ({

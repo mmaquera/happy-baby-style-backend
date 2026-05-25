@@ -1,7 +1,7 @@
 import { IRateLimitService, RateLimitStatus, RateLimitConfig, RateLimitEvent, RateLimitEventType } from '@domain/interfaces/IRateLimitService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { RateLimitConfigService } from '../../config/rateLimitConfig';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { LoggingDecorator } from '@hbs/logging';
 import { ValidationError } from '@domain/errors/DomainError';
 
 /**

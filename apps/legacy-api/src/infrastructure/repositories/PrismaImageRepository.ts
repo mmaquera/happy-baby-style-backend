@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { IImageRepository, ImageFilters } from '@domain/repositories/IImageRepository';
 import { ImageEntity, ImageEntityType } from '@domain/entities/Image';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
 
 export class PrismaImageRepository implements IImageRepository {
   private readonly logger: ILogger;

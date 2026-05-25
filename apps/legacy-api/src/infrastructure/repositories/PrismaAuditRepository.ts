@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { AuditLog, CreateAuditLogRequest } from '@domain/entities/Audit';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
 
 /**
  * Repositorio de infraestructura para logs de auditoría usando Prisma

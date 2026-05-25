@@ -1,4 +1,4 @@
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
+import { LoggingDecorator } from '@hbs/logging';
 import { 
   ValidationError, 
   NotFoundError, 
@@ -10,7 +10,7 @@ import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { IEmailService } from '@domain/interfaces/IEmailService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { SecurityEventType, AuditAction } from '@domain/entities/Audit';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';

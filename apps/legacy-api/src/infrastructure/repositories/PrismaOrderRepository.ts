@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { IOrderRepository, OrderFilters, OrderStats } from '@domain/repositories/IOrderRepository';
 import { Order, CreateOrderRequest, UpdateOrderRequest, OrderItem, ShippingAddress, OrderStatus } from '@domain/entities/Order';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
 
 export class PrismaOrderRepository implements IOrderRepository {
   private readonly logger: ILogger;

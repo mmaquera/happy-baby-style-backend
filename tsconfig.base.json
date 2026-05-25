@@ -2,7 +2,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@hbs/shared-kernel": ["libs/shared-kernel/src/index.ts"]
+      "@hbs/shared-kernel": ["libs/shared-kernel/src/index.ts"],
+      "@hbs/logging": ["libs/logging/src/index.ts"]
     }
   }
 }

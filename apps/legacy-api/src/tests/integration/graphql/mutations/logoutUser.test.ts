@@ -1,7 +1,7 @@
 import { Container } from '@shared/container';
 import { LogoutUserUseCase } from '@application/use-cases/user/LogoutUserUseCase';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 
 // Mock del container
 jest.mock('@shared/container');

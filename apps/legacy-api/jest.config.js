@@ -20,7 +20,8 @@ module.exports = {
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
     '^@graphql/(.*)$': '<rootDir>/src/graphql/$1',
     '^@config/(.*)$': '<rootDir>/src/config/$1',
-    '^@hbs/shared-kernel$': '<rootDir>/../../libs/shared-kernel/src/index'
+    '^@hbs/shared-kernel$': '<rootDir>/../../libs/shared-kernel/src/index',
+    '^@hbs/logging$': '<rootDir>/../../libs/logging/src/index'
   },
   collectCoverageFrom: [
     'src/**/*.ts',

@@ -1,10 +1,10 @@
 import { ImageEntity, ImageEntityType } from '@domain/entities/Image';
 import { IImageRepository } from '@domain/repositories/IImageRepository';
 import { IStorageService } from '@domain/interfaces/IStorageService';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
-import { PerformanceLogger } from '@infrastructure/logging/PerformanceLogger';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { LoggingDecorator } from '@hbs/logging';
+import { PerformanceLogger } from '@hbs/logging';
 import { Multer } from 'multer';
 
 export interface UploadImageRequest {

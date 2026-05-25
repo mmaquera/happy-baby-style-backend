@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { IRateLimitService } from '@domain/interfaces/IRateLimitService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { ResponseFactory } from '@hbs/shared-kernel';
 import { RESPONSE_CODES } from '@hbs/shared-kernel';
 

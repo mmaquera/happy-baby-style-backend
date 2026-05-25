@@ -1,7 +1,7 @@
 import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUserPasswordUseCase';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IEmailService } from '@domain/interfaces/IEmailService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { 
   ValidationError, 
   NotFoundError, 
@@ -10,7 +10,7 @@ import {
 } from '@domain/errors/DomainError';
 
 // Mock the LoggingDecorator to avoid issues in tests
-jest.mock('@infrastructure/logging/LoggingDecorator', () => ({
+jest.mock('@hbs/logging', () => ({
   LoggingDecorator: {
     logUseCase: () => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
       return descriptor; // Return the original descriptor without modification

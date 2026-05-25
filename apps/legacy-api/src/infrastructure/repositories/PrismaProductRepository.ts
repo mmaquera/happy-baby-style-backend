@@ -2,8 +2,8 @@ import { PrismaClient, Product, ProductVariant, Prisma } from '@prisma/client';
 import { IProductRepository, ProductFilters } from '@domain/repositories/IProductRepository';
 import { ProductEntity, ProductVariantEntity } from '@domain/entities/Product';
 import { DomainError } from '../../domain/errors/DomainError';
-import { ILogger } from '../../domain/interfaces/ILogger';
-import { LoggerFactory } from '../../infrastructure/logging/LoggerFactory';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
 
 export class PrismaProductRepository implements IProductRepository {
   private readonly logger: ILogger;

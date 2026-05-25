@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from './ILogger';
 import { LoggerFactory } from './LoggerFactory';
 import { PerformanceLogger } from './PerformanceLogger';
 

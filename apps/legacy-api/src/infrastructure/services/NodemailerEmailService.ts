@@ -1,6 +1,6 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { IEmailService, EmailServiceConfig, EmailSendResult } from '@domain/interfaces/IEmailService';
-import { ILogger } from '@domain/interfaces/ILogger';
+import { ILogger } from '@hbs/logging';
 import { EmailTemplates } from './EmailTemplates';
 import { DomainError } from '@domain/errors/DomainError';
 

@@ -1,9 +1,9 @@
 import { ProductEntity } from '@domain/entities/Product';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
-import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
-import { PerformanceLogger } from '@infrastructure/logging/PerformanceLogger';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
+import { LoggingDecorator } from '@hbs/logging';
+import { PerformanceLogger } from '@hbs/logging';
 import { 
   RequiredFieldError, 
   InvalidRangeError, 

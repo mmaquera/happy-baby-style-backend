@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { SecurityEvent, CreateSecurityEventRequest } from '@domain/entities/Audit';
-import { ILogger } from '@domain/interfaces/ILogger';
-import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
+import { ILogger } from '@hbs/logging';
+import { LoggerFactory } from '@hbs/logging';
 
 /**
  * Repositorio de infraestructura para eventos de seguridad usando Prisma
