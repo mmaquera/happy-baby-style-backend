@@ -1,11 +1,13 @@
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: happy_baby_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DOCKER_DB_NAME:-happy_baby_style}
-      POSTGRES_USER: ${DOCKER_DB_USER:-postgres}
+      POSTGRES_DB:       ${DOCKER_DB_NAME:-happy_baby_style}
+      POSTGRES_USER:     ${DOCKER_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DOCKER_DB_PASSWORD}
     ports:
       - "${DOCKER_DB_PORT:-5432}:5432"
@@ -17,5 +19,53 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: happy_baby_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── legacy-api ───────────────────────────────────────────────────────────────
+  legacy-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: happy_baby_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3001}:3001"
+    # Load secrets / app config from the local .env file, then override
+    # DATABASE_URL and REDIS_URL so they point to the Docker network services.
+    env_file: .env
+    environment:
+      NODE_ENV:     development
+      DATABASE_URL: postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/${DOCKER_DB_NAME:-happy_baby_style}
+      REDIS_URL:    redis://redis:6379
+    volumes:
+      # Persist uploads and logs on the host so they survive container restarts
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
 volumes:
   postgres_data:
+  redis_data:

@@ -93,13 +93,13 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - [x] `libs/logging` (`@hbs/logging`): Winston wrapper (LoggerConfig, LoggerFactory, LoggingDecorator, PerformanceLogger, RequestLogger, WinstonLogger) + el contrato `ILogger` (movido desde `domain/interfaces`). ✓ 2026-05-25. ~56 archivos actualizados (`@infrastructure/logging/*`, `@domain/interfaces/ILogger` y rutas relativas → `@hbs/logging`). `WinstonLogger` desacoplado de `DomainError` (chequeo estructural en vez de `instanceof`). Verificado: `nx build/type-check/lint legacy-api` verdes, test afectado pasa.
   - [x] `libs/auth` (`@hbs/auth`): tipos compartidos de auth (`AuthUser`, `UserRole`, `Permission`, `TokenPayload`) + utilidad pura `extractTokenFromAuthHeader`. ✓ 2026-05-24. `AuthService` refactorizado para importar tipos desde `@hbs/auth` y re-exportarlos (consumidores no cambian). `JwtAuthService` y `GoogleOAuthService` permanecen en el app (dependen de repositorio/dominio). `nx build legacy-api` verde.
   - [x] `libs/prisma` (`@hbs/prisma`): PrismaService + schema.prisma + migrations movidos desde raíz. ✓ 2026-05-24. `prisma.config.ts` en raíz configura la nueva ruta; `PrismaService` desacoplado de `environment` (usa `process.env` directo); app re-exporta desde thin wrapper en `@infrastructure/database/prisma`. Verificado: `nx build legacy-api`, `type-check` y `prisma migrate status` en verde.
-- [ ] **1.4** Configurar `tsconfig` paths y validar `nx graph`.
+- [x] **1.4** Configurar `tsconfig` paths y validar `nx graph`. ✓ 2026-05-25 — `nx graph` muestra 5 proyectos (1 app + 4 libs) con dependencias correctas. `tsconfig.base.json` y `tsconfig.production.json` tienen todos los paths `@hbs/*` configurados para compilación y runtime respectivamente.
 
 ### FASE 2 — Contenerización (Docker Compose)
-- [ ] **2.1** Dockerfile base multi-stage para apps Node/TS.
-- [ ] **2.2** `docker-compose.yml` con `postgres`, `redis`, `legacy-api` (healthchecks + env por servicio).
-- [ ] **2.3** `.dockerignore` y scripts up/down/logs.
-- [ ] **2.4** Validar que el monolito corre idéntico dentro de Docker.
+- [x] **2.1** Dockerfile base multi-stage para apps Node/TS. ✓ 2026-05-25 — stage `builder` (pnpm install + nx build) y stage `runner` (node_modules + dist + libs/*/dist). Fix clave: schema Prisma copiado antes de `pnpm install` para que `@prisma/client` postinstall genere el cliente con el schema correcto.
+- [x] **2.2** `docker-compose.yml` con `postgres`, `redis`, `legacy-api` (healthchecks + env por servicio). ✓ 2026-05-25 — postgres:16, redis:7-alpine, legacy-api con `env_file: .env` + override de `DATABASE_URL` y `REDIS_URL` al network interno Docker.
+- [x] **2.3** `.dockerignore` y scripts up/down/logs. ✓ 2026-05-25 — `.dockerignore` excluye node_modules, dist, .env, logs, uploads.
+- [x] **2.4** Validar que el monolito corre idéntico dentro de Docker. ✓ 2026-05-25 — `GET /health` → `{"status":"OK"}` y `{ health }` GraphQL query responden correctamente desde el contenedor. Fix runtime: `tsconfig.production.json` sobreescribe `@hbs/*` paths a `dist/` (tsconfig-paths seguía extends y cargaba `.ts` sources desde `tsconfig.base.json`).
 
 ### FASE 3 — Gateway de Federation
 - [ ] **3.1** Convertir `legacy-api` en subgraph federado (`@apollo/subgraph`).

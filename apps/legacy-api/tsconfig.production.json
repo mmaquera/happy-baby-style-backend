@@ -8,7 +8,11 @@
       "@infrastructure/*": ["dist/src/infrastructure/*"],
       "@presentation/*": ["dist/src/presentation/*"],
       "@shared/*": ["dist/src/shared/*"],
-      "@config/*": ["dist/src/config/*"]
+      "@config/*": ["dist/src/config/*"],
+      "@hbs/auth": ["../../libs/auth/dist/index"],
+      "@hbs/logging": ["../../libs/logging/dist/index"],
+      "@hbs/prisma": ["../../libs/prisma/dist/index"],
+      "@hbs/shared-kernel": ["../../libs/shared-kernel/dist/index"]
     }
   },
   "include": ["dist/**/*"],
