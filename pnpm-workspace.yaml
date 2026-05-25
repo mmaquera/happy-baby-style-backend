@@ -7,4 +7,5 @@ allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
   bcrypt: true
+  nx: true
   prisma: true

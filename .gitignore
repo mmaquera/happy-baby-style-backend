@@ -45,3 +45,8 @@ prisma/*.sqlite-journal
 .vscode/
 *.swp
 *.swo
+
+
+
+.nx/cache
+.nx/workspace-data
