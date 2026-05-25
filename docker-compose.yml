@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: happy_baby_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DOCKER_DB_NAME:-happy_baby_style}
+      POSTGRES_USER: ${DOCKER_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DOCKER_DB_PASSWORD}
+    ports:
+      - "${DOCKER_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DOCKER_DB_USER:-postgres} -d ${DOCKER_DB_NAME:-happy_baby_style}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -17,9 +17,7 @@ lerna-debug.log*
 .env
 .env.*
 .envrc
-env.development
-env.production
-!env.template
+!.env.template
 
 ## TypeScript
 *.tsbuildinfo
