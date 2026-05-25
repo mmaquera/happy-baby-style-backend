@@ -11,6 +11,9 @@ importers:
       '@apollo/server':
         specifier: ^4.11.2
         version: 4.13.0(graphql@16.14.0)
+      '@hbs/shared-kernel':
+        specifier: workspace:*
+        version: link:libs/shared-kernel
       '@prisma/client':
         specifier: ^6.13.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -195,6 +198,8 @@ importers:
       typescript-eslint:
         specifier: ^8.59.4
         version: 8.59.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+
+  libs/shared-kernel: {}
 
 packages:
 

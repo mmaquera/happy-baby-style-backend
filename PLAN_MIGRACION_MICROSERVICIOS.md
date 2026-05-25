@@ -88,7 +88,11 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - `apps/legacy-api/project.json` con targets Nx (`build`, `type-check`, `test`, `lint`, `codegen`, `serve`) vía `nx:run-commands` envolviendo el tooling existente (tsc/jest/eslint/codegen/ts-node-dev). Scripts raíz de `package.json` redirigidos a `nx ... legacy-api`; `eslint.config.js` globs → `apps/**`; `scripts/dev-server.js` apunta a la nueva ruta con `TS_NODE_PROJECT`.
   - Verificado: `nx type-check`, `nx build` (genera `apps/legacy-api/dist/src/index.js`) y `nx lint` en verde.
   - Tests: el move **no introdujo regresiones** — baseline pre-move (`4e6528c`) = 18 suites/129 tests fallando, idéntico al post-move. Fix incluido: `@config/*` faltaba en el `moduleNameMapper` de jest (bug preexistente) → ahora 15 suites pasan (antes 13). Quedan **143 fallos preexistentes** (mocks, p. ej. `RateLimitService.startTimer`) sin relación con la migración → tratar como deuda aparte.
-- [ ] **1.3** Extraer libs compartidas a `libs/`: `libs/prisma`, `libs/shared-kernel`, `libs/logging`, `libs/auth`.
+- [~] **1.3** Extraer libs compartidas a `libs/`. Convención de alias: **`@hbs/<lib>`** (paquetes pnpm del workspace; cada lib compila a su `dist`, el app la consume vía node_modules; `tsconfig.base.json` registra el path; cada app declara `implicitDependencies` + `dependsOn: ["^build"]`).
+  - [x] `libs/shared-kernel` (`@hbs/shared-kernel`): BaseResponse, ResponseCodes, ResponseFactory. ✓ 2026-05-25. Imports del app actualizados (alias `@shared/*` y relativos `../../shared/*`); mapper de jest → fuente. Verificado: `nx build/type-check/lint legacy-api` verdes, test afectado pasa. **`UrlBuilder` NO se movió**: depende de `@config/storage` (config del app) → requiere desacople antes de extraerlo.
+  - [ ] `libs/logging` (Winston wrapper) — ~39 archivos importan `@infrastructure/logging`.
+  - [ ] `libs/auth` (utilidades JWT).
+  - [ ] `libs/prisma` (PrismaService + mover schema desde la raíz).
 - [ ] **1.4** Configurar `tsconfig` paths y validar `nx graph`.
 
 ### FASE 2 — Contenerización (Docker Compose)

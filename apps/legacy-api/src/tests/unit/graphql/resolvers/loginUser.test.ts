@@ -1,5 +1,5 @@
 import { UserRole } from '@domain/entities/User';
-import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
+import { RESPONSE_CODES } from '@hbs/shared-kernel';
 
 describe('loginUser Mutation - Standards Compliance', () => {
   

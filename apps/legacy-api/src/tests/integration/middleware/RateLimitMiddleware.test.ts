@@ -3,7 +3,7 @@ import express from 'express';
 import { RateLimitMiddleware } from '@presentation/middleware/RateLimitMiddleware';
 import { RateLimitService } from '@application/services/RateLimitService';
 import { ILogger } from '@domain/interfaces/ILogger';
-import { ResponseFactory } from '@shared/factories/ResponseFactory';
+import { ResponseFactory } from '@hbs/shared-kernel';
 
 describe('RateLimitMiddleware Integration Tests', () => {
   let app: express.Application;

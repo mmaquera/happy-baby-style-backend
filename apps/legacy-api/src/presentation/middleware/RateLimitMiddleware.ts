@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { IRateLimitService } from '@domain/interfaces/IRateLimitService';
 import { ILogger } from '@domain/interfaces/ILogger';
-import { ResponseFactory } from '@shared/factories/ResponseFactory';
-import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
+import { ResponseFactory } from '@hbs/shared-kernel';
+import { RESPONSE_CODES } from '@hbs/shared-kernel';
 
 /**
  * Express middleware for rate limiting

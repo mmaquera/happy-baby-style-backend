@@ -1,5 +1,5 @@
-import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
-import { ResponseFactory } from '@shared/factories/ResponseFactory';
+import { RESPONSE_CODES } from '@hbs/shared-kernel';
+import { ResponseFactory } from '@hbs/shared-kernel';
 
 // Mock del container
 const mockContainer = {

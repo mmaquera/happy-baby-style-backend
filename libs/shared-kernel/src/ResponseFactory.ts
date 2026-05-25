@@ -1,4 +1,4 @@
-import { BaseResponse, ResponseMetadata, PaginatedData, PaginationInfo } from '../types/BaseResponse';
+import { BaseResponse, ResponseMetadata, PaginatedData, PaginationInfo } from './BaseResponse';
 
 export class ResponseFactory {
   private static generateMetadata(

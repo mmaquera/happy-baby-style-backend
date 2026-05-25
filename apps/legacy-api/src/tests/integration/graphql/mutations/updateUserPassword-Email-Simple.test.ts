@@ -4,8 +4,8 @@ import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { IEmailService } from '@domain/interfaces/IEmailService';
 import { ILogger } from '@domain/interfaces/ILogger';
-import { ResponseFactory } from '@shared/factories/ResponseFactory';
-import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
+import { ResponseFactory } from '@hbs/shared-kernel';
+import { RESPONSE_CODES } from '@hbs/shared-kernel';
 
 // Mock the LoggingDecorator to avoid issues in tests
 jest.mock('@infrastructure/logging/LoggingDecorator', () => ({

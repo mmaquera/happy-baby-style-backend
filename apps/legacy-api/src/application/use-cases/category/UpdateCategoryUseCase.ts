@@ -3,8 +3,8 @@ import { CategoryEntity } from '@domain/entities/Category';
 import { LoggerFactory } from '@infrastructure/logging/LoggerFactory';
 import { ILogger } from '@domain/interfaces/ILogger';
 import { NotFoundError, DuplicateError, ValidationError } from '@domain/errors/DomainError';
-import { ResponseFactory } from '@shared/factories/ResponseFactory';
-import { RESPONSE_CODES } from '@shared/constants/ResponseCodes';
+import { ResponseFactory } from '@hbs/shared-kernel';
+import { RESPONSE_CODES } from '@hbs/shared-kernel';
 import { LoggingDecorator } from '@infrastructure/logging/LoggingDecorator';
 
 export interface UpdateCategoryRequest {
