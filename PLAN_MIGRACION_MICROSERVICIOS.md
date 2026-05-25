@@ -83,7 +83,11 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
 - [x] **1.1** Inicializar workspace Nx con pnpm. ✓ 2026-05-25.
   - [x] Migración npm → pnpm: pnpm 11 instalado; `.npmrc` con `node-linker=hoisted` (node_modules plano estilo npm para evitar TS2742 por dependencias fantasma); `pnpm-workspace.yaml` con `packages: [apps/*, libs/*]` + `allowBuilds` (bcrypt, prisma, @prisma/*, @apollo/protobufjs, nx); `package-lock.json` eliminado, `pnpm-lock.yaml` generado. Fix TS2742 puntual: anotación `const app: express.Express` en `src/index.ts`. Commit `30d859b`.
   - [x] `nx init` (v22.7.3, no-interactivo, sin Nx Cloud, sin plugins): crea `nx.json` (caché para build/test/lint/type-check), añade `nx` a devDeps, ignora `.nx/cache` en `.gitignore`. `nx show projects` = `[]` (esperado: aún no hay `apps/`/`libs/`). `type-check` sigue limpio.
-- [ ] **1.2** Mover el monolito a `apps/legacy-api/` sin cambiar su lógica.
+- [x] **1.2** Mover el monolito a `apps/legacy-api/` sin cambiar su lógica. ✓ 2026-05-25.
+  - `git mv` de `src/`, `tests/`, `tsconfig*.json`, `jest.config.js`, `codegen.yml` → `apps/legacy-api/`. `prisma/`, `.env*`, `scripts/`, `docs/`, `logs/`, `uploads/`, `docker-compose.yml` quedan en la raíz (workspace). Deps siguen en el `package.json` raíz (single-version, pnpm hoisted).
+  - `apps/legacy-api/project.json` con targets Nx (`build`, `type-check`, `test`, `lint`, `codegen`, `serve`) vía `nx:run-commands` envolviendo el tooling existente (tsc/jest/eslint/codegen/ts-node-dev). Scripts raíz de `package.json` redirigidos a `nx ... legacy-api`; `eslint.config.js` globs → `apps/**`; `scripts/dev-server.js` apunta a la nueva ruta con `TS_NODE_PROJECT`.
+  - Verificado: `nx type-check`, `nx build` (genera `apps/legacy-api/dist/src/index.js`) y `nx lint` en verde.
+  - Tests: el move **no introdujo regresiones** — baseline pre-move (`4e6528c`) = 18 suites/129 tests fallando, idéntico al post-move. Fix incluido: `@config/*` faltaba en el `moduleNameMapper` de jest (bug preexistente) → ahora 15 suites pasan (antes 13). Quedan **143 fallos preexistentes** (mocks, p. ej. `RateLimitService.startTimer`) sin relación con la migración → tratar como deuda aparte.
 - [ ] **1.3** Extraer libs compartidas a `libs/`: `libs/prisma`, `libs/shared-kernel`, `libs/logging`, `libs/auth`.
 - [ ] **1.4** Configurar `tsconfig` paths y validar `nx graph`.
 

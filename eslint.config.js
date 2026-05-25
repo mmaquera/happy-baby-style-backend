@@ -6,18 +6,19 @@ const globals = require('globals');
 module.exports = tseslint.config(
   {
     ignores: [
-      'dist/**',
-      'coverage/**',
+      '**/dist/**',
+      '**/coverage/**',
       'node_modules/**',
-      'src/generated/**',
+      '.nx/**',
+      '**/generated/**',
       'logs/**',
       'uploads/**',
       'scripts/**',
-      '*.config.js',
+      '**/*.config.js',
     ],
   },
   {
-    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    files: ['apps/**/src/**/*.ts', 'apps/**/tests/**/*.ts', 'libs/**/src/**/*.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended, prettier],
     languageOptions: {
       globals: { ...globals.node, ...globals.jest },

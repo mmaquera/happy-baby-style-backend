@@ -1,0 +1,49 @@
+{
+  "name": "legacy-api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/legacy-api/src",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "command": "rm -rf apps/legacy-api/dist && tsc -p apps/legacy-api/tsconfig.json"
+      }
+    },
+    "type-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit -p apps/legacy-api/tsconfig.json"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "jest --config apps/legacy-api/jest.config.js"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint apps/legacy-api"
+      }
+    },
+    "codegen": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "graphql-codegen --config codegen.yml",
+        "cwd": "apps/legacy-api"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only apps/legacy-api/src/index.ts",
+        "env": {
+          "TS_NODE_PROJECT": "apps/legacy-api/tsconfig.json"
+        }
+      }
+    }
+  }
+}

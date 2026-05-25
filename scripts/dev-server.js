@@ -60,10 +60,11 @@ class DevServer {
       '-r', 'tsconfig-paths/register',
       '--respawn',
       '--transpile-only',
-      'src/index.ts'
+      'apps/legacy-api/src/index.ts'
     ], {
       stdio: 'inherit',
-      shell: true
+      shell: true,
+      env: { ...process.env, TS_NODE_PROJECT: 'apps/legacy-api/tsconfig.json' }
     });
 
     this.isRunning = true;
