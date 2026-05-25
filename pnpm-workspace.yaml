@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'libs/*'
+
+allowBuilds:
+  '@apollo/protobufjs': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  bcrypt: true
+  prisma: true

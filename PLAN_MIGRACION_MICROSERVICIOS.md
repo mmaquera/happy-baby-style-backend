@@ -80,7 +80,9 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
 - [x] **0.5** ESLint 9 (flat config) + typescript-eslint + Prettier. ✓ 2026-05-24 — `eslint.config.js`, `.prettierrc`, `.prettierignore`; scripts `lint`/`lint:fix`/`format`/`format:check`. Baseline no estricto (hallazgos heredados = warning) → `npm run lint` pasa en verde. Pendiente: correr `npm run format` para formatear el código existente (diff grande, sin hacer aún).
 
 ### FASE 1 — Fundación del monorepo Nx
-- [ ] **1.1** Inicializar workspace Nx con pnpm (preset Node/TS).
+- [~] **1.1** Inicializar workspace Nx con pnpm (preset Node/TS).
+  - [x] Migración npm → pnpm: pnpm 11 instalado; `.npmrc` con `node-linker=hoisted` (node_modules plano estilo npm para evitar TS2742 por dependencias fantasma); `pnpm-workspace.yaml` con `packages: [apps/*, libs/*]` + `allowBuilds` (bcrypt, prisma, @prisma/*, @apollo/protobufjs); `package-lock.json` eliminado, `pnpm-lock.yaml` generado. Fix TS2742 puntual: anotación `const app: express.Express` en `src/index.ts`. Verificado: `type-check` limpio, `lint` en verde. ✓ 2026-05-25.
+  - [ ] `nx init` para añadir Nx al repo (pendiente).
 - [ ] **1.2** Mover el monolito a `apps/legacy-api/` sin cambiar su lógica.
 - [ ] **1.3** Extraer libs compartidas a `libs/`: `libs/prisma`, `libs/shared-kernel`, `libs/logging`, `libs/auth`.
 - [ ] **1.4** Configurar `tsconfig` paths y validar `nx graph`.

@@ -13,7 +13,7 @@ import { RateLimitMiddleware } from '@presentation/middleware/RateLimitMiddlewar
 import { IRateLimitService } from '@domain/interfaces/IRateLimitService';
 import { environment } from './config/environment';
 
-const app = express();
+const app: express.Express = express();
 const config = environment.getConfig();
 const PORT = config.port;
 
