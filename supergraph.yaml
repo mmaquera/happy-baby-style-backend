@@ -9,3 +9,7 @@ subgraphs:
     routing_url: http://category-service:3002/graphql
     schema:
       subgraph_url: http://localhost:3002/graphql
+  product:
+    routing_url: http://product-service:3003/graphql
+    schema:
+      subgraph_url: http://localhost:3003/graphql

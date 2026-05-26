@@ -1,7 +1,7 @@
 # Plan de Migración a Microservicios (Monorepo) — Happy Baby Style Backend
 
 > Documento vivo. Marcamos cada item del checklist a medida que avanzamos.
-> Última actualización: 2026-05-25
+> Última actualización: 2026-05-25 (Fase 4.2 completada)
 
 ## Contexto
 
@@ -120,7 +120,14 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - [x] **Gateway y Docker actualizados:** `apps/gateway/src/index.ts` con segundo subgraph `category-service`; `docker-compose.yml` con servicio `category-service` (puerto 3002, healthcheck); `supergraph.yaml` con entrada `category`; `.env.template` con `CATEGORY_SERVICE_PORT=3002`.
   - [x] **Build limpio:** `nx build` en verde para los 3 proyectos (legacy-api, gateway, category-service) + 4 libs dependientes.
   - **Acoplamiento cruzado resuelto:** `Category.products` (cross-domain) diferido a Fase 4.2 cuando se extraiga product-service. Por ahora, category-service no expone `products`.
-- [ ] **4.2** `product-service`.
+- [x] **4.2** `product-service`. ✓ 2026-05-25
+  - [x] `apps/product-service/` con Clean Architecture completa: entidades simplificadas (sin CategoryEntity), 5 use-cases (get, getById, create, update, delete), PrismaProductRepository (sin `include: { category: true }` — ya no se necesita el JOIN), transformer con URL builder inline.
+  - [x] **Federation subgraph:** `type Product @key(fields: "id")` con `__resolveReference`. `Product.category` retorna `{ __typename: 'Category', id: parent.categoryId }` → gateway enruta a category-service. `type Category @key(fields: "id") { id: ID! }` como entidad externa.
+  - [x] **Queries migradas desde legacy-api:** `products`, `product`, `productBySku`, `productsByCategory`, `searchProducts`, `productVariants`, `productVariant`, `productStats`, `lowStockProducts`, `outOfStockProducts`.
+  - [x] **Mutations migradas:** `createProduct`, `updateProduct`, `deleteProduct`, `createProductVariant`, `updateProductVariant`, `deleteProductVariant`, `bulkUpdateProducts`.
+  - [x] **legacy-api limpiado:** `type Product` reducido a stub `@key(fields: "id") { id: ID! }`, igual para `ProductVariant`. Eliminados todos los input types, response types y resolvers de producto. Imports de use-cases de producto eliminados. Se conserva `getProductsUseCase` en el container para `dashboardMetrics` (agrega conteos cross-domain).
+  - [x] **Gateway y Docker actualizados:** tercer subgraph `product-service` en `IntrospectAndCompose`; servicio `product-service` en docker-compose (puerto 3003); `supergraph.yaml` extendido; `.env.template` con `PRODUCT_SERVICE_PORT=3003`; `Dockerfile.product-service`.
+  - [x] **Build limpio:** `nx build` verde para los 4 proyectos (legacy-api, gateway, category-service, product-service).
 - [ ] **4.3** `media-service` (Image/SVG).
 - [ ] **4.4** `order-service` — comunicación async (Redis/broker) para validación de stock Order→Product.
 - [ ] **4.5** `user-service` (auth, addresses, sessions, analytics) — el hub, al final.

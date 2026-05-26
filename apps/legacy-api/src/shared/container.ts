@@ -11,11 +11,7 @@ import { PrismaAuthRepository } from '@infrastructure/repositories/PrismaAuthRep
 import { PrismaAuditRepository } from '@infrastructure/repositories/PrismaAuditRepository';
 import { PrismaSecurityEventRepository } from '@infrastructure/repositories/PrismaSecurityEventRepository';
 import { GoogleOAuthService } from '@infrastructure/auth/GoogleOAuthService';
-import { CreateProductUseCase } from '@application/use-cases/product/CreateProductUseCase';
 import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUseCase';
-import { GetProductByIdUseCase } from '@application/use-cases/product/GetProductByIdUseCase';
-import { UpdateProductUseCase } from '@application/use-cases/product/UpdateProductUseCase';
-import { DeleteProductUseCase } from '@application/use-cases/product/DeleteProductUseCase';
 import { UploadImageUseCase } from '@application/use-cases/image/UploadImageUseCase';
 import { UploadSvgUseCase } from '@application/use-cases/svg/UploadSvgUseCase';
 import { CreateOrderUseCase } from '@application/use-cases/order/CreateOrderUseCase';
@@ -111,12 +107,8 @@ export class Container {
     const emailConfig = environment.getEmailConfig();
     const emailService: IEmailService = new NodemailerEmailService(emailConfig, defaultLogger);
     
-    // Casos de uso de Productos with logging
-    const createProductUseCase = new CreateProductUseCase(productRepository);
+    // getProductsUseCase kept for dashboardMetrics cross-domain aggregation
     const getProductsUseCase = new GetProductsUseCase(productRepository);
-    const getProductByIdUseCase = new GetProductByIdUseCase(productRepository);
-    const updateProductUseCase = new UpdateProductUseCase(productRepository);
-    const deleteProductUseCase = new DeleteProductUseCase(productRepository);
     
     // Casos de uso de Categorías → migradas a category-service (Federation)
 
@@ -222,11 +214,7 @@ export class Container {
     this.dependencies.set('performanceLogger', performanceLogger);
     
     // Casos de uso
-    this.dependencies.set('createProductUseCase', createProductUseCase);
     this.dependencies.set('getProductsUseCase', getProductsUseCase);
-    this.dependencies.set('getProductByIdUseCase', getProductByIdUseCase);
-    this.dependencies.set('updateProductUseCase', updateProductUseCase);
-    this.dependencies.set('deleteProductUseCase', deleteProductUseCase);
     // category use cases → migrated to category-service
     this.dependencies.set('uploadImageUseCase', uploadImageUseCase);
     this.dependencies.set('uploadSvgUseCase', uploadSvgUseCase);

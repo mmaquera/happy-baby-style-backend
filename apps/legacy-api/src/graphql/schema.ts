@@ -234,60 +234,14 @@ export const typeDefs = gql`
     id: ID!
   }
 
-  type Product {
+  # Product is owned by product-service (Federation)
+  type Product @key(fields: "id") {
     id: ID!
-    categoryId: ID
-    name: String!
-    description: String
-    price: Decimal!
-    salePrice: Decimal
-    sku: String!
-    images: [String!]!
-    attributes: JSON!
-    isActive: Boolean!
-    stockQuantity: Int!
-    tags: [String!]!
-    rating: Decimal
-    reviewCount: Int!
-    createdAt: DateTime!
-    updatedAt: DateTime!
-    
-    # Computed fields
-    currentPrice: Decimal!
-    hasDiscount: Boolean!
-    discountPercentage: Int!
-    totalStock: Int!
-    isInStock: Boolean!
-    
-    # Relations
-    category: Category
-    variants: [ProductVariant!]!
-    cartItems: [ShoppingCartItem!]!
-    favorites: [UserFavorite!]!
-    orderItems: [OrderItem!]!
-    reviews: [ProductReview!]!
-    appEvents: [AppEvent!]!
-    inventoryTransactions: [InventoryTransaction!]!
-    stockAlerts: [StockAlert!]!
   }
 
-  type ProductVariant {
+  # ProductVariant is owned by product-service (Federation)
+  type ProductVariant @key(fields: "id") {
     id: ID!
-    productId: ID!
-    name: String!
-    price: Decimal!
-    sku: String!
-    stockQuantity: Int!
-    attributes: JSON!
-    isActive: Boolean!
-    createdAt: DateTime!
-    updatedAt: DateTime!
-    
-    # Computed fields
-    isInStock: Boolean!
-    
-    # Relations
-    product: Product!
   }
 
   # =====================================================
@@ -894,54 +848,6 @@ export const typeDefs = gql`
     isDefault: Boolean
   }
 
-  # Product Management Inputs
-  input CreateProductInput {
-    categoryId: ID
-    name: String!
-    description: String
-    price: Decimal!
-    salePrice: Decimal
-    sku: String!
-    images: [String!]
-    attributes: JSON
-    isActive: Boolean
-    stockQuantity: Int
-    tags: [String!]
-  }
-
-  input UpdateProductInput {
-    categoryId: ID
-    name: String
-    description: String
-    price: Decimal
-    salePrice: Decimal
-    sku: String
-    images: [String!]
-    attributes: JSON
-    isActive: Boolean
-    stockQuantity: Int
-    tags: [String!]
-  }
-
-  input CreateProductVariantInput {
-    productId: ID!
-    name: String!
-    price: Decimal!
-    sku: String!
-    stockQuantity: Int!
-    attributes: JSON
-    isActive: Boolean
-  }
-
-  input UpdateProductVariantInput {
-    name: String
-    price: Decimal
-    sku: String
-    stockQuantity: Int
-    attributes: JSON
-    isActive: Boolean
-  }
-
   # Order Management Inputs
   input CreateOrderInput {
     userId: ID!
@@ -1122,17 +1028,6 @@ export const typeDefs = gql`
   }
 
   # Filter and Pagination Inputs
-  input ProductFilterInput {
-    categoryId: ID
-    isActive: Boolean
-    minPrice: Decimal
-    maxPrice: Decimal
-    inStock: Boolean
-    search: String
-    tags: [String!]
-    rating: Int
-  }
-
   input OrderFilterInput {
     userId: ID
     status: OrderStatus
@@ -1165,12 +1060,6 @@ export const typeDefs = gql`
   # =====================================================
   # RESPONSE TYPES
   # =====================================================
-
-  type PaginatedProducts {
-    products: [Product!]!
-    total: Int!
-    hasMore: Boolean!
-  }
 
   type PaginatedOrders {
     orders: [Order!]!
@@ -1258,21 +1147,6 @@ export const typeDefs = gql`
     lastActivity: DateTime!
   }
 
-  type ProductStats {
-    totalProducts: Int!
-    activeProducts: Int!
-    totalCategories: Int!
-  }
-
-  type ProductStatsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: ProductStats!
-    metadata: ResponseMetadata
-  }
-
   type OrderStats {
     totalOrders: Int!
     pendingOrders: Int!
@@ -1344,88 +1218,6 @@ export const typeDefs = gql`
     entity: User!
     id: ID!
     createdAt: String!
-  }
-
-  type CreateProductResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: CreateProductData
-    metadata: ResponseMetadata
-  }
-
-  type CreateProductData {
-    entity: Product!
-    id: ID!
-    createdAt: String!
-  }
-
-  type UpdateProductResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: UpdateProductData
-    metadata: ResponseMetadata
-  }
-
-  type UpdateProductData {
-    entity: Product!
-    id: ID!
-    updatedAt: String!
-    changes: [String!]!
-  }
-
-  type DeleteProductResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: DeleteProductData
-    metadata: ResponseMetadata
-  }
-
-  type DeleteProductData {
-    id: ID!
-    deletedAt: String!
-    softDelete: Boolean!
-  }
-
-  type GetProductsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: GetProductsData
-    metadata: ResponseMetadata
-  }
-
-  type GetProductsData {
-    items: [Product!]!
-    pagination: ProductPaginationInfo!
-  }
-
-  type ProductPaginationInfo {
-    total: Int!
-    limit: Int!
-    offset: Int!
-    hasMore: Boolean!
-    currentPage: Int!
-    totalPages: Int!
-  }
-
-  type GetProductResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: GetProductData
-    metadata: ResponseMetadata
-  }
-
-  type GetProductData {
-    entity: Product!
   }
 
   # Session Analytics Input Types
@@ -1761,17 +1553,6 @@ export const typeDefs = gql`
     activeCoupons: Int!
   }
 
-  type ProductAnalytics {
-    totalProducts: Int!
-    activeProducts: Int!
-    lowStockProducts: Int!
-    outOfStockProducts: Int!
-    averageRating: Decimal!
-    totalReviews: Int!
-    topSellingProducts: [Product!]!
-    topRatedProducts: [Product!]!
-  }
-
   type OrderAnalytics {
     totalOrders: Int!
     totalRevenue: Decimal!
@@ -1800,12 +1581,10 @@ export const typeDefs = gql`
     
     # Dashboard & Analytics
     dashboardMetrics: DashboardMetrics!
-    productAnalytics: ProductAnalytics!
     orderAnalytics: OrderAnalytics!
     userAnalytics: UserAnalytics!
-    
+
       # Stats queries
-  productStats: ProductStatsResponse!
   orderStats: OrderStatsResponse!
   userStats: UserStatsResponse!
     
@@ -1829,17 +1608,6 @@ export const typeDefs = gql`
     userSessions(userId: ID!): [UserSession!]!
     activeSessions(userId: ID!): [UserSession!]!
     userSessionAnalytics(userId: ID!): [UserSessionAnalytics!]!
-    
-    # Product queries
-    products(filter: ProductFilterInput, pagination: PaginationInput): GetProductsResponse!
-    product(id: ID!): GetProductResponse!
-    productBySku(sku: String!): GetProductResponse!
-    productsByCategory(categoryId: ID!, pagination: PaginationInput): PaginatedProducts!
-    searchProducts(query: String!, filter: ProductFilterInput, pagination: PaginationInput): PaginatedProducts!
-    
-    # Product variant queries
-    productVariants(productId: ID!): [ProductVariant!]!
-    productVariant(id: ID!): ProductVariant
     
     # Shopping cart queries
     userCart(userId: ID!): [ShoppingCart!]!
@@ -1885,8 +1653,6 @@ export const typeDefs = gql`
     # Inventory queries
     inventoryTransactions(productId: ID!): [InventoryTransaction!]!
     stockAlerts: [StockAlert!]!
-    lowStockProducts: [Product!]!
-    outOfStockProducts: [Product!]!
     
     # Shipping queries
     carriers: [Carrier!]!
@@ -1970,16 +1736,6 @@ export const typeDefs = gql`
     deleteUserAddress(id: ID!): DeleteUserAddressResponse!
     setDefaultAddress(userId: ID!, addressId: ID!): SetDefaultAddressResponse!
     
-    # Product mutations
-    createProduct(input: CreateProductInput!): CreateProductResponse!
-    updateProduct(id: ID!, input: UpdateProductInput!): UpdateProductResponse!
-    deleteProduct(id: ID!): DeleteProductResponse!
-    
-    # Product variant mutations
-    createProductVariant(input: CreateProductVariantInput!): ProductVariant!
-    updateProductVariant(id: ID!, input: UpdateProductVariantInput!): ProductVariant!
-    deleteProductVariant(id: ID!): SuccessResponse!
-    
     # Shopping cart mutations
     addToCart(userId: ID!, productId: ID!, quantity: Int!): ShoppingCartItem!
     updateCartItem(id: ID!, quantity: Int!): ShoppingCartItem!
@@ -2062,7 +1818,6 @@ export const typeDefs = gql`
     uploadSvg(file: Upload!, entityType: String!, entityId: String!, optimize: Boolean, sanitize: Boolean): UploadSvgResponse!
     
     # Bulk operations
-    bulkUpdateProducts(updates: [UpdateProductInput!]!): [Product!]!
     bulkUpdateOrderStatus(orders: [ID!]!, status: OrderStatus!): [Order!]!
   }
 `; 
