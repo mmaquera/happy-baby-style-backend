@@ -143,7 +143,15 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - [x] **legacy-api limpiado:** `type Order` y `type OrderItem` reducidos a stubs `@key(fields: "id") { id: ID! }`. `OrderTracking` eliminado. Inputs `CreateOrderInput`, `UpdateOrderInput`, `CreateOrderItemInput`, `OrderFilterInput`, `PaginatedOrders` eliminados. Queries `orders`, `order`, `orderByNumber`, `userOrders`, `orderItems`, `orderTracking`, `orderTransactions` eliminados. Mutations `createOrder`, `updateOrder`, `updateOrderStatus`, `cancelOrder`, `shipOrder`, `deliverOrder`, `createOrderItem`, `updateOrderItem`, `deleteOrderItem`, `applyCoupon`, `removeCoupon`, `bulkUpdateOrderStatus` eliminados. Container sin `createOrderUseCase`, `getOrdersUseCase`, `getOrderByIdUseCase`, `updateOrderUseCase`. Se conserva `orderRepository` + `getOrderStatsUseCase` para `dashboardMetrics` y `orderAnalytics`.
   - [x] **Gateway y Docker actualizados:** quinto subgraph `order-service` en `IntrospectAndCompose`; servicio `order-service` en docker-compose (puerto 3005, depends_on postgres+redis, `PRODUCT_SERVICE_URL: http://product-service:3003/graphql`); `supergraph.yaml` extendido; `.env.template` con `ORDER_SERVICE_PORT=3005`; `Dockerfile.order-service`.
   - [x] **Build y type-check limpios:** `nx run order-service:build` y `nx run legacy-api:type-check` verdes.
-- [ ] **4.5** `user-service` (auth, addresses, sessions, analytics) — el hub, al final.
+- [x] **4.5** `user-service` (auth, addresses, sessions, analytics) — el hub, al final.
+  - [x] `apps/user-service/` con dominio completo: User, UserProfile, UserAddress, Auth, AuditLog, SecurityEvent.
+  - [x] 22 use cases + 4 repositorios Prisma + NodemailerEmailService + JwtAuthService.
+  - [x] `schema.ts` con federation `@key(fields: "id")` en User/UserProfile/UserAddress; Order/Product como stubs.
+  - [x] `resolvers.ts` con `createResolvers(deps)` factory; `__resolveReference` para los 3 tipos propios.
+  - [x] `index.ts` en puerto 3006; StubUserOrderRepository para `GetUserOrderHistoryUseCase` (cross-domain).
+  - [x] `Dockerfile.user-service`, entrada en `docker-compose.yml`, `supergraph.yaml`, `gateway/src/index.ts`, `.env.template`.
+  - [x] legacy-api limpiada: User/UserProfile/UserAddress → stubs `@key`; eliminadas todas las queries/mutations de usuario y auth.
+  - [x] **Build y type-check limpios:** `nx run user-service:build` y `nx run legacy-api:type-check` verdes.
 - [ ] **4.6** Retirar de `legacy-api` cada dominio migrado hasta vaciarlo.
 
 ### FASE 5 — Separación de bases de datos

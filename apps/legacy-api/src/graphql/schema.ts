@@ -23,19 +23,6 @@ export const typeDefs = gql`
     cash_on_delivery
   }
 
-  enum UserRole {
-    admin
-    customer
-    staff
-  }
-
-  enum AuthProvider {
-    email
-    google
-    facebook
-    apple
-  }
-
   enum TransactionType {
     payment
     refund
@@ -95,131 +82,19 @@ export const typeDefs = gql`
   scalar JSON
 
   # =====================================================
-  # CORE USER MANAGEMENT TYPES
+  # USER TYPES — owned by user-service (Federation stubs)
   # =====================================================
 
-  type UserAccount {
+  type User @key(fields: "id") {
     id: ID!
-    userId: ID!
-    provider: AuthProvider!
-    providerAccountId: String!
-    accessToken: String
-    refreshToken: String
-    tokenType: String
-    scope: String
-    idToken: String
-    expiresAt: DateTime
-    createdAt: DateTime!
-    updatedAt: DateTime!
   }
 
-  type UserSession {
+  type UserProfile @key(fields: "id") {
     id: ID!
-    userId: ID!
-    sessionToken: String!
-    accessToken: String!
-    refreshToken: String
-    expiresAt: DateTime!
-    userAgent: String
-    ipAddress: String
-    isActive: Boolean!
-    createdAt: DateTime!
-    updatedAt: DateTime!
   }
 
-  type UserSessionAnalytics {
+  type UserAddress @key(fields: "id") {
     id: ID!
-    sessionId: String!
-    userId: ID!
-    pageViews: Int!
-    timeSpent: Int!
-    bounceRate: Float!
-    conversionRate: Float!
-    deviceType: String
-    browser: String
-    os: String
-    country: String
-    city: String
-    createdAt: DateTime!
-    updatedAt: DateTime!
-  }
-
-  type User {
-    id: ID!
-    email: String!
-    role: UserRole!
-    isActive: Boolean!
-    emailVerified: Boolean!
-    lastLoginAt: DateTime
-    profile: UserProfile
-    addresses: [UserAddress!]!
-    accounts: [UserAccount!]!
-    sessions: [UserSession!]!
-    sessionsAnalytics: [UserSessionAnalytics!]!
-    createdAt: DateTime!
-    updatedAt: DateTime!
-  }
-
-  type UserProfile {
-    id: ID!
-    email: String!
-    firstName: String!
-    lastName: String!
-    phone: String
-    dateOfBirth: DateTime
-    avatar: String
-    role: UserRole!
-    emailVerified: Boolean!
-    isActive: Boolean!
-    lastLoginAt: DateTime
-    createdAt: DateTime!
-    updatedAt: DateTime!
-    
-    # Computed fields
-    fullName: String
-    
-    # Relations
-    addresses: [UserAddress!]!
-    cartItems: [ShoppingCartItem!]!
-    favorites: [UserFavorite!]!
-    paymentMethods: [PaymentMethod!]!
-    savedPaymentMethods: [SavedPaymentMethod!]!
-    transactions: [Transaction!]!
-    productReviews: [ProductReview!]!
-    reviewVotes: [ReviewVote!]!
-    appEvents: [AppEvent!]!
-    auditLogs: [AuditLog!]!
-    securityEvents: [SecurityEvent!]!
-    pushNotifications: [PushNotification!]!
-    rewardPoints: [RewardPoint!]!
-    couponUsage: [CouponUsage!]!
-    newsletterSubscriptions: [NewsletterSubscription!]!
-  }
-
-  type UserAddress {
-    id: ID!
-    userId: ID!
-    type: String!
-    firstName: String!
-    lastName: String!
-    company: String
-    address1: String!
-    address2: String
-    city: String!
-    state: String!
-    postalCode: String!
-    country: String!
-    phone: String
-    isDefault: Boolean!
-    createdAt: DateTime!
-    updatedAt: DateTime!
-    
-    # Computed fields
-    fullName: String!
-    fullAddress: String!
-    
-    # Relations
-    user: UserProfile!
   }
 
   # =====================================================
@@ -636,36 +511,6 @@ export const typeDefs = gql`
     product: Product
   }
 
-  type AuditLog {
-    id: ID!
-    userId: String
-    action: String!
-    tableName: String
-    recordId: String
-    oldValues: JSON
-    newValues: JSON
-    ipAddress: String
-    userAgent: String
-    createdAt: DateTime!
-    
-    # Relations
-    user: UserProfile
-  }
-
-  type SecurityEvent {
-    id: ID!
-    userId: String
-    eventType: String!
-    description: String!
-    ipAddress: String
-    userAgent: String
-    metadata: JSON!
-    createdAt: DateTime!
-    
-    # Relations
-    user: UserProfile
-  }
-
   # =====================================================
   # CONFIGURATION & SETTINGS TYPES
   # =====================================================
@@ -704,67 +549,6 @@ export const typeDefs = gql`
   # =====================================================
   # INPUT TYPES
   # =====================================================
-
-  # User Management Inputs
-  input CreateUserProfileInput {
-    email: String!
-    firstName: String!
-    lastName: String!
-    phone: String
-    dateOfBirth: DateTime
-    avatar: String
-    role: UserRole
-    isActive: Boolean
-    password: String
-  }
-
-  input UpdateUserProfileInput {
-    firstName: String
-    lastName: String
-    phone: String
-    dateOfBirth: DateTime
-    avatar: String
-    role: UserRole
-    isActive: Boolean
-  }
-
-  input UpdateUserInput {
-    email: String
-    role: UserRole
-    isActive: Boolean
-    profile: UpdateUserProfileInput
-  }
-
-  input CreateUserAddressInput {
-    userId: ID!
-    type: String!
-    firstName: String!
-    lastName: String!
-    company: String
-    address1: String!
-    address2: String
-    city: String!
-    state: String!
-    postalCode: String!
-    country: String
-    phone: String
-    isDefault: Boolean
-  }
-
-  input UpdateUserAddressInput {
-    type: String
-    firstName: String
-    lastName: String
-    company: String
-    address1: String
-    address2: String
-    city: String
-    state: String
-    postalCode: String
-    country: String
-    phone: String
-    isDefault: Boolean
-  }
 
   # Payment Inputs
   input CreateSavedPaymentMethodInput {
@@ -919,21 +703,6 @@ export const typeDefs = gql`
   }
 
   # Filter and Pagination Inputs
-  input UserFilterInput {
-    role: UserRole
-    isActive: Boolean
-    search: String
-    emailVerified: Boolean
-  }
-
-  input UserOrderHistoryFilter {
-    status: OrderStatus
-    startDate: DateTime
-    endDate: DateTime
-    minAmount: Decimal
-    maxAmount: Decimal
-  }
-
   input PaginationInput {
     limit: Int = 10
     offset: Int = 0
@@ -942,86 +711,6 @@ export const typeDefs = gql`
   # =====================================================
   # RESPONSE TYPES
   # =====================================================
-
-  type PaginatedUsers {
-    users: [User!]!
-    total: Int!
-    hasMore: Boolean!
-  }
-
-  # Standardized response for users query
-  type GetUsersResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: GetUsersData
-    metadata: ResponseMetadata
-  }
-
-  type GetUsersData {
-    items: [User!]!
-    pagination: UserPaginationInfo!
-  }
-
-  type UserPaginationInfo {
-    total: Int!
-    limit: Int!
-    offset: Int!
-    hasMore: Boolean!
-    currentPage: Int!
-    totalPages: Int!
-  }
-
-  # Standardized response for usersByProvider query
-  type GetUsersByProviderResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: [User!]!
-    metadata: ResponseMetadata
-  }
-
-  # Standardized response for currentUser query
-  type GetCurrentUserResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: User
-    metadata: ResponseMetadata
-  }
-
-  type UserOrderHistoryResponse {
-    orders: [Order!]!
-    total: Int!
-    hasMore: Boolean!
-    stats: UserOrderHistoryStats!
-  }
-
-  type UserOrderHistoryStats {
-    totalOrders: Int!
-    totalSpent: Decimal!
-    averageOrderValue: Decimal!
-    lastOrderDate: DateTime
-    ordersByStatus: JSON!
-  }
-
-  type UserFavoriteStats {
-    totalFavorites: Int!
-    recentFavorites: [UserFavorite!]!
-    favoriteCategories: [String!]!
-  }
-
-  type UserActivitySummary {
-    recentOrders: [Order!]!
-    favoriteProducts: [Product!]!
-    cartItemsCount: Int!
-    totalSpent: Decimal!
-    joinDate: DateTime!
-    lastActivity: DateTime!
-  }
 
   type OrderStats {
     totalOrders: Int!
@@ -1081,303 +770,6 @@ export const typeDefs = gql`
     timestamp: String!
   }
 
-  type CreateUserResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: CreateUserData
-    metadata: ResponseMetadata
-  }
-
-  type CreateUserData {
-    entity: User!
-    id: ID!
-    createdAt: String!
-  }
-
-  # Session Analytics Input Types
-  input CreateUserSessionAnalyticsInput {
-    sessionId: String!
-    userId: ID!
-    pageViews: Int
-    timeSpent: Int
-    bounceRate: Float
-    conversionRate: Float
-    deviceType: String
-    browser: String
-    os: String
-    country: String
-    city: String
-  }
-
-  input UpdateUserSessionAnalyticsInput {
-    pageViews: Int
-    timeSpent: Int
-    bounceRate: Float
-    conversionRate: Float
-    deviceType: String
-    browser: String
-    os: String
-    country: String
-    city: String
-  }
-
-  # Session Analytics Response Types
-  type CreateUserSessionAnalyticsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: CreateUserSessionAnalyticsData
-    metadata: ResponseMetadata
-  }
-
-  type CreateUserSessionAnalyticsData {
-    entity: UserSessionAnalytics!
-    id: ID!
-    createdAt: String!
-  }
-
-  type UpdateUserSessionAnalyticsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: UpdateUserSessionAnalyticsData
-    metadata: ResponseMetadata
-  }
-
-  type UpdateUserSessionAnalyticsData {
-    entity: UserSessionAnalytics!
-    id: ID!
-    updatedAt: String!
-    changes: [String!]!
-  }
-
-  type DeleteUserSessionAnalyticsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: DeleteUserSessionAnalyticsData
-    metadata: ResponseMetadata
-  }
-
-  type DeleteUserSessionAnalyticsData {
-    id: ID!
-    deletedAt: String!
-    softDelete: Boolean!
-  }
-
-  # Session Revocation Response Types
-  type RevokeUserSessionResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: RevokeUserSessionData
-    metadata: ResponseMetadata
-  }
-
-  type RevokeUserSessionData {
-    sessionId: ID!
-    revokedAt: String!
-    reason: String
-    analyticsCleaned: Boolean!
-  }
-
-  type RevokeAllUserSessionsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: RevokeAllUserSessionsData
-    metadata: ResponseMetadata
-  }
-
-  type RevokeAllUserSessionsData {
-    userId: ID!
-    sessionsRevoked: Int!
-    analyticsCleaned: Int!
-    revokedAt: String!
-    reason: String
-  }
-
-  # User Address Response Types
-  type CreateUserAddressResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: CreateUserAddressData
-    metadata: ResponseMetadata
-  }
-
-  type CreateUserAddressData {
-    entity: UserAddress!
-    id: ID!
-    createdAt: String!
-  }
-
-  type UpdateUserAddressResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: UpdateUserAddressData
-    metadata: ResponseMetadata
-  }
-
-  type UpdateUserAddressData {
-    entity: UserAddress!
-    id: ID!
-    updatedAt: String!
-    changes: [String!]!
-  }
-
-  type DeleteUserAddressResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: DeleteUserAddressData
-    metadata: ResponseMetadata
-  }
-
-  type DeleteUserAddressData {
-    id: ID!
-    deletedAt: String!
-    softDelete: Boolean!
-  }
-
-  type SetDefaultAddressResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: SetDefaultAddressData
-    metadata: ResponseMetadata
-  }
-
-  type SetDefaultAddressData {
-    userId: ID!
-    addressId: ID!
-    updatedAt: String!
-  }
-
-  type GetUserAddressResponse {
-    success: Boolean!
-    message: String!
-    timestamp: String!
-    code: String!
-    data: GetUserAddressData
-    metadata: ResponseMetadata
-  }
-
-  type GetUserAddressData {
-    entity: UserAddress!
-  }
-
-  type GetUserAddressesResponse {
-    success: Boolean!
-    message: String!
-    timestamp: String!
-    code: String!
-    data: GetUserAddressesData
-    metadata: ResponseMetadata
-  }
-
-  type GetUserAddressesData {
-    items: [UserAddress!]!
-  }
-
-  type AuthResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: AuthData
-    metadata: ResponseMetadata
-  }
-
-  type AuthData {
-    user: User
-    accessToken: String
-    refreshToken: String
-  }
-
-  # Password Reset Response Types
-  type PasswordResetRequestResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: PasswordResetRequestData
-    metadata: ResponseMetadata
-  }
-
-  type PasswordResetRequestData {
-    email: String!
-    timestamp: String!
-  }
-
-  type PasswordResetConfirmResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: PasswordResetConfirmData
-    metadata: ResponseMetadata
-  }
-
-  type PasswordResetConfirmData {
-    timestamp: String!
-    passwordUpdated: Boolean!
-  }
-
-  type SetUserPasswordResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: SetUserPasswordData
-    metadata: ResponseMetadata
-  }
-
-  type SetUserPasswordData {
-    userId: ID!
-    timestamp: String!
-    passwordUpdated: Boolean!
-  }
-
-  # Audit and Security Response Types
-  type GetUserAuditLogsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: GetUserAuditLogsData
-    metadata: ResponseMetadata
-  }
-
-  type GetUserAuditLogsData {
-    items: [AuditLog!]!
-  }
-
-  type GetUserSecurityEventsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: GetUserSecurityEventsData
-    metadata: ResponseMetadata
-  }
-
-  type GetUserSecurityEventsData {
-    items: [SecurityEvent!]!
-  }
-
   type SuccessResponse {
     success: Boolean!
     message: String!
@@ -1421,37 +813,14 @@ export const typeDefs = gql`
   type Query {
     # Health check
     health: String!
-    
+
     # Dashboard & Analytics
     dashboardMetrics: DashboardMetrics!
     orderAnalytics: OrderAnalytics!
     userAnalytics: UserAnalytics!
+    orderStats: OrderStatsResponse!
+    userStats: UserStatsResponse!
 
-      # Stats queries
-  orderStats: OrderStatsResponse!
-  userStats: UserStatsResponse!
-    
-    # User queries
-    users(filter: UserFilterInput, pagination: PaginationInput): GetUsersResponse!
-    user(id: ID!): User
-    userProfile(userId: ID!): UserProfile
-    userAddresses(userId: ID!): GetUserAddressesResponse!
-    userAddress(id: ID!): GetUserAddressResponse!
-    currentUser: GetCurrentUserResponse!
-    searchUsers(query: String!): [User!]!
-    activeUsers: [User!]!
-    usersByRole(role: UserRole!): [User!]!
-    usersByProvider(provider: AuthProvider!): GetUsersByProviderResponse!
-    userOrderHistory(userId: ID!, filter: UserOrderHistoryFilter, pagination: PaginationInput): UserOrderHistoryResponse!
-    userFavoriteStats(userId: ID!): UserFavoriteStats!
-    userActivitySummary(userId: ID!): UserActivitySummary!
-    
-    # Authentication queries
-    userAccounts(userId: ID!): [UserAccount!]!
-    userSessions(userId: ID!): [UserSession!]!
-    activeSessions(userId: ID!): [UserSession!]!
-    userSessionAnalytics(userId: ID!): [UserSessionAnalytics!]!
-    
     # Shopping cart queries
     userCart(userId: ID!): [ShoppingCart!]!
     cartItem(id: ID!): ShoppingCart
@@ -1512,9 +881,7 @@ export const typeDefs = gql`
     # Analytics & Tracking queries
     userAppEvents(userId: ID!): [AppEvent!]!
     productAppEvents(productId: ID!): [AppEvent!]!
-    userAuditLogs(userId: ID!): GetUserAuditLogsResponse!
-    userSecurityEvents(userId: ID!): GetUserSecurityEventsResponse!
-    
+
     # Configuration queries
     storeSettings: [StoreSettings!]!
     storeSetting(key: String!): StoreSettings
@@ -1531,43 +898,6 @@ export const typeDefs = gql`
   # =====================================================
 
   type Mutation {
-    # Auth mutations
-    registerUser(input: CreateUserProfileInput!): AuthResponse!
-    loginUser(email: String!, password: String!): AuthResponse!
-    logoutUser: SuccessResponse!
-    refreshToken(refreshToken: String!): AuthResponse!
-    
-    # User mutations
-    createUser(input: CreateUserProfileInput!): CreateUserResponse!
-    updateUser(id: ID!, input: UpdateUserInput!): User!
-    deleteUser(id: ID!): SuccessResponse!
-    activateUser(id: ID!): User!
-    deactivateUser(id: ID!): User!
-    updateUserPassword(email: String!, currentPassword: String!, newPassword: String!): SuccessResponse!
-    requestPasswordReset(email: String!): PasswordResetRequestResponse!
-    resetPassword(token: String!, newPassword: String!): PasswordResetConfirmResponse!
-    setUserPassword(userId: ID!, newPassword: String!): SetUserPasswordResponse!
-    
-    # User session management
-    revokeUserSession(sessionId: ID!, userId: ID!, reason: String): RevokeUserSessionResponse!
-    revokeAllUserSessions(userId: ID!, requestingUserId: ID!, reason: String, excludeCurrentSession: Boolean): RevokeAllUserSessionsResponse!
-    
-    # User account management
-    unlinkUserAccount(accountId: ID!): SuccessResponse!
-    forcePasswordReset(userId: ID!): SuccessResponse!
-    impersonateUser(userId: ID!): AuthResponse!
-    
-    # User profile management
-    createUserProfile(input: CreateUserProfileInput!): UserProfile!
-    updateUserProfile(userId: ID!, input: UpdateUserProfileInput!): UserProfile!
-    deleteUserProfile(userId: ID!): SuccessResponse!
-    
-    # User address mutations
-    createUserAddress(input: CreateUserAddressInput!): CreateUserAddressResponse!
-    updateUserAddress(id: ID!, input: UpdateUserAddressInput!): UpdateUserAddressResponse!
-    deleteUserAddress(id: ID!): DeleteUserAddressResponse!
-    setDefaultAddress(userId: ID!, addressId: ID!): SetDefaultAddressResponse!
-    
     # Shopping cart mutations
     addToCart(userId: ID!, productId: ID!, quantity: Int!): ShoppingCartItem!
     updateCartItem(id: ID!, quantity: Int!): ShoppingCartItem!
@@ -1622,11 +952,6 @@ export const typeDefs = gql`
     subscribeToNewsletter(email: String!, userId: String): NewsletterSubscription!
     unsubscribeFromNewsletter(email: String!): SuccessResponse!
     
-    # Session Analytics mutations
-    createUserSessionAnalytics(input: CreateUserSessionAnalyticsInput!): CreateUserSessionAnalyticsResponse!
-    updateUserSessionAnalytics(id: ID!, input: UpdateUserSessionAnalyticsInput!): UpdateUserSessionAnalyticsResponse!
-    deleteUserSessionAnalytics(id: ID!): DeleteUserSessionAnalyticsResponse!
-    
-    # Bulk operations — bulkUpdateOrderStatus → migrated to order-service (Federation)
+    # Bulk operations — bulkUpdateOrderStatus → migrated to order-service, user ops → migrated to user-service (Federation)
   }
-`; 
+`;

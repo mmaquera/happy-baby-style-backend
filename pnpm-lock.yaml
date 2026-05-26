@@ -377,6 +377,57 @@ importers:
         specifier: ^7.1.0
         version: 7.2.0
 
+  apps/user-service:
+    dependencies:
+      '@apollo/server':
+        specifier: ^4.11.2
+        version: 4.13.0(graphql@16.14.0)
+      '@apollo/subgraph':
+        specifier: ^2.14.0
+        version: 2.14.0(graphql@16.14.0)
+      '@hbs/auth':
+        specifier: workspace:*
+        version: link:../../libs/auth
+      '@hbs/logging':
+        specifier: workspace:*
+        version: link:../../libs/logging
+      '@hbs/prisma':
+        specifier: workspace:*
+        version: link:../../libs/prisma
+      '@hbs/shared-kernel':
+        specifier: workspace:*
+        version: link:../../libs/shared-kernel
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      dotenv:
+        specifier: ^16.3.1
+        version: 16.6.1
+      express:
+        specifier: ^4.18.2
+        version: 4.22.2
+      google-auth-library:
+        specifier: ^9.0.0
+        version: 9.15.1
+      graphql:
+        specifier: ^16.8.1
+        version: 16.14.0
+      graphql-tag:
+        specifier: ^2.12.6
+        version: 2.12.6(graphql@16.14.0)
+      helmet:
+        specifier: ^7.1.0
+        version: 7.2.0
+      jsonwebtoken:
+        specifier: ^9.0.2
+        version: 9.0.3
+      nodemailer:
+        specifier: ^7.0.10
+        version: 7.0.13
+
   libs/auth: {}
 
   libs/logging: {}
@@ -2794,6 +2845,10 @@ packages:
     resolution: {integrity: sha512-jhIXaOzy1sb8IyocaruWSn1TjmnBVs8Ayhcy83rmxNJ8q2uWKCAj3CnJY+KpGSXCueAPc0i05kVvVKtP1t9S3g==}
     engines: {node: '>=10'}
 
+  google-auth-library@9.15.1:
+    resolution: {integrity: sha512-Jb6Z0+nvECVz+2lzSMt9u98UsoakXxA2HGHMCxh+so3n90XgYWkq5dur19JAJV7ONiJY22yBTyJB1TSkvPq9Ng==}
+    engines: {node: '>=14'}
+
   google-logging-utils@0.0.2:
     resolution: {integrity: sha512-NEgUnEcBiP5HrPzufUkBzJOD/Sxsco3rLNo1F1TNf7ieU8ryUzBhqba8r756CjLX7rn3fHl6iLEwPYuqpoKgQQ==}
     engines: {node: '>=14'}
@@ -2871,6 +2926,10 @@ packages:
   graphql@16.14.0:
     resolution: {integrity: sha512-BBvQ/406p+4CZbTpCbVPSxfzrZrbnuWSP1ELYgyS6B+hNeKzgrdB4JczCa5VZUBQrDa9hUngm0KnexY6pJRN5Q==}
     engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
+
+  gtoken@7.1.0:
+    resolution: {integrity: sha512-pCcEwRi+TKpMlxAQObHDQ56KawURgyAf6jtIY046fJ5tIv3zDe/LEIubckAO8fj6JnAxLdmWkUfNyulQ2iKdEw==}
+    engines: {node: '>=14.0.0'}
 
   handlebars@4.7.9:
     resolution: {integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==}
@@ -7874,6 +7933,18 @@ snapshots:
       merge2: 1.4.1
       slash: 3.0.0
 
+  google-auth-library@9.15.1:
+    dependencies:
+      base64-js: 1.5.1
+      ecdsa-sig-formatter: 1.0.11
+      gaxios: 6.7.1
+      gcp-metadata: 6.1.1
+      gtoken: 7.1.0
+      jws: 4.0.1
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
   google-logging-utils@0.0.2: {}
 
   gopd@1.2.0: {}
@@ -7948,6 +8019,14 @@ snapshots:
       ws: 8.21.0
 
   graphql@16.14.0: {}
+
+  gtoken@7.1.0:
+    dependencies:
+      gaxios: 6.7.1
+      jws: 4.0.1
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
 
   handlebars@4.7.9:
     dependencies:

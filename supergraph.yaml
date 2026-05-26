@@ -21,3 +21,7 @@ subgraphs:
     routing_url: http://order-service:3005/graphql
     schema:
       subgraph_url: http://localhost:3005/graphql
+  user:
+    routing_url: http://user-service:3006/graphql
+    schema:
+      subgraph_url: http://localhost:3006/graphql
