@@ -1,7 +1,7 @@
 # Plan de Migración a Microservicios (Monorepo) — Happy Baby Style Backend
 
 > Documento vivo. Marcamos cada item del checklist a medida que avanzamos.
-> Última actualización: 2026-05-25 (Fase 4.4 completada)
+> Última actualización: 2026-05-26 (Fase 4.6 completada)
 
 ## Contexto
 
@@ -152,7 +152,7 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - [x] `Dockerfile.user-service`, entrada en `docker-compose.yml`, `supergraph.yaml`, `gateway/src/index.ts`, `.env.template`.
   - [x] legacy-api limpiada: User/UserProfile/UserAddress → stubs `@key`; eliminadas todas las queries/mutations de usuario y auth.
   - [x] **Build y type-check limpios:** `nx run user-service:build` y `nx run legacy-api:type-check` verdes.
-- [ ] **4.6** Retirar de `legacy-api` cada dominio migrado hasta vaciarlo.
+- [x] **4.6** Retirar de `legacy-api` cada dominio migrado hasta vaciarlo.
 
 ### FASE 5 — Separación de bases de datos
 - [ ] **5.1** Pasar cada dominio de schema lógico a su propia DB.
