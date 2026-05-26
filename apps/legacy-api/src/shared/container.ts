@@ -1,19 +1,14 @@
 import { PrismaProductRepository } from '@infrastructure/repositories/PrismaProductRepository';
-import { PrismaImageRepository } from '@infrastructure/repositories/PrismaImageRepository';
-import { PrismaSvgRepository } from '@infrastructure/repositories/PrismaSvgRepository';
 import { PrismaOrderRepository } from '@infrastructure/repositories/PrismaOrderRepository';
 //import { InMemoryUserRepository } from '@infrastructure/repositories/InMemoryUserRepository';
 import { PrismaUserProfileRepository } from '@infrastructure/repositories/PrismaUserProfileRepository';
 import { prisma } from '@infrastructure/database/prisma';
-import { LocalStorageService } from '@infrastructure/services/LocalStorageService';
 import { JwtAuthService } from '@infrastructure/auth/JwtAuthService';
 import { PrismaAuthRepository } from '@infrastructure/repositories/PrismaAuthRepository';
 import { PrismaAuditRepository } from '@infrastructure/repositories/PrismaAuditRepository';
 import { PrismaSecurityEventRepository } from '@infrastructure/repositories/PrismaSecurityEventRepository';
 import { GoogleOAuthService } from '@infrastructure/auth/GoogleOAuthService';
 import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUseCase';
-import { UploadImageUseCase } from '@application/use-cases/image/UploadImageUseCase';
-import { UploadSvgUseCase } from '@application/use-cases/svg/UploadSvgUseCase';
 import { CreateOrderUseCase } from '@application/use-cases/order/CreateOrderUseCase';
 import { GetOrdersUseCase } from '@application/use-cases/order/GetOrdersUseCase';
 import { GetOrderByIdUseCase } from '@application/use-cases/order/GetOrderByIdUseCase';
@@ -45,9 +40,6 @@ import { SessionService } from '@application/auth/SessionService';
 import { RateLimitService } from '@application/services/RateLimitService';
 // Controllers removed - GraphQL only architecture
 import { IProductRepository } from '@domain/repositories/IProductRepository';
-import { IImageRepository } from '@domain/repositories/IImageRepository';
-import { ISvgRepository } from '@domain/repositories/ISvgRepository';
-import { IStorageService } from '@domain/interfaces/IStorageService';
 import { IOrderRepository } from '@domain/repositories/IOrderRepository';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
@@ -88,8 +80,6 @@ export class Container {
     
     // Repositorios Prisma with logging  
     const productRepository: IProductRepository = new PrismaProductRepository(prisma);
-    const imageRepository: IImageRepository = new PrismaImageRepository(prisma);
-    const svgRepository: ISvgRepository = new PrismaSvgRepository(prisma);
     const orderRepository: IOrderRepository = new PrismaOrderRepository(prisma);
     // Usar repositorio PostgreSQL real con AWS RDS
     const userRepository: IUserRepository = new PrismaUserProfileRepository(prisma);
@@ -99,7 +89,6 @@ export class Container {
     const securityEventRepository: ISecurityEventRepository = new PrismaSecurityEventRepository(prisma);
     
     // Servicios
-    const storageService: IStorageService = new LocalStorageService();
     const authService = new JwtAuthService(userRepository);
     const googleOAuthService = new GoogleOAuthService();
     
@@ -112,12 +101,6 @@ export class Container {
     
     // Casos de uso de Categorías → migradas a category-service (Federation)
 
-    // Casos de uso de Imágenes
-    const uploadImageUseCase = new UploadImageUseCase(imageRepository, storageService);
-    
-    // Casos de uso de SVG
-    const uploadSvgUseCase = new UploadSvgUseCase(svgRepository, storageService);
-    
     // Casos de uso de Pedidos
     const createOrderUseCase = new CreateOrderUseCase(orderRepository, productRepository);
     const getOrdersUseCase = new GetOrdersUseCase(orderRepository);
@@ -200,11 +183,8 @@ export class Container {
     this.dependencies.set('securityEventRepository', securityEventRepository);
     this.dependencies.set('googleOAuthService', googleOAuthService);
     this.dependencies.set('productRepository', productRepository);
-    this.dependencies.set('imageRepository', imageRepository);
-    this.dependencies.set('svgRepository', svgRepository);
     this.dependencies.set('orderRepository', orderRepository);
     this.dependencies.set('userRepository', userRepository);
-    this.dependencies.set('storageService', storageService);
     this.dependencies.set('emailService', emailService);
     
     // Logging dependencies
@@ -216,8 +196,7 @@ export class Container {
     // Casos de uso
     this.dependencies.set('getProductsUseCase', getProductsUseCase);
     // category use cases → migrated to category-service
-    this.dependencies.set('uploadImageUseCase', uploadImageUseCase);
-    this.dependencies.set('uploadSvgUseCase', uploadSvgUseCase);
+    // uploadImage/uploadSvg use cases → migrated to media-service
     this.dependencies.set('createOrderUseCase', createOrderUseCase);
     this.dependencies.set('getOrdersUseCase', getOrdersUseCase);
     this.dependencies.set('getOrderByIdUseCase', getOrderByIdUseCase);

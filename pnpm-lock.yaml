@@ -263,6 +263,45 @@ importers:
         specifier: ^5.3.2
         version: 5.9.3
 
+  apps/media-service:
+    dependencies:
+      '@apollo/server':
+        specifier: ^4.11.2
+        version: 4.13.0(graphql@16.14.0)
+      '@apollo/subgraph':
+        specifier: ^2.14.0
+        version: 2.14.0(graphql@16.14.0)
+      '@hbs/logging':
+        specifier: workspace:*
+        version: link:../../libs/logging
+      '@hbs/prisma':
+        specifier: workspace:*
+        version: link:../../libs/prisma
+      '@hbs/shared-kernel':
+        specifier: workspace:*
+        version: link:../../libs/shared-kernel
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      dotenv:
+        specifier: ^16.3.1
+        version: 16.6.1
+      express:
+        specifier: ^4.18.2
+        version: 4.22.2
+      graphql:
+        specifier: ^16.8.1
+        version: 16.14.0
+      graphql-tag:
+        specifier: ^2.12.6
+        version: 2.12.6(graphql@16.14.0)
+      graphql-upload-cjs:
+        specifier: ^15.0.2
+        version: 15.0.2(@types/express@4.17.25)(graphql@16.14.0)
+      helmet:
+        specifier: ^7.1.0
+        version: 7.2.0
+
   apps/product-service:
     dependencies:
       '@apollo/server':

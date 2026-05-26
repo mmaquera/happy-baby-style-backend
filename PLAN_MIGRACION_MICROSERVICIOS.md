@@ -1,7 +1,7 @@
 # Plan de Migración a Microservicios (Monorepo) — Happy Baby Style Backend
 
 > Documento vivo. Marcamos cada item del checklist a medida que avanzamos.
-> Última actualización: 2026-05-25 (Fase 4.2 completada)
+> Última actualización: 2026-05-25 (Fase 4.3 completada)
 
 ## Contexto
 
@@ -128,7 +128,14 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - [x] **legacy-api limpiado:** `type Product` reducido a stub `@key(fields: "id") { id: ID! }`, igual para `ProductVariant`. Eliminados todos los input types, response types y resolvers de producto. Imports de use-cases de producto eliminados. Se conserva `getProductsUseCase` en el container para `dashboardMetrics` (agrega conteos cross-domain).
   - [x] **Gateway y Docker actualizados:** tercer subgraph `product-service` en `IntrospectAndCompose`; servicio `product-service` en docker-compose (puerto 3003); `supergraph.yaml` extendido; `.env.template` con `PRODUCT_SERVICE_PORT=3003`; `Dockerfile.product-service`.
   - [x] **Build limpio:** `nx build` verde para los 4 proyectos (legacy-api, gateway, category-service, product-service).
-- [ ] **4.3** `media-service` (Image/SVG).
+- [x] **4.3** `media-service` (Image/SVG, uploads + storage, puerto 3004). Completado 2026-05-25.
+  - [x] **Entidades y dominio:** `ImageEntity`, `SvgEntity`, `ImageEntityType`, `SvgEntityType`, `StorageError`, `DomainError` copiados con rutas relativas (sin alias `@domain/*`).
+  - [x] **Application layer:** `UploadImageUseCase` (resuelve Promise de graphql-upload, lee stream a buffer, valida y sube), `UploadSvgUseCase` (lee stream, sanitiza, extrae metadata, sube). `storageConfig` inlineado desde `process.env` (sin `@config/storage`). `SvgValidationService` copiado (420 líneas, autocontenido). `FileValidationService` copiado.
+  - [x] **Infrastructure:** `PrismaImageRepository`, `PrismaSvgRepository` (ambos escriben en tabla `image` de la DB compartida, los SVGs se distinguen por mimeType). `LocalStorageService` adaptado con `storageConfig` inlineado.
+  - [x] **Federation subgraph:** `type Image @key(fields: "id")` y `type Svg @key(fields: "id")` con `__resolveReference`. Mutations: `uploadImage`, `uploadSvg`, `deleteImage`, `deleteSvg`. Queries: `image`, `imagesByEntity`, `svg`, `svgsByEntity`, `svgs`, `svgsCount`. Scalar `Upload` definido en el subgraph.
+  - [x] **legacy-api limpiado:** `type Image` y `type Svg` reducidos a stubs `@key(fields: "id") { id: ID! }`. Eliminados `SvgDimensions`, `UploadImageResponse`, `UploadImageData`, `UploadSvgResponse`, `UploadSvgData`, `scalar Upload`, mutations `uploadImage`/`uploadSvg`. Container sin `imageRepository`, `svgRepository`, `storageService`, `uploadImageUseCase`, `uploadSvgUseCase`.
+  - [x] **Gateway y Docker actualizados:** cuarto subgraph `media-service` en `IntrospectAndCompose`; servicio `media-service` en docker-compose (puerto 3004, volume `./uploads:/workspace/uploads`); `supergraph.yaml` extendido; `.env.template` con `MEDIA_SERVICE_PORT=3004`; `Dockerfile.media-service`.
+  - [x] **Build y type-check limpios:** `nx run media-service:build` y `nx run legacy-api:type-check` verdes.
 - [ ] **4.4** `order-service` — comunicación async (Redis/broker) para validación de stock Order→Product.
 - [ ] **4.5** `user-service` (auth, addresses, sessions, analytics) — el hub, al final.
 - [ ] **4.6** Retirar de `legacy-api` cada dominio migrado hasta vaciarlo.

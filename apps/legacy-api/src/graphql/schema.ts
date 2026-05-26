@@ -93,7 +93,6 @@ export const typeDefs = gql`
   scalar DateTime
   scalar Decimal
   scalar JSON
-  scalar Upload
 
   # =====================================================
   # CORE USER MANAGEMENT TYPES
@@ -749,38 +748,12 @@ export const typeDefs = gql`
     updatedAt: DateTime!
   }
 
-  type Image {
+  type Image @key(fields: "id") {
     id: ID!
-    fileName: String!
-    originalName: String!
-    mimeType: String!
-    size: Int!
-    url: String!
-    bucket: String
-    path: String
-    entityType: String
-    entityId: String
-    createdAt: DateTime!
   }
 
-  type Svg {
+  type Svg @key(fields: "id") {
     id: ID!
-    fileName: String!
-    originalName: String!
-    url: String!
-    path: String
-    entityType: String
-    entityId: String
-    dimensions: SvgDimensions
-    viewBox: String
-    optimized: Boolean!
-    createdAt: DateTime!
-    updatedAt: DateTime!
-  }
-
-  type SvgDimensions {
-    width: Float
-    height: Float
   }
 
   # =====================================================
@@ -1507,39 +1480,6 @@ export const typeDefs = gql`
     message: String!
   }
 
-  type UploadImageResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: UploadImageData
-    metadata: ResponseMetadata
-  }
-
-  type UploadImageData {
-    url: String!
-    filename: String!
-    imageId: ID!
-  }
-
-  type UploadSvgResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: UploadSvgData
-    metadata: ResponseMetadata
-  }
-
-  type UploadSvgData {
-    url: String!
-    filename: String!
-    svgId: ID!
-    dimensions: SvgDimensions
-    viewBox: String
-    optimized: Boolean!
-  }
-
   # Analytics Response Types
   type DashboardMetrics {
     totalUsers: Int!
@@ -1810,12 +1750,6 @@ export const typeDefs = gql`
     createUserSessionAnalytics(input: CreateUserSessionAnalyticsInput!): CreateUserSessionAnalyticsResponse!
     updateUserSessionAnalytics(id: ID!, input: UpdateUserSessionAnalyticsInput!): UpdateUserSessionAnalyticsResponse!
     deleteUserSessionAnalytics(id: ID!): DeleteUserSessionAnalyticsResponse!
-    
-    # Image upload
-    uploadImage(file: Upload!, entityType: String!, entityId: String!): UploadImageResponse!
-    
-    # SVG upload
-    uploadSvg(file: Upload!, entityType: String!, entityId: String!, optimize: Boolean, sanitize: Boolean): UploadSvgResponse!
     
     # Bulk operations
     bulkUpdateOrderStatus(orders: [ID!]!, status: OrderStatus!): [Order!]!
