@@ -84,12 +84,12 @@ const jsonScalar = new GraphQLScalarType({
 // Helper function to transform database entities to GraphQL format
 const transformUserAddress = (address: any) => ({
   id: address.id,
-  type: address.title || address.type,  // Mapear desde el dominio (title) o BD (type)
+  type: address.title || address.type, // Mapear desde el dominio (title) o BD (type)
   firstName: address.firstName,
   lastName: address.lastName,
   company: address.company || null,
-  address1: address.addressLine1 || address.address1,  // Priorizar el dominio (addressLine1)
-  address2: address.addressLine2 || address.address2,  // Priorizar el dominio (addressLine2)
+  address1: address.addressLine1 || address.address1, // Priorizar el dominio (addressLine1)
+  address2: address.addressLine2 || address.address2, // Priorizar el dominio (addressLine2)
   city: address.city,
   state: address.state,
   postalCode: address.postalCode,
@@ -99,9 +99,16 @@ const transformUserAddress = (address: any) => ({
   createdAt: address.createdAt || address.created_at,
   updatedAt: address.updatedAt || address.updated_at,
   fullName: `${address.firstName || ''} ${address.lastName || ''}`.trim(),
-  fullAddress: [address.addressLine1 || address.address1, address.addressLine2 || address.address2, address.city, address.state, address.postalCode, address.country]
+  fullAddress: [
+    address.addressLine1 || address.address1,
+    address.addressLine2 || address.address2,
+    address.city,
+    address.state,
+    address.postalCode,
+    address.country,
+  ]
     .filter(Boolean)
-    .join(', ')
+    .join(', '),
 });
 
 const transformOrder = (order: any) => ({
@@ -127,20 +134,32 @@ const transformUserProfile = (profile: any) => ({
   firstName: profile.first_name || profile.firstName,
   lastName: profile.last_name || profile.lastName,
   phone: profile.phone || null,
-  dateOfBirth: profile.birthDate || profile.dateOfBirth || profile.date_of_birth || null,  // Mapear desde el dominio (birthDate) o BD (dateOfBirth)
-  avatar: profile.avatarUrl || profile.avatar || null,  // Mapear desde el dominio (avatarUrl) o BD (avatar)
-  role: profile.role && ['admin', 'customer', 'staff'].includes(profile.role) 
-    ? profile.role 
-    : 'customer',
-  emailVerified: profile.emailVerified !== undefined ? profile.emailVerified : profile.email_verified !== undefined ? profile.email_verified : false,
-  isActive: profile.isActive !== undefined ? profile.isActive : profile.is_active !== undefined ? profile.is_active : true,
+  dateOfBirth: profile.birthDate || profile.dateOfBirth || profile.date_of_birth || null, // Mapear desde el dominio (birthDate) o BD (dateOfBirth)
+  avatar: profile.avatarUrl || profile.avatar || null, // Mapear desde el dominio (avatarUrl) o BD (avatar)
+  role:
+    profile.role && ['admin', 'customer', 'staff'].includes(profile.role)
+      ? profile.role
+      : 'customer',
+  emailVerified:
+    profile.emailVerified !== undefined
+      ? profile.emailVerified
+      : profile.email_verified !== undefined
+        ? profile.email_verified
+        : false,
+  isActive:
+    profile.isActive !== undefined
+      ? profile.isActive
+      : profile.is_active !== undefined
+        ? profile.is_active
+        : true,
   lastLoginAt: profile.lastLoginAt || profile.last_login_at || null,
   createdAt: profile.created_at || profile.createdAt,
   updatedAt: profile.updated_at || profile.updatedAt,
   // Computed field
-  fullName: (profile.first_name || profile.firstName) && (profile.last_name || profile.lastName)
-    ? `${profile.first_name || profile.firstName} ${profile.last_name || profile.lastName}`
-    : (profile.first_name || profile.firstName) || (profile.last_name || profile.lastName) || '',
+  fullName:
+    (profile.first_name || profile.firstName) && (profile.last_name || profile.lastName)
+      ? `${profile.first_name || profile.firstName} ${profile.last_name || profile.lastName}`
+      : profile.first_name || profile.firstName || profile.last_name || profile.lastName || '',
 });
 
 const transformUserAccount = (account: any) => ({
@@ -167,7 +186,12 @@ const transformUserSession = (session: any) => ({
   expiresAt: session.expiresAt || session.expires_at,
   userAgent: session.userAgent || session.user_agent,
   ipAddress: session.ipAddress || session.ip_address,
-  isActive: session.isActive !== undefined ? session.isActive : session.is_active !== undefined ? session.is_active : true,
+  isActive:
+    session.isActive !== undefined
+      ? session.isActive
+      : session.is_active !== undefined
+        ? session.is_active
+        : true,
   createdAt: session.createdAt || session.created_at,
   updatedAt: session.updatedAt || session.updated_at,
 });
@@ -176,15 +200,28 @@ const transformUser = (user: any) => ({
   id: user.id,
   email: user.email,
   role: user.role,
-  isActive: user.isActive !== undefined ? user.isActive : user.is_active !== undefined ? user.is_active : true,
-  emailVerified: user.emailVerified !== undefined ? user.emailVerified : user.email_verified !== undefined ? user.email_verified : false,
+  isActive:
+    user.isActive !== undefined
+      ? user.isActive
+      : user.is_active !== undefined
+        ? user.is_active
+        : true,
+  emailVerified:
+    user.emailVerified !== undefined
+      ? user.emailVerified
+      : user.email_verified !== undefined
+        ? user.email_verified
+        : false,
   lastLoginAt: user.lastLoginAt || user.last_login_at || null,
   createdAt: user.created_at || user.createdAt,
   updatedAt: user.updated_at || user.updatedAt,
   profile: user.profile ? transformUserProfile(user.profile) : null,
-  addresses: user.addresses && user.addresses.length > 0 ? user.addresses.map(transformUserAddress) : [],
-  accounts: user.accounts && user.accounts.length > 0 ? user.accounts.map(transformUserAccount) : [],
-  sessions: user.sessions && user.sessions.length > 0 ? user.sessions.map(transformUserSession) : []
+  addresses:
+    user.addresses && user.addresses.length > 0 ? user.addresses.map(transformUserAddress) : [],
+  accounts:
+    user.accounts && user.accounts.length > 0 ? user.accounts.map(transformUserAccount) : [],
+  sessions:
+    user.sessions && user.sessions.length > 0 ? user.sessions.map(transformUserSession) : [],
 });
 
 export const resolvers = {
@@ -214,7 +251,7 @@ export const resolvers = {
           duration,
           userId: parent.id,
           sessionsCount: Array.isArray(sessions) ? sessions.length : 0,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
 
         return Array.isArray(sessions) ? sessions.map(transformUserSession) : [];
@@ -226,11 +263,11 @@ export const resolvers = {
           traceId,
           duration,
           userId: parent.id,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
         return [];
       }
-    }
+    },
   },
   Query: {
     health: () => 'GraphQL server is running with clean architecture!',
@@ -240,7 +277,7 @@ export const resolvers = {
       const startTime = Date.now();
       const traceId = `dashboard-metrics-${Date.now()}`;
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-      
+
       try {
         const getOrderStatsUseCase = container.get<GetOrderStatsUseCase>('getOrderStatsUseCase');
         const getUserStatsUseCase = container.get<GetUserStatsUseCase>('getUserStatsUseCase');
@@ -249,7 +286,7 @@ export const resolvers = {
         const [orderStats, userStats, productsResult] = await Promise.all([
           getOrderStatsUseCase.execute(),
           getUserStatsUseCase.execute(),
-          getProductsUseCase.execute({ filters: {}, pagination: { limit: 1000, offset: 0 } })
+          getProductsUseCase.execute({ filters: {}, pagination: { limit: 1000, offset: 0 } }),
         ]);
 
         const today = new Date();
@@ -257,10 +294,10 @@ export const resolvers = {
 
         const todayOrders = orderStats.pendingOrders || 0;
         const todayRevenue = 0; // TODO: Implement revenue by month tracking
-        const lowStockProducts = productsResult.products.filter(p => p.stockQuantity < 10).length;
+        const lowStockProducts = productsResult.products.filter((p) => p.stockQuantity < 10).length;
 
         const duration = Date.now() - startTime;
-        
+
         return ResponseFactory.createSuccessResponse(
           {
             totalUsers: userStats.totalUsers || 0,
@@ -271,28 +308,27 @@ export const resolvers = {
             todayRevenue,
             pendingOrders: orderStats.pendingOrders || 0,
             lowStockProducts,
-            activeCoupons: 0 // TODO: Implement coupon repository
+            activeCoupons: 0, // TODO: Implement coupon repository
           },
           'Dashboard metrics retrieved successfully',
           RESPONSE_CODES.SUCCESS,
           {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
         );
-        
       } catch (error: any) {
         const duration = Date.now() - startTime;
-        
+
         // Log del error con contexto completo
         console.error('DashboardMetrics resolver error:', {
           error: error.message,
           context: { requestId, traceId },
           duration,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
-        
+
         return ResponseFactory.createErrorResponse(
           `Failed to fetch dashboard metrics: ${error.message || 'Unknown error'}`,
           RESPONSE_CODES.INTERNAL_ERROR,
@@ -300,8 +336,8 @@ export const resolvers = {
           {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
         );
       }
     },
@@ -310,7 +346,7 @@ export const resolvers = {
       const startTime = Date.now();
       const traceId = `order-analytics-${Date.now()}`;
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-      
+
       try {
         const getOrderStatsUseCase = container.get<GetOrderStatsUseCase>('getOrderStatsUseCase');
 
@@ -328,31 +364,30 @@ export const resolvers = {
               processing: orderStats.processingOrders || 0,
               shipped: orderStats.shippedOrders || 0,
               delivered: orderStats.deliveredOrders || 0,
-              cancelled: orderStats.cancelledOrders || 0
+              cancelled: orderStats.cancelledOrders || 0,
             },
             revenueByMonth: {},
-            topCustomers: []
+            topCustomers: [],
           },
           'Order analytics retrieved successfully',
           RESPONSE_CODES.SUCCESS,
           {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
         );
-        
       } catch (error: any) {
         const duration = Date.now() - startTime;
-        
+
         // Log del error con contexto completo
         console.error('OrderAnalytics resolver error:', {
           error: error.message,
           context: { requestId, traceId },
           duration,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
-        
+
         return ResponseFactory.createErrorResponse(
           `Failed to fetch order analytics: ${error.message || 'Unknown error'}`,
           RESPONSE_CODES.INTERNAL_ERROR,
@@ -360,8 +395,8 @@ export const resolvers = {
           {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
         );
       }
     },
@@ -370,7 +405,7 @@ export const resolvers = {
       const startTime = Date.now();
       const traceId = `user-analytics-${Date.now()}`;
       const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-      
+
       try {
         const getUserStatsUseCase = container.get<GetUserStatsUseCase>('getUserStatsUseCase');
 
@@ -385,28 +420,27 @@ export const resolvers = {
             newUsersThisMonth: userStats.newUsersThisMonth || 0,
             usersByRole: {},
             topSpenders: [],
-            userEngagement: {}
+            userEngagement: {},
           },
           'User analytics retrieved successfully',
           RESPONSE_CODES.SUCCESS,
           {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
         );
-        
       } catch (error: any) {
         const duration = Date.now() - startTime;
-        
+
         // Log del error con contexto completo
         console.error('UserAnalytics resolver error:', {
           error: error.message,
           context: { requestId, traceId },
           duration,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
-        
+
         return ResponseFactory.createErrorResponse(
           `Failed to fetch user analytics: ${error.message || 'Unknown error'}`,
           RESPONSE_CODES.INTERNAL_ERROR,
@@ -414,8 +448,8 @@ export const resolvers = {
           {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
         );
       }
     },
@@ -426,24 +460,31 @@ export const resolvers = {
     // User favorites and cart queries
     userFavorites: async (_: any, { userId }: { userId: string }) => {
       try {
-        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>('manageUserFavoritesUseCase');
+        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>(
+          'manageUserFavoritesUseCase',
+        );
         const favorites = await favoritesUseCase.getUserFavorites(userId);
-        return favorites.map(fav => ({
+        return favorites.map((fav) => ({
           id: fav.id,
           userId: fav.userId,
           productId: fav.productId,
-          createdAt: fav.createdAt
+          createdAt: fav.createdAt,
         }));
       } catch (error: any) {
         return [];
       }
     },
 
-    isProductFavorited: async (_: any, { userId, productId }: { userId: string; productId: string }) => {
+    isProductFavorited: async (
+      _: any,
+      { userId, productId }: { userId: string; productId: string },
+    ) => {
       try {
-        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>('manageUserFavoritesUseCase');
+        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>(
+          'manageUserFavoritesUseCase',
+        );
         const favorites = await favoritesUseCase.getUserFavorites(userId);
-        return favorites.some(fav => fav.productId === productId);
+        return favorites.some((fav) => fav.productId === productId);
       } catch (error: any) {
         return false;
       }
@@ -460,8 +501,8 @@ export const resolvers = {
           userId: userId,
           sessionId: null,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -471,37 +512,7 @@ export const resolvers = {
         userId: 'user-1',
         sessionId: null,
         createdAt: new Date(),
-        updatedAt: new Date()
-      };
-    },
-
-    userPaymentMethods: async (_: any, { userId }: { userId: string }) => {
-      return [
-        {
-          id: 'pm-1',
-          orderId: 'order-1',
-          type: 'credit_card',
-          amount: 55.96,
-          status: 'completed',
-          transactionId: 'txn-123',
-          metadata: { last4: '1234', brand: 'visa' },
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    paymentMethod: async (_: any, { id }: { id: string }) => {
-      return {
-        id: 'pm-1',
-        orderId: 'order-1',
-        type: 'credit_card',
-        amount: 55.96,
-        status: 'completed',
-        transactionId: 'txn-123',
-        metadata: { last4: '1234', brand: 'visa' },
-        createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
     },
 
@@ -520,178 +531,8 @@ export const resolvers = {
           isActive: true,
           metadata: { brand: 'visa' },
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    userTransactions: async (_: any, { userId }: { userId: string }) => {
-      return [
-        {
-          id: 'txn-1',
-          orderId: 'order-1',
-          userId: userId,
-          type: 'payment',
-          amount: 55.96,
-          currency: 'USD',
-          status: 'completed',
-          gateway: 'stripe',
-          gatewayTransactionId: 'txn_123',
-          metadata: { payment_method: 'card' },
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    orderTransactions: async (_: any, { orderId }: { orderId: string }) => {
-      return [
-        {
-          id: 'txn-1',
-          orderId: orderId,
-          userId: 'user-1',
-          type: 'payment',
-          amount: 55.96,
-          currency: 'USD',
-          status: 'completed',
-          gateway: 'stripe',
-          gatewayTransactionId: 'txn_123',
-          metadata: { payment_method: 'card' },
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    transaction: async (_: any, { id }: { id: string }) => {
-      return {
-        id: 'txn-1',
-        orderId: 'order-1',
-        userId: 'user-1',
-        type: 'payment',
-        amount: 55.96,
-        currency: 'USD',
-        status: 'completed',
-        gateway: 'stripe',
-        gatewayTransactionId: 'txn_123',
-        metadata: { payment_method: 'card' },
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-    },
-
-    coupons: async () => {
-      return [
-        {
-          id: 'coupon-1',
-          code: 'WELCOME10',
-          name: 'Welcome Discount',
-          description: '10% off your first order',
-          discountType: 'percentage',
-          discountValue: 10,
-          minimumAmount: 50,
-          maximumDiscount: 20,
-          usageLimit: 100,
-          usedCount: 25,
-          validFrom: new Date('2024-01-01'),
-          validUntil: new Date('2024-12-31'),
-          isActive: true,
-          isFirstTimeOnly: true,
-          applicableCategories: ['baby-clothing'],
-          applicableProducts: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    coupon: async (_: any, { id }: { id: string }) => {
-      const coupons = [
-        {
-          id: 'coupon-1',
-          code: 'WELCOME10',
-          name: 'Welcome Discount',
-          description: '10% off your first order',
-          discountType: 'percentage',
-          discountValue: 10,
-          minimumAmount: 50,
-          maximumDiscount: 20,
-          usageLimit: 100,
-          usedCount: 25,
-          validFrom: new Date('2024-01-01'),
-          validUntil: new Date('2024-12-31'),
-          isActive: true,
-          isFirstTimeOnly: true,
-          applicableCategories: ['baby-clothing'],
-          applicableProducts: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-      return coupons.find(coupon => coupon.id === id) || null;
-    },
-
-    couponByCode: async (_: any, { code }: { code: string }) => {
-      const coupons = [
-        {
-          id: 'coupon-1',
-          code: 'WELCOME10',
-          name: 'Welcome Discount',
-          description: '10% off your first order',
-          discountType: 'percentage',
-          discountValue: 10,
-          minimumAmount: 50,
-          maximumDiscount: 20,
-          usageLimit: 100,
-          usedCount: 25,
-          validFrom: new Date('2024-01-01'),
-          validUntil: new Date('2024-12-31'),
-          isActive: true,
-          isFirstTimeOnly: true,
-          applicableCategories: ['baby-clothing'],
-          applicableProducts: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-      return coupons.find(coupon => coupon.code === code) || null;
-    },
-
-    activeCoupons: async () => {
-      return [
-        {
-          id: 'coupon-1',
-          code: 'WELCOME10',
-          name: 'Welcome Discount',
-          description: '10% off your first order',
-          discountType: 'percentage',
-          discountValue: 10,
-          minimumAmount: 50,
-          maximumDiscount: 20,
-          usageLimit: 100,
-          usedCount: 25,
-          validFrom: new Date('2024-01-01'),
-          validUntil: new Date('2024-12-31'),
-          isActive: true,
-          isFirstTimeOnly: true,
-          applicableCategories: ['baby-clothing'],
-          applicableProducts: [],
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    userCouponUsage: async (_: any, { userId }: { userId: string }) => {
-      return [
-        {
-          id: 'usage-1',
-          couponId: 'coupon-1',
-          userId: userId,
-          orderId: 'order-1',
-          discountAmount: 5.00,
-          usedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -709,11 +550,11 @@ export const resolvers = {
             isVerified: true,
             helpfulCount: 3,
             createdAt: new Date(),
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         ],
         total: 1,
-        hasMore: false
+        hasMore: false,
       };
     },
 
@@ -730,8 +571,8 @@ export const resolvers = {
           isVerified: true,
           helpfulCount: 3,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -747,7 +588,7 @@ export const resolvers = {
         isVerified: true,
         helpfulCount: 3,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
     },
 
@@ -758,132 +599,8 @@ export const resolvers = {
           reviewId: reviewId,
           userId: 'user-1',
           isHelpful: true,
-          createdAt: new Date()
-        }
-      ];
-    },
-
-    inventoryTransactions: async (_: any, { productId }: { productId: string }) => {
-      return [
-        {
-          id: 'inv-1',
-          productId: productId,
-          type: 'purchase',
-          quantity: 100,
-          reference: 'PO-001',
-          notes: 'Initial stock purchase',
-          createdAt: new Date()
-        }
-      ];
-    },
-
-    stockAlerts: async () => {
-      return [
-        {
-          id: 'alert-1',
-          productId: 'prod-1',
-          type: 'low_stock',
-          threshold: 10,
-          currentStock: 5,
-          isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    // lowStockProducts / outOfStockProducts → migrated to product-service (Federation)
-
-    carriers: async () => {
-      return [
-        {
-          id: 'carrier-1',
-          name: 'FedEx',
-          code: 'fedex',
-          trackingUrlTemplate: 'https://www.fedex.com/tracking?action=track&tracknumbers={tracking_number}',
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    carrier: async (_: any, { id }: { id: string }) => {
-      const carriers = [
-        {
-          id: 'carrier-1',
-          name: 'FedEx',
-          code: 'fedex',
-          trackingUrlTemplate: 'https://www.fedex.com/tracking?action=track&tracknumbers={tracking_number}',
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-      return carriers.find(carrier => carrier.id === id) || null;
-    },
-
-    shippingZones: async () => {
-      return [
-        {
-          id: 'zone-1',
-          name: 'United States',
-          countries: ['US'],
-          states: [],
-          cities: [],
-          postalCodes: [],
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    shippingZone: async (_: any, { id }: { id: string }) => {
-      const zones = [
-        {
-          id: 'zone-1',
-          name: 'United States',
-          countries: ['US'],
-          states: [],
-          cities: [],
-          postalCodes: [],
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-      return zones.find(zone => zone.id === id) || null;
-    },
-
-    shippingRates: async (_: any, { zoneId }: { zoneId: string }) => {
-      return [
-        {
-          id: 'rate-1',
-          zoneId: zoneId,
-          name: 'Standard Shipping',
-          minWeight: 0,
-          maxWeight: 5,
-          price: 5.99,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ];
-    },
-
-    deliverySlots: async () => {
-      return [
-        {
-          id: 'slot-1',
-          dayOfWeek: 1,
-          startTime: '09:00',
-          endTime: '12:00',
-          maxOrders: 50,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
+        },
       ];
     },
 
@@ -898,8 +615,8 @@ export const resolvers = {
           expiryMonths: 12,
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -911,8 +628,8 @@ export const resolvers = {
           points: 150,
           type: 'earned',
           expiresAt: new Date('2025-12-31'),
-          createdAt: new Date()
-        }
+          createdAt: new Date(),
+        },
       ];
     },
 
@@ -936,8 +653,8 @@ export const resolvers = {
           failedAt: null,
           errorMessage: null,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -957,8 +674,8 @@ export const resolvers = {
           failedAt: null,
           errorMessage: null,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -973,8 +690,8 @@ export const resolvers = {
           variables: ['orderNumber'],
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -988,8 +705,8 @@ export const resolvers = {
           variables: ['firstName'],
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -1001,8 +718,8 @@ export const resolvers = {
           userId: 'user-1',
           isActive: true,
           subscribedAt: new Date(),
-          unsubscribedAt: null
-        }
+          unsubscribedAt: null,
+        },
       ];
     },
 
@@ -1024,8 +741,8 @@ export const resolvers = {
           location: { country: 'US', city: 'New York' },
           userAgent: 'Mozilla/5.0...',
           ipAddress: '192.168.1.1',
-          createdAt: new Date()
-        }
+          createdAt: new Date(),
+        },
       ];
     },
 
@@ -1043,8 +760,8 @@ export const resolvers = {
           location: { country: 'US', city: 'New York' },
           userAgent: 'Mozilla/5.0...',
           ipAddress: '192.168.1.1',
-          createdAt: new Date()
-        }
+          createdAt: new Date(),
+        },
       ];
     },
 
@@ -1058,8 +775,8 @@ export const resolvers = {
           category: 'general',
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -1073,10 +790,10 @@ export const resolvers = {
           category: 'general',
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
-      return settings.find(setting => setting.settingKey === key) || null;
+      return settings.find((setting) => setting.settingKey === key) || null;
     },
 
     taxRates: async () => {
@@ -1090,8 +807,8 @@ export const resolvers = {
           city: null,
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
     },
 
@@ -1106,44 +823,10 @@ export const resolvers = {
           city: null,
           isActive: true,
           createdAt: new Date(),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       ];
-      return taxRates.find(tax => tax.id === id) || null;
-    },
-
-    images: async (_: any, { entityType, entityId }: { entityType: string; entityId: string }) => {
-      return [
-        {
-          id: 'img-1',
-          fileName: 'product-image.jpg',
-          originalName: 'product-image.jpg',
-          mimeType: 'image/jpeg',
-          size: 1024000,
-          url: 'https://example.com/images/product-image.jpg',
-          bucket: 'happy-baby-style',
-          path: 'products/product-image.jpg',
-          entityType: entityType,
-          entityId: entityId,
-          createdAt: new Date()
-        }
-      ];
-    },
-
-    image: async (_: any, { id }: { id: string }) => {
-      return {
-        id: 'img-1',
-        fileName: 'product-image.jpg',
-        originalName: 'product-image.jpg',
-        mimeType: 'image/jpeg',
-        size: 1024000,
-        url: 'https://example.com/images/product-image.jpg',
-        bucket: 'happy-baby-style',
-        path: 'products/product-image.jpg',
-        entityType: 'product',
-        entityId: 'prod-1',
-        createdAt: new Date()
-      };
+      return taxRates.find((tax) => tax.id === id) || null;
     },
   },
 
@@ -1152,57 +835,69 @@ export const resolvers = {
     // createOrder / updateOrder / updateOrderStatus / cancelOrder / shipOrder / deliverOrder / bulkUpdateOrderStatus → migrated to order-service (Federation)
 
     // Favorites mutations
-    addToFavorites: async (_: any, { input }: { input: any }) => {
+    addToFavorites: async (
+      _: any,
+      { userId, productId }: { userId: string; productId: string },
+    ) => {
       try {
-        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>('manageUserFavoritesUseCase');
+        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>(
+          'manageUserFavoritesUseCase',
+        );
         const favorite = await favoritesUseCase.addToFavorites({
-          userId: input.userId,
-          productId: input.productId
+          userId,
+          productId,
         });
 
         return {
           id: favorite.id,
           userId: favorite.userId,
           productId: favorite.productId,
-          createdAt: favorite.createdAt
+          createdAt: favorite.createdAt,
         };
       } catch (error: any) {
         throw new Error(`Failed to add to favorites: ${error.message}`);
       }
     },
 
-    removeFromFavorites: async (_: any, { userId, productId }: { userId: string; productId: string }) => {
+    removeFromFavorites: async (
+      _: any,
+      { userId, productId }: { userId: string; productId: string },
+    ) => {
       try {
-        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>('manageUserFavoritesUseCase');
+        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>(
+          'manageUserFavoritesUseCase',
+        );
         await favoritesUseCase.removeFromFavorites({ userId, productId });
 
         return {
           success: true,
-          message: 'Removed from favorites successfully'
+          message: 'Removed from favorites successfully',
         };
       } catch (error: any) {
         return {
           success: false,
-          message: error.message || 'Failed to remove from favorites'
+          message: error.message || 'Failed to remove from favorites',
         };
       }
     },
 
-    toggleFavorite: async (_: any, { userId, productId }: { userId: string; productId: string }) => {
+    toggleFavorite: async (
+      _: any,
+      { userId, productId }: { userId: string; productId: string },
+    ) => {
       try {
-        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>('manageUserFavoritesUseCase');
+        const favoritesUseCase = container.get<ManageUserFavoritesUseCase>(
+          'manageUserFavoritesUseCase',
+        );
         const result = await favoritesUseCase.toggleFavorite(userId, productId);
-
-        return {
-          action: result.action,
-          favorite: result.favorite ? {
-            id: result.favorite.id,
-            userId: result.favorite.userId,
-            productId: result.favorite.productId,
-            createdAt: result.favorite.createdAt
-          } : null,
-          message: `Product ${result.action} favorites successfully`
-        };
+        return result.favorite
+          ? {
+              id: result.favorite.id,
+              userId: result.favorite.userId,
+              productId: result.favorite.productId,
+              createdAt: result.favorite.createdAt,
+            }
+          : null;
       } catch (error: any) {
         throw new Error(`Failed to toggle favorite: ${error.message}`);
       }
@@ -1223,9 +918,5 @@ export const resolvers = {
     updateCartItem: () => null,
     removeFromCart: () => ({ success: true, message: 'Item removed from cart' }),
     clearUserCart: () => ({ success: true, message: 'Cart cleared successfully' }),
-    createPaymentMethod: () => null,
-    updatePaymentMethod: () => null,
-    deletePaymentMethod: () => ({ success: true, message: 'Payment method deleted successfully' }),
-
-  }
+  },
 };

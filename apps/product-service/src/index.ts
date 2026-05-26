@@ -14,7 +14,7 @@ const PORT = parseInt(process.env.PRODUCT_SERVICE_PORT || '3003', 10);
 
 async function start() {
   const productRepository = new PrismaProductRepository(prisma);
-  const resolvers = createResolvers(productRepository);
+  const resolvers = createResolvers(productRepository, prisma);
 
   const schema = buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]);
   const server = new ApolloServer({ schema, introspection: true });
@@ -29,12 +29,15 @@ async function start() {
     res.json({ status: 'OK', service: 'product-service', port: PORT });
   });
 
-  app.use('/graphql', expressMiddleware(server, {
-    context: async ({ req }) => ({
-      headers: req.headers,
-      authHeader: req.headers.authorization
-    })
-  }));
+  app.use(
+    '/graphql',
+    expressMiddleware(server, {
+      context: async ({ req }) => ({
+        headers: req.headers,
+        authHeader: req.headers.authorization,
+      }),
+    }),
+  );
 
   app.listen(PORT, () => {
     console.log(`🚀 product-service running at http://localhost:${PORT}/graphql`);

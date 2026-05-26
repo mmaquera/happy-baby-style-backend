@@ -1,11 +1,14 @@
 import gql from 'graphql-tag';
 
 export const typeDefs = gql`
-  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
 
   scalar Decimal
   scalar DateTime
   scalar JSON
+
+  # ── Enums ─────────────────────────────────────────────────────────────────
 
   enum OrderStatus {
     pending
@@ -16,6 +19,37 @@ export const typeDefs = gql`
     cancelled
     refunded
   }
+
+  enum PaymentMethodType {
+    credit_card
+    debit_card
+    paypal
+    bank_transfer
+    cash_on_delivery
+  }
+
+  enum TransactionType {
+    payment
+    refund
+    chargeback
+    adjustment
+  }
+
+  enum TransactionStatus {
+    pending
+    completed
+    failed
+    cancelled
+    refunded
+  }
+
+  enum DiscountType {
+    percentage
+    fixed_amount
+    free_shipping
+  }
+
+  # ── Core order types ───────────────────────────────────────────────────────
 
   type Order @key(fields: "id") {
     id: ID!
@@ -77,7 +111,116 @@ export const typeDefs = gql`
     hasMore: Boolean!
   }
 
-  # External federation stubs
+  # ── Payment & transaction types ────────────────────────────────────────────
+
+  type PaymentMethod {
+    id: ID!
+    orderId: ID!
+    type: PaymentMethodType!
+    amount: Decimal!
+    status: String!
+    transactionId: String
+    metadata: JSON!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type Transaction {
+    id: ID!
+    orderId: ID!
+    userId: ID!
+    type: TransactionType!
+    amount: Decimal!
+    currency: String!
+    status: TransactionStatus!
+    gateway: String
+    gatewayTransactionId: String
+    metadata: JSON!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  # ── Coupon types ───────────────────────────────────────────────────────────
+
+  type Coupon {
+    id: ID!
+    code: String!
+    name: String!
+    description: String
+    discountType: DiscountType!
+    discountValue: Decimal!
+    minimumAmount: Decimal
+    maximumDiscount: Decimal
+    usageLimit: Int
+    usedCount: Int!
+    validFrom: DateTime!
+    validUntil: DateTime!
+    isActive: Boolean!
+    isFirstTimeOnly: Boolean!
+    applicableCategories: [String!]!
+    applicableProducts: [String!]!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type CouponUsage {
+    id: ID!
+    couponId: ID!
+    userId: ID!
+    orderId: ID!
+    discountAmount: Decimal!
+    usedAt: DateTime!
+  }
+
+  # ── Shipping & logistics types ─────────────────────────────────────────────
+
+  type Carrier {
+    id: ID!
+    name: String!
+    code: String!
+    trackingUrlTemplate: String
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type ShippingZone {
+    id: ID!
+    name: String!
+    countries: [String!]!
+    states: [String!]!
+    cities: [String!]!
+    postalCodes: [String!]!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type ShippingRate {
+    id: ID!
+    zoneId: ID!
+    name: String!
+    minWeight: Decimal
+    maxWeight: Decimal
+    price: Decimal!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type DeliverySlot {
+    id: ID!
+    dayOfWeek: Int!
+    startTime: String!
+    endTime: String!
+    maxOrders: Int!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  # ── Federation stubs ───────────────────────────────────────────────────────
+
   type User @key(fields: "id") {
     id: ID!
   }
@@ -85,6 +228,8 @@ export const typeDefs = gql`
   type Product @key(fields: "id") {
     id: ID!
   }
+
+  # ── Input types ────────────────────────────────────────────────────────────
 
   input CreateOrderItemInput {
     productId: ID!
@@ -130,18 +275,142 @@ export const typeDefs = gql`
     offset: Int
   }
 
+  input CreateCouponInput {
+    code: String!
+    name: String!
+    description: String
+    discountType: DiscountType!
+    discountValue: Decimal!
+    minimumAmount: Decimal
+    maximumDiscount: Decimal
+    usageLimit: Int
+    validFrom: DateTime!
+    validUntil: DateTime!
+    isActive: Boolean
+    isFirstTimeOnly: Boolean
+    applicableCategories: [String!]
+    applicableProducts: [String!]
+  }
+
+  input UpdateCouponInput {
+    name: String
+    description: String
+    discountValue: Decimal
+    minimumAmount: Decimal
+    maximumDiscount: Decimal
+    usageLimit: Int
+    validFrom: DateTime
+    validUntil: DateTime
+    isActive: Boolean
+    isFirstTimeOnly: Boolean
+    applicableCategories: [String!]
+    applicableProducts: [String!]
+  }
+
+  input CreateCarrierInput {
+    name: String!
+    code: String!
+    trackingUrlTemplate: String
+    isActive: Boolean
+  }
+
+  input CreateShippingZoneInput {
+    name: String!
+    countries: [String!]!
+    states: [String!]!
+    cities: [String!]!
+    postalCodes: [String!]!
+    isActive: Boolean
+  }
+
+  input CreateShippingRateInput {
+    zoneId: ID!
+    name: String!
+    minWeight: Decimal
+    maxWeight: Decimal
+    price: Decimal!
+    isActive: Boolean
+  }
+
+  input CreatePaymentMethodInput {
+    orderId: ID!
+    type: PaymentMethodType!
+    amount: Decimal!
+    status: String!
+    transactionId: String
+    metadata: JSON
+  }
+
+  input UpdatePaymentMethodInput {
+    type: PaymentMethodType
+    amount: Decimal
+    status: String
+    transactionId: String
+    metadata: JSON
+  }
+
+  # ── Queries ────────────────────────────────────────────────────────────────
+
   type Query {
+    # Orders
     orders(filter: OrderFilterInput, pagination: PaginationInput): PaginatedOrders!
     order(id: ID!): Order
     orderStats: OrderStats!
     ordersByStatus(status: OrderStatus!): [Order!]!
+
+    # Payment methods & transactions
+    userPaymentMethods(userId: ID!): [PaymentMethod!]!
+    paymentMethod(id: ID!): PaymentMethod
+    userTransactions(userId: ID!): [Transaction!]!
+    transaction(id: ID!): Transaction
+
+    # Coupons
+    coupons: [Coupon!]!
+    coupon(id: ID!): Coupon
+    couponByCode(code: String!): Coupon
+    activeCoupons: [Coupon!]!
+    userCouponUsage(userId: ID!): [CouponUsage!]!
+
+    # Shipping & logistics
+    carriers: [Carrier!]!
+    carrier(id: ID!): Carrier
+    shippingZones: [ShippingZone!]!
+    shippingZone(id: ID!): ShippingZone
+    shippingRates(zoneId: ID!): [ShippingRate!]!
+    deliverySlots: [DeliverySlot!]!
   }
 
+  # ── Mutations ──────────────────────────────────────────────────────────────
+
   type Mutation {
+    # Orders
     createOrder(input: CreateOrderInput!): Order!
     updateOrder(id: ID!, input: UpdateOrderInput!): Order!
     updateOrderStatus(id: ID!, status: OrderStatus!): Order!
     deleteOrder(id: ID!): Boolean!
     bulkUpdateOrderStatus(orders: [ID!]!, status: OrderStatus!): [Order!]!
+
+    # Payment methods
+    createPaymentMethod(input: CreatePaymentMethodInput!): PaymentMethod!
+    updatePaymentMethod(id: ID!, input: UpdatePaymentMethodInput!): PaymentMethod!
+    deletePaymentMethod(id: ID!): Boolean!
+
+    # Coupons
+    createCoupon(input: CreateCouponInput!): Coupon!
+    updateCoupon(id: ID!, input: UpdateCouponInput!): Coupon!
+    deleteCoupon(id: ID!): Boolean!
+
+    # Shipping
+    createCarrier(input: CreateCarrierInput!): Carrier!
+    updateCarrier(
+      id: ID!
+      name: String
+      code: String
+      trackingUrlTemplate: String
+      isActive: Boolean
+    ): Carrier!
+    deleteCarrier(id: ID!): Boolean!
+    createShippingZone(input: CreateShippingZoneInput!): ShippingZone!
+    createShippingRate(input: CreateShippingRateInput!): ShippingRate!
   }
 `;

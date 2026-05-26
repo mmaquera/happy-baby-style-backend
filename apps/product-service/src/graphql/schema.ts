@@ -1,7 +1,8 @@
 import gql from 'graphql-tag';
 
 export const typeDefs = gql`
-  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
 
   scalar DateTime
   scalar JSON
@@ -246,17 +247,76 @@ export const typeDefs = gql`
   # QUERIES
   # =====================================================
 
+  # ── Inventory & stock types ────────────────────────────────────────────────
+
+  enum InventoryTransactionType {
+    purchase
+    sale
+    return
+    adjustment
+    transfer
+  }
+
+  enum StockAlertType {
+    low_stock
+    out_of_stock
+    overstock
+  }
+
+  type InventoryTransaction {
+    id: ID!
+    productId: ID!
+    type: InventoryTransactionType!
+    quantity: Int!
+    reference: String
+    notes: String
+    createdAt: DateTime!
+  }
+
+  type StockAlert {
+    id: ID!
+    productId: ID!
+    type: StockAlertType!
+    threshold: Int!
+    currentStock: Int!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  input CreateInventoryTransactionInput {
+    productId: ID!
+    type: InventoryTransactionType!
+    quantity: Int!
+    reference: String
+    notes: String
+  }
+
+  input CreateStockAlertInput {
+    productId: ID!
+    type: StockAlertType!
+    threshold: Int!
+    currentStock: Int!
+    isActive: Boolean
+  }
+
   type Query {
     products(filter: ProductFilterInput, pagination: PaginationInput): GetProductsResponse!
     product(id: ID!): GetProductResponse!
     productBySku(sku: String!): GetProductResponse!
     productsByCategory(categoryId: ID!, pagination: PaginationInput): PaginatedProducts!
-    searchProducts(query: String!, filter: ProductFilterInput, pagination: PaginationInput): PaginatedProducts!
+    searchProducts(
+      query: String!
+      filter: ProductFilterInput
+      pagination: PaginationInput
+    ): PaginatedProducts!
     productVariants(productId: ID!): [ProductVariant!]!
     productVariant(id: ID!): ProductVariant
     productStats: ProductStatsResponse!
     lowStockProducts: [Product!]!
     outOfStockProducts: [Product!]!
+    inventoryTransactions(productId: ID!): [InventoryTransaction!]!
+    stockAlerts: [StockAlert!]!
   }
 
   # =====================================================
@@ -271,5 +331,9 @@ export const typeDefs = gql`
     updateProductVariant(id: ID!, input: UpdateProductVariantInput!): ProductVariant!
     deleteProductVariant(id: ID!): SuccessResponse!
     bulkUpdateProducts(ids: [ID!]!, input: UpdateProductInput!): [Product!]!
+    createInventoryTransaction(input: CreateInventoryTransactionInput!): InventoryTransaction!
+    createStockAlert(input: CreateStockAlertInput!): StockAlert!
+    updateStockAlert(id: ID!, isActive: Boolean!): StockAlert!
+    deleteStockAlert(id: ID!): SuccessResponse!
   }
 `;

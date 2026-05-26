@@ -24,12 +24,14 @@ async function start() {
   const app = express();
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
-  app.use(cors({
-    origin: FRONTEND_URLS,
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
+  app.use(
+    cors({
+      origin: FRONTEND_URLS,
+      credentials: true,
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }),
+  );
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'Order Service', port: PORT });
@@ -42,11 +44,11 @@ async function start() {
   const productValidation = new HttpProductValidationAdapter(PRODUCT_SERVICE_URL);
   const eventPublisher = new RedisEventPublisher(redisClient);
 
-  const resolvers = createResolvers(orderRepository, productValidation, eventPublisher);
+  const resolvers = createResolvers(orderRepository, productValidation, eventPublisher, prisma);
 
   const server = new ApolloServer({
     schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
-    introspection: true
+    introspection: true,
   });
 
   await server.start();
@@ -55,8 +57,8 @@ async function start() {
     '/graphql',
     express.json({ limit: '10mb' }),
     expressMiddleware(server, {
-      context: async ({ req }) => ({ req })
-    })
+      context: async ({ req }) => ({ req }),
+    }),
   );
 
   app.listen(PORT, () => {
