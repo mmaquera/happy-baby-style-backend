@@ -279,6 +279,8 @@ model Order {
   id                String          @id @default(uuid())
   userId            String          @map("user_id")
   orderNumber       String          @unique @map("order_number")
+  customerEmail     String          @default("") @map("customer_email")
+  customerName      String          @default("") @map("customer_name")
   status            OrderStatus     @default(pending)
   subtotal          Decimal         @db.Decimal(10, 2)
   taxAmount         Decimal         @default(0) @map("tax_amount") @db.Decimal(10, 2)
@@ -287,10 +289,16 @@ model Order {
   totalAmount       Decimal         @map("total_amount") @db.Decimal(10, 2)
   currency          String          @default("PEN")
   shippingAddressId String?         @map("shipping_address_id")
+  shippingStreet    String?         @map("shipping_street")
+  shippingCity      String?         @map("shipping_city")
+  shippingState     String?         @map("shipping_state")
+  shippingZipCode   String?         @map("shipping_zip_code")
+  shippingCountry   String?         @default("PE") @map("shipping_country")
   notes             String?
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
-  
+  deliveredAt       DateTime?       @map("delivered_at")
+
   // Relations
   items             OrderItem[]
   shippingAddress   UserAddress?    @relation(fields: [shippingAddressId], references: [id])

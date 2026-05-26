@@ -1,6 +1,8 @@
 import gql from 'graphql-tag';
 
 export const typeDefs = gql`
+  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
+
   # =====================================================
   # ENUMS
   # =====================================================
@@ -111,11 +113,6 @@ export const typeDefs = gql`
     id: ID!
   }
 
-  # ProductVariant is owned by product-service (Federation)
-  type ProductVariant @key(fields: "id") {
-    id: ID!
-  }
-
   # =====================================================
   # SHOPPING & CART TYPES
   # =====================================================
@@ -145,12 +142,12 @@ export const typeDefs = gql`
     product: Product!
   }
 
-  type UserFavorite {
+  type UserFavorite @shareable {
     id: ID!
     userId: ID!
     productId: ID!
     createdAt: DateTime!
-    
+
     # Relations
     user: UserProfile!
     product: Product!
@@ -356,8 +353,6 @@ export const typeDefs = gql`
     createdAt: DateTime!
     updatedAt: DateTime!
     
-    # Relations
-    tracking: [OrderTracking!]!
   }
 
   type ShippingZone {
@@ -712,7 +707,7 @@ export const typeDefs = gql`
   # RESPONSE TYPES
   # =====================================================
 
-  type OrderStats {
+  type OrderStats @shareable {
     totalOrders: Int!
     pendingOrders: Int!
     processingOrders: Int!
@@ -732,21 +727,6 @@ export const typeDefs = gql`
     metadata: ResponseMetadata
   }
 
-  type UserStats {
-    totalUsers: Int!
-    activeUsers: Int!
-    newUsersThisMonth: Int!
-    usersByRole: JSON!
-  }
-
-  type UserStatsResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: UserStats!
-    metadata: ResponseMetadata
-  }
 
   type PaginatedReviews {
     reviews: [ProductReview!]!
@@ -763,14 +743,14 @@ export const typeDefs = gql`
     metadata: ResponseMetadata
   }
 
-  type ResponseMetadata {
+  type ResponseMetadata @shareable {
     requestId: String
     traceId: String
     duration: Int
     timestamp: String!
   }
 
-  type SuccessResponse {
+  type SuccessResponse @shareable {
     success: Boolean!
     message: String!
   }
@@ -797,14 +777,6 @@ export const typeDefs = gql`
     topCustomers: [UserProfile!]!
   }
 
-  type UserAnalytics {
-    totalUsers: Int!
-    activeUsers: Int!
-    newUsersThisMonth: Int!
-    usersByRole: JSON!
-    topSpenders: [UserProfile!]!
-    userEngagement: JSON!
-  }
 
   # =====================================================
   # QUERIES
@@ -812,14 +784,11 @@ export const typeDefs = gql`
 
   type Query {
     # Health check
-    health: String!
+    health: String! @shareable
 
     # Dashboard & Analytics
     dashboardMetrics: DashboardMetrics!
     orderAnalytics: OrderAnalytics!
-    userAnalytics: UserAnalytics!
-    orderStats: OrderStatsResponse!
-    userStats: UserStatsResponse!
 
     # Shopping cart queries
     userCart(userId: ID!): [ShoppingCart!]!
@@ -890,7 +859,6 @@ export const typeDefs = gql`
     
     # Image queries
     images(entityType: String, entityId: String): [Image!]!
-    image(id: ID!): Image
   }
 
   # =====================================================

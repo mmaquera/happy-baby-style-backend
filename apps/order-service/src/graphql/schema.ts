@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 
 export const typeDefs = gql`
-  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@shareable"])
 
   scalar Decimal
   scalar DateTime
@@ -14,6 +14,7 @@ export const typeDefs = gql`
     shipped
     delivered
     cancelled
+    refunded
   }
 
   type Order @key(fields: "id") {
@@ -59,7 +60,7 @@ export const typeDefs = gql`
     country: String!
   }
 
-  type OrderStats {
+  type OrderStats @shareable {
     totalOrders: Int!
     pendingOrders: Int!
     processingOrders: Int!

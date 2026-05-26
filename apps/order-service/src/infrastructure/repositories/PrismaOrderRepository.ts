@@ -12,24 +12,12 @@ export class PrismaOrderRepository implements IOrderRepository {
 
   async create(orderData: CreateOrderRequest, total: number, userId?: string): Promise<Order> {
     try {
-      const shippingAddress = await this.prisma.userAddress.create({
-        data: {
-          userId: userId || 'guest',
-          type: 'shipping',
-          firstName: orderData.customerName.split(' ')[0] || 'Customer',
-          lastName: orderData.customerName.split(' ').slice(1).join(' ') || '',
-          address1: orderData.shippingAddress.street,
-          city: orderData.shippingAddress.city,
-          state: orderData.shippingAddress.state,
-          postalCode: orderData.shippingAddress.zipCode,
-          country: orderData.shippingAddress.country || 'PE'
-        }
-      });
-
       const order = await this.prisma.order.create({
         data: {
           userId: userId || 'guest',
           orderNumber: this.generateOrderNumber(),
+          customerEmail: orderData.customerEmail,
+          customerName: orderData.customerName,
           status: 'pending' as OrderStatus,
           subtotal: total,
           taxAmount: 0,
@@ -37,10 +25,14 @@ export class PrismaOrderRepository implements IOrderRepository {
           discountAmount: 0,
           totalAmount: total,
           currency: 'PEN',
-          shippingAddressId: shippingAddress.id,
+          shippingStreet: orderData.shippingAddress.street,
+          shippingCity: orderData.shippingAddress.city,
+          shippingState: orderData.shippingAddress.state,
+          shippingZipCode: orderData.shippingAddress.zipCode,
+          shippingCountry: orderData.shippingAddress.country || 'PE',
           notes: ''
         },
-        include: { items: true, shippingAddress: true, user: true }
+        include: { items: true }
       });
 
       const orderItems = await Promise.all(
@@ -58,7 +50,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       );
 
       this.logger.info('Order created', { orderId: order.id });
-      return this.mapToOrder(order, orderItems, shippingAddress);
+      return this.mapToOrder(order, orderItems);
     } catch (error) {
       this.logger.error('Error creating order', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -69,10 +61,10 @@ export class PrismaOrderRepository implements IOrderRepository {
     try {
       const order = await this.prisma.order.findUnique({
         where: { id },
-        include: { items: true, shippingAddress: true, user: true }
+        include: { items: true }
       });
       if (!order) return null;
-      return this.mapToOrder(order, order.items, order.shippingAddress);
+      return this.mapToOrder(order, order.items);
     } catch (error) {
       this.logger.error('Error finding order', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -85,7 +77,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       if (filters?.status) where.status = filters.status;
       if (filters?.userId) where.userId = filters.userId;
       if (filters?.orderNumber) where.orderNumber = filters.orderNumber;
-      if (filters?.customerEmail) where.user = { email: filters.customerEmail };
+      if (filters?.customerEmail) where.customerEmail = filters.customerEmail;
       if (filters?.startDate || filters?.endDate) {
         where.createdAt = {};
         if (filters.startDate) where.createdAt.gte = filters.startDate;
@@ -94,13 +86,13 @@ export class PrismaOrderRepository implements IOrderRepository {
 
       const orders = await this.prisma.order.findMany({
         where,
-        include: { items: true, shippingAddress: true, user: true },
+        include: { items: true },
         orderBy: { createdAt: 'desc' },
         take: filters?.limit,
         skip: filters?.offset
       });
 
-      return orders.map(o => this.mapToOrder(o, o.items, o.shippingAddress));
+      return orders.map(o => this.mapToOrder(o, o.items));
     } catch (error) {
       this.logger.error('Error finding orders', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -112,14 +104,16 @@ export class PrismaOrderRepository implements IOrderRepository {
       const updateData: any = {};
       if (orderData.status) updateData.status = orderData.status;
       if (orderData.deliveredAt) updateData.deliveredAt = orderData.deliveredAt;
+      if (orderData.customerEmail) updateData.customerEmail = orderData.customerEmail;
+      if (orderData.customerName) updateData.customerName = orderData.customerName;
 
       const updated = await this.prisma.order.update({
         where: { id },
         data: updateData,
-        include: { items: true, shippingAddress: true, user: true }
+        include: { items: true }
       });
 
-      return this.mapToOrder(updated, updated.items, updated.shippingAddress);
+      return this.mapToOrder(updated, updated.items);
     } catch (error) {
       this.logger.error('Error updating order', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -140,10 +134,10 @@ export class PrismaOrderRepository implements IOrderRepository {
     try {
       const orders = await this.prisma.order.findMany({
         where: { status: status as OrderStatus },
-        include: { items: true, shippingAddress: true, user: true },
+        include: { items: true },
         orderBy: { createdAt: 'desc' }
       });
-      return orders.map(o => this.mapToOrder(o, o.items, o.shippingAddress));
+      return orders.map(o => this.mapToOrder(o, o.items));
     } catch (error) {
       this.logger.error('Error finding orders by status', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -153,11 +147,11 @@ export class PrismaOrderRepository implements IOrderRepository {
   async findByCustomerEmail(email: string): Promise<Order[]> {
     try {
       const orders = await this.prisma.order.findMany({
-        where: { user: { email } },
-        include: { items: true, shippingAddress: true, user: true },
+        where: { customerEmail: email },
+        include: { items: true },
         orderBy: { createdAt: 'desc' }
       });
-      return orders.map(o => this.mapToOrder(o, o.items, o.shippingAddress));
+      return orders.map(o => this.mapToOrder(o, o.items));
     } catch (error) {
       this.logger.error('Error finding orders by email', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -169,9 +163,9 @@ export class PrismaOrderRepository implements IOrderRepository {
       const updated = await this.prisma.order.update({
         where: { id },
         data: { status: status as OrderStatus },
-        include: { items: true, shippingAddress: true, user: true }
+        include: { items: true }
       });
-      return this.mapToOrder(updated, updated.items, updated.shippingAddress);
+      return this.mapToOrder(updated, updated.items);
     } catch (error) {
       this.logger.error('Error updating order status', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -220,32 +214,23 @@ export class PrismaOrderRepository implements IOrderRepository {
   }
 
   async createShippingAddress(addressData: Omit<ShippingAddress, 'id'>): Promise<ShippingAddress> {
-    try {
-      const created = await this.prisma.userAddress.create({
-        data: {
-          userId: 'guest',
-          type: 'shipping',
-          firstName: addressData.street.split(' ')[0] || 'Customer',
-          lastName: '',
-          address1: addressData.street,
-          city: addressData.city,
-          state: addressData.state,
-          postalCode: addressData.zipCode,
-          country: addressData.country
-        }
-      });
-      return this.mapToShippingAddress(created);
-    } catch (error) {
-      this.logger.error('Error creating shipping address', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
+    return {
+      id: 'inline',
+      street: addressData.street,
+      city: addressData.city,
+      state: addressData.state,
+      zipCode: addressData.zipCode,
+      country: addressData.country
+    };
   }
 
   async getShippingAddress(id: string): Promise<ShippingAddress | null> {
     try {
-      const address = await this.prisma.userAddress.findUnique({ where: { id } });
-      if (!address) return null;
-      return this.mapToShippingAddress(address);
+      const order = await this.prisma.order.findFirst({
+        where: { shippingAddressId: id }
+      });
+      if (!order || !order.shippingStreet) return null;
+      return this.buildShippingAddress(order);
     } catch (error) {
       this.logger.error('Error getting shipping address', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -285,10 +270,10 @@ export class PrismaOrderRepository implements IOrderRepository {
     try {
       const orders = await this.prisma.order.findMany({
         where: { createdAt: { gte: startDate, lte: endDate } },
-        include: { items: true, shippingAddress: true, user: true },
+        include: { items: true },
         orderBy: { createdAt: 'desc' }
       });
-      return orders.map(o => this.mapToOrder(o, o.items, o.shippingAddress));
+      return orders.map(o => this.mapToOrder(o, o.items));
     } catch (error) {
       this.logger.error('Error finding orders by date range', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -301,13 +286,24 @@ export class PrismaOrderRepository implements IOrderRepository {
     return `ORD-${timestamp}-${random}`.toUpperCase();
   }
 
-  private mapToOrder(prismaOrder: any, items: any[], shippingAddress: any): Order {
+  private buildShippingAddress(order: any): ShippingAddress {
+    return {
+      id: order.shippingAddressId || order.id,
+      street: order.shippingStreet || '',
+      city: order.shippingCity || '',
+      state: order.shippingState || '',
+      zipCode: order.shippingZipCode || '',
+      country: order.shippingCountry || 'PE'
+    };
+  }
+
+  private mapToOrder(prismaOrder: any, items: any[]): Order {
     return {
       id: prismaOrder.id,
       userId: prismaOrder.userId,
       orderNumber: prismaOrder.orderNumber,
-      customerEmail: prismaOrder.user?.email || '',
-      customerName: `${prismaOrder.user?.firstName || ''} ${prismaOrder.user?.lastName || ''}`.trim(),
+      customerEmail: prismaOrder.customerEmail || '',
+      customerName: prismaOrder.customerName || '',
       status: prismaOrder.status as OrderStatus,
       subtotal: Number(prismaOrder.subtotal),
       taxAmount: Number(prismaOrder.taxAmount),
@@ -321,7 +317,9 @@ export class PrismaOrderRepository implements IOrderRepository {
       updatedAt: prismaOrder.updatedAt,
       deliveredAt: prismaOrder.deliveredAt || undefined,
       items: (items || []).map(i => this.mapToOrderItem(i)),
-      shippingAddress: shippingAddress ? this.mapToShippingAddress(shippingAddress) : undefined
+      shippingAddress: prismaOrder.shippingStreet
+        ? this.buildShippingAddress(prismaOrder)
+        : undefined
     };
   }
 
@@ -333,17 +331,6 @@ export class PrismaOrderRepository implements IOrderRepository {
       quantity: prismaItem.quantity,
       price: Number(prismaItem.unitPrice),
       createdAt: prismaItem.createdAt
-    };
-  }
-
-  private mapToShippingAddress(prismaAddress: any): ShippingAddress {
-    return {
-      id: prismaAddress.id,
-      street: prismaAddress.address1,
-      city: prismaAddress.city,
-      state: prismaAddress.state,
-      zipCode: prismaAddress.postalCode,
-      country: prismaAddress.country
     };
   }
 }

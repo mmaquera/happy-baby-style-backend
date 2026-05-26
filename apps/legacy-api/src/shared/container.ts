@@ -6,6 +6,7 @@ import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUs
 import { GetOrderStatsUseCase } from '@application/use-cases/order/GetOrderStatsUseCase';
 import { GetUserStatsUseCase } from '@application/use-cases/user/GetUserStatsUseCase';
 import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUserFavoritesUseCase';
+import { RateLimitService } from '@application/services/RateLimitService';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
 import { IOrderRepository } from '@domain/repositories/IOrderRepository';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
@@ -51,9 +52,12 @@ export class Container {
       getFavoriteStats: async () => ({ totalFavorites: 0 })
     });
 
+    const rateLimitService = new RateLimitService(defaultLogger);
+
     // Register
     this.dependencies.set('loggerFactory', loggerFactory);
     this.dependencies.set('defaultLogger', defaultLogger);
+    this.dependencies.set('rateLimitService', rateLimitService);
     this.dependencies.set('productRepository', productRepository);
     this.dependencies.set('orderRepository', orderRepository);
     this.dependencies.set('userRepository', userRepository);

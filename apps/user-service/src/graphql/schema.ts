@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 
 export const typeDefs = gql`
-  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@external", "@requires", "@provides"])
+  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@external", "@requires", "@provides", "@shareable"])
 
   scalar DateTime
   scalar Decimal
@@ -192,7 +192,7 @@ export const typeDefs = gql`
     favoriteCategories: [String!]!
   }
 
-  type UserFavorite {
+  type UserFavorite @shareable {
     id: ID!
     userId: ID!
     productId: ID!
@@ -212,7 +212,7 @@ export const typeDefs = gql`
 
   # ── Response types ───────────────────────────────────────────────────────────
 
-  type ResponseMetadata {
+  type ResponseMetadata @shareable {
     requestId: String
     traceId: String
     duration: Int
@@ -299,7 +299,7 @@ export const typeDefs = gql`
     createdAt: String!
   }
 
-  type SuccessResponse {
+  type SuccessResponse @shareable {
     success: Boolean!
     message: String!
   }
@@ -651,7 +651,7 @@ export const typeDefs = gql`
   # ── Queries ──────────────────────────────────────────────────────────────────
 
   type Query {
-    health: String!
+    health: String! @shareable
 
     # User queries
     users(filter: UserFilterInput, pagination: PaginationInput): GetUsersResponse!
