@@ -5,3 +5,7 @@ subgraphs:
     routing_url: http://legacy-api:3001/graphql
     schema:
       subgraph_url: http://localhost:3001/graphql
+  category:
+    routing_url: http://category-service:3002/graphql
+    schema:
+      subgraph_url: http://localhost:3002/graphql

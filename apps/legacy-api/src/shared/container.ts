@@ -4,7 +4,6 @@ import { PrismaSvgRepository } from '@infrastructure/repositories/PrismaSvgRepos
 import { PrismaOrderRepository } from '@infrastructure/repositories/PrismaOrderRepository';
 //import { InMemoryUserRepository } from '@infrastructure/repositories/InMemoryUserRepository';
 import { PrismaUserProfileRepository } from '@infrastructure/repositories/PrismaUserProfileRepository';
-import { PrismaCategoryRepository } from '@infrastructure/repositories/PrismaCategoryRepository';
 import { prisma } from '@infrastructure/database/prisma';
 import { LocalStorageService } from '@infrastructure/services/LocalStorageService';
 import { JwtAuthService } from '@infrastructure/auth/JwtAuthService';
@@ -17,12 +16,6 @@ import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUs
 import { GetProductByIdUseCase } from '@application/use-cases/product/GetProductByIdUseCase';
 import { UpdateProductUseCase } from '@application/use-cases/product/UpdateProductUseCase';
 import { DeleteProductUseCase } from '@application/use-cases/product/DeleteProductUseCase';
-import { CreateCategoryUseCase } from '@application/use-cases/category/CreateCategoryUseCase';
-import { GetCategoriesUseCase } from '@application/use-cases/category/GetCategoriesUseCase';
-import { GetCategoryByIdUseCase } from '@application/use-cases/category/GetCategoryByIdUseCase';
-import { GetCategoryBySlugUseCase } from '@application/use-cases/category/GetCategoryBySlugUseCase';
-import { UpdateCategoryUseCase } from '@application/use-cases/category/UpdateCategoryUseCase';
-import { DeleteCategoryUseCase } from '@application/use-cases/category/DeleteCategoryUseCase';
 import { UploadImageUseCase } from '@application/use-cases/image/UploadImageUseCase';
 import { UploadSvgUseCase } from '@application/use-cases/svg/UploadSvgUseCase';
 import { CreateOrderUseCase } from '@application/use-cases/order/CreateOrderUseCase';
@@ -64,7 +57,6 @@ import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
-import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 // Logging system imports
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
@@ -103,7 +95,6 @@ export class Container {
     const imageRepository: IImageRepository = new PrismaImageRepository(prisma);
     const svgRepository: ISvgRepository = new PrismaSvgRepository(prisma);
     const orderRepository: IOrderRepository = new PrismaOrderRepository(prisma);
-    const categoryRepository: ICategoryRepository = new PrismaCategoryRepository(prisma);
     // Usar repositorio PostgreSQL real con AWS RDS
     const userRepository: IUserRepository = new PrismaUserProfileRepository(prisma);
     // const userRepository: IUserRepository = new InMemoryUserRepository();
@@ -127,14 +118,8 @@ export class Container {
     const updateProductUseCase = new UpdateProductUseCase(productRepository);
     const deleteProductUseCase = new DeleteProductUseCase(productRepository);
     
-    // Casos de uso de Categorías
-    const createCategoryUseCase = new CreateCategoryUseCase(categoryRepository);
-    const getCategoriesUseCase = new GetCategoriesUseCase(categoryRepository);
-    const getCategoryByIdUseCase = new GetCategoryByIdUseCase(categoryRepository);
-    const getCategoryBySlugUseCase = new GetCategoryBySlugUseCase(categoryRepository);
-    const updateCategoryUseCase = new UpdateCategoryUseCase(categoryRepository);
-    const deleteCategoryUseCase = new DeleteCategoryUseCase(categoryRepository);
-    
+    // Casos de uso de Categorías → migradas a category-service (Federation)
+
     // Casos de uso de Imágenes
     const uploadImageUseCase = new UploadImageUseCase(imageRepository, storageService);
     
@@ -226,7 +211,6 @@ export class Container {
     this.dependencies.set('imageRepository', imageRepository);
     this.dependencies.set('svgRepository', svgRepository);
     this.dependencies.set('orderRepository', orderRepository);
-    this.dependencies.set('categoryRepository', categoryRepository);
     this.dependencies.set('userRepository', userRepository);
     this.dependencies.set('storageService', storageService);
     this.dependencies.set('emailService', emailService);
@@ -243,12 +227,7 @@ export class Container {
     this.dependencies.set('getProductByIdUseCase', getProductByIdUseCase);
     this.dependencies.set('updateProductUseCase', updateProductUseCase);
     this.dependencies.set('deleteProductUseCase', deleteProductUseCase);
-    this.dependencies.set('createCategoryUseCase', createCategoryUseCase);
-    this.dependencies.set('getCategoriesUseCase', getCategoriesUseCase);
-    this.dependencies.set('getCategoryByIdUseCase', getCategoryByIdUseCase);
-    this.dependencies.set('getCategoryBySlugUseCase', getCategoryBySlugUseCase);
-    this.dependencies.set('updateCategoryUseCase', updateCategoryUseCase);
-    this.dependencies.set('deleteCategoryUseCase', deleteCategoryUseCase);
+    // category use cases → migrated to category-service
     this.dependencies.set('uploadImageUseCase', uploadImageUseCase);
     this.dependencies.set('uploadSvgUseCase', uploadSvgUseCase);
     this.dependencies.set('createOrderUseCase', createOrderUseCase);

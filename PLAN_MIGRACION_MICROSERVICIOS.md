@@ -1,7 +1,7 @@
 # Plan de Migración a Microservicios (Monorepo) — Happy Baby Style Backend
 
 > Documento vivo. Marcamos cada item del checklist a medida que avanzamos.
-> Última actualización: 2026-05-24
+> Última actualización: 2026-05-25
 
 ## Contexto
 
@@ -110,7 +110,16 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
 **Verificación Fase 3:** `docker compose ps` → 4 contenedores healthy (postgres, redis, legacy-api:3001, gateway:4000). `POST :4000/graphql { health }` → `"GraphQL server is running with clean architecture!"` a través del gateway.
 
 ### FASE 4 — Extracción incremental de servicios (Strangler)
-- [ ] **4.1** `category-service` (piloto end-to-end).
+- [x] **4.1** `category-service` (piloto end-to-end). ✓ 2026-05-25
+  - [x] `apps/category-service/` creado con Clean Architecture completa: `domain/entities`, `domain/errors`, `domain/repositories`, `application/use-cases` (6 use cases), `infrastructure/repositories`, `graphql/` (schema + resolvers + transformer).
+  - [x] **Federation subgraph:** `buildSubgraphSchema` con `@key(fields: "id")` en `type Category` y `__resolveReference` para resolución cross-service.
+  - [x] **Sin acoplamiento a legacy:** imports completamente relativos (sin aliases `@domain/*` ni `@hbs/*` dentro del app); `STORAGE_BASE_URL` leído de `process.env` directamente (sin `@config/storage`).
+  - [x] **Patrón tsconfig crítico descubierto:** cada app DEBE declarar `"baseUrl": "./"` en su propio `tsconfig.json` para que los paths `@hbs/*` fallen a resolver a `node_modules/@hbs/*` (symlinks → `dist/*.d.ts`) en vez de a los fuentes de `libs/` (que dispara TS6059 "not under rootDir"). Sin este override, TypeScript hereda la `baseUrl` de la raíz del workspace y resuelve correctamente los fuentes → error en compilación.
+  - [x] **`project.json`:** `implicitDependencies` usa **nombres de proyecto Nx** (`"logging"`, `"prisma"`, `"shared-kernel"`), NO los nombres de paquete npm (`@hbs/...`). Error descubierto y corregido.
+  - [x] **`legacy-api` limpiado de Category:** schema.ts (tipos, inputs, responses de categoría eliminados; `type Category` reducido a stub `@key(fields: "id") { id: ID! }`); resolvers.ts (todas las resolvers de categoría eliminadas; `Product.category` ahora retorna `{ __typename: 'Category', id: categoryId }` → gateway enruta al category-service); `container.ts` (PrismaCategoryRepository + 6 use cases eliminados).
+  - [x] **Gateway y Docker actualizados:** `apps/gateway/src/index.ts` con segundo subgraph `category-service`; `docker-compose.yml` con servicio `category-service` (puerto 3002, healthcheck); `supergraph.yaml` con entrada `category`; `.env.template` con `CATEGORY_SERVICE_PORT=3002`.
+  - [x] **Build limpio:** `nx build` en verde para los 3 proyectos (legacy-api, gateway, category-service) + 4 libs dependientes.
+  - **Acoplamiento cruzado resuelto:** `Category.products` (cross-domain) diferido a Fase 4.2 cuando se extraiga product-service. Por ahora, category-service no expone `products`.
 - [ ] **4.2** `product-service`.
 - [ ] **4.3** `media-service` (Image/SVG).
 - [ ] **4.4** `order-service` — comunicación async (Redis/broker) para validación de stock Order→Product.

@@ -10,6 +10,7 @@ dotenv.config();
 
 const PORT = parseInt(process.env.GATEWAY_PORT || '4000', 10);
 const LEGACY_API_URL = process.env.LEGACY_API_URL || 'http://localhost:3001/graphql';
+const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://localhost:3002/graphql';
 const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').split(',');
 
 // Forward the Authorization header from the client to every subgraph.
@@ -46,7 +47,10 @@ async function start() {
 
   const gateway = new ApolloGateway({
     supergraphSdl: new IntrospectAndCompose({
-      subgraphs: [{ name: 'legacy', url: LEGACY_API_URL }],
+      subgraphs: [
+        { name: 'legacy', url: LEGACY_API_URL },
+        { name: 'category', url: CATEGORY_SERVICE_URL },
+      ],
     }),
     buildService({ url }) {
       return new AuthenticatedDataSource({ url });
@@ -70,7 +74,7 @@ async function start() {
 
   app.listen(PORT, () => {
     console.log(`🚀 Gateway running at http://localhost:${PORT}/graphql`);
-    console.log(`📡 Composing subgraphs: legacy → ${LEGACY_API_URL}`);
+    console.log(`📡 Composing subgraphs: legacy → ${LEGACY_API_URL} | category → ${CATEGORY_SERVICE_URL}`);
   });
 }
 

@@ -229,19 +229,9 @@ export const typeDefs = gql`
   # PRODUCT CATALOG TYPES
   # =====================================================
 
-  type Category {
+  # Category is owned by category-service (Federation)
+  type Category @key(fields: "id") {
     id: ID!
-    name: String!
-    description: String
-    slug: String!
-    image: String
-    isActive: Boolean!
-    sortOrder: Int!
-    createdAt: DateTime!
-    updatedAt: DateTime!
-    
-    # Relations
-    products: [Product!]!
   }
 
   type Product {
@@ -905,24 +895,6 @@ export const typeDefs = gql`
   }
 
   # Product Management Inputs
-  input CreateCategoryInput {
-    name: String!
-    description: String
-    slug: String!
-    image: String
-    isActive: Boolean
-    sortOrder: Int
-  }
-
-  input UpdateCategoryInput {
-    name: String
-    description: String
-    slug: String
-    image: String
-    isActive: Boolean
-    sortOrder: Int
-  }
-
   input CreateProductInput {
     categoryId: ID
     name: String!
@@ -1175,11 +1147,6 @@ export const typeDefs = gql`
     isActive: Boolean
     search: String
     emailVerified: Boolean
-  }
-
-  input CategoryFilterInput {
-    isActive: Boolean
-    search: String
   }
 
   input UserOrderHistoryFilter {
@@ -1459,89 +1426,6 @@ export const typeDefs = gql`
 
   type GetProductData {
     entity: Product!
-  }
-
-  type GetCategoriesResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: GetCategoriesData
-    metadata: ResponseMetadata
-  }
-
-  type GetCategoriesData {
-    items: [Category!]!
-    pagination: CategoryPaginationInfo!
-  }
-
-  type CategoryPaginationInfo {
-    total: Int!
-    limit: Int!
-    offset: Int!
-    hasMore: Boolean!
-    currentPage: Int!
-    totalPages: Int!
-  }
-
-  type GetCategoryResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: GetCategoryData
-    metadata: ResponseMetadata
-  }
-
-  type GetCategoryData {
-    entity: Category!
-  }
-
-  # Category Response Types
-  type CreateCategoryResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: CreateCategoryData
-    metadata: ResponseMetadata
-  }
-
-  type CreateCategoryData {
-    entity: Category!
-    id: ID!
-    createdAt: String!
-  }
-
-  type UpdateCategoryResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: UpdateCategoryData
-    metadata: ResponseMetadata
-  }
-
-  type UpdateCategoryData {
-    entity: Category!
-    id: ID!
-    updatedAt: String!
-    changes: [String!]!
-  }
-
-  type DeleteCategoryResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: DeleteCategoryData
-    metadata: ResponseMetadata
-  }
-
-  type DeleteCategoryData {
-    id: ID!
-    deletedAt: String!
-    softDelete: Boolean!
   }
 
   # Session Analytics Input Types
@@ -1946,11 +1830,6 @@ export const typeDefs = gql`
     activeSessions(userId: ID!): [UserSession!]!
     userSessionAnalytics(userId: ID!): [UserSessionAnalytics!]!
     
-    # Category queries
-    categories(filters: CategoryFilterInput, pagination: PaginationInput): GetCategoriesResponse!
-    category(id: ID!): GetCategoryResponse!
-    categoryBySlug(slug: String!): GetCategoryResponse!
-    
     # Product queries
     products(filter: ProductFilterInput, pagination: PaginationInput): GetProductsResponse!
     product(id: ID!): GetProductResponse!
@@ -2090,11 +1969,6 @@ export const typeDefs = gql`
     updateUserAddress(id: ID!, input: UpdateUserAddressInput!): UpdateUserAddressResponse!
     deleteUserAddress(id: ID!): DeleteUserAddressResponse!
     setDefaultAddress(userId: ID!, addressId: ID!): SetDefaultAddressResponse!
-    
-    # Category mutations
-    createCategory(input: CreateCategoryInput!): CreateCategoryResponse!
-    updateCategory(id: ID!, input: UpdateCategoryInput!): UpdateCategoryResponse!
-    deleteCategory(id: ID!): DeleteCategoryResponse!
     
     # Product mutations
     createProduct(input: CreateProductInput!): CreateProductResponse!
