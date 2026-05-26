@@ -1,7 +1,7 @@
 # Plan de Migración a Microservicios (Monorepo) — Happy Baby Style Backend
 
 > Documento vivo. Marcamos cada item del checklist a medida que avanzamos.
-> Última actualización: 2026-05-25 (Fase 4.3 completada)
+> Última actualización: 2026-05-25 (Fase 4.4 completada)
 
 ## Contexto
 
@@ -136,7 +136,13 @@ Objetivo: migrar **incrementalmente** (patrón Strangler) a microservicios en un
   - [x] **legacy-api limpiado:** `type Image` y `type Svg` reducidos a stubs `@key(fields: "id") { id: ID! }`. Eliminados `SvgDimensions`, `UploadImageResponse`, `UploadImageData`, `UploadSvgResponse`, `UploadSvgData`, `scalar Upload`, mutations `uploadImage`/`uploadSvg`. Container sin `imageRepository`, `svgRepository`, `storageService`, `uploadImageUseCase`, `uploadSvgUseCase`.
   - [x] **Gateway y Docker actualizados:** cuarto subgraph `media-service` en `IntrospectAndCompose`; servicio `media-service` en docker-compose (puerto 3004, volume `./uploads:/workspace/uploads`); `supergraph.yaml` extendido; `.env.template` con `MEDIA_SERVICE_PORT=3004`; `Dockerfile.media-service`.
   - [x] **Build y type-check limpios:** `nx run media-service:build` y `nx run legacy-api:type-check` verdes.
-- [ ] **4.4** `order-service` — comunicación async (Redis/broker) para validación de stock Order→Product.
+- [x] **4.4** `order-service` (puerto 3005). Completado 2026-05-25.
+  - [x] **Hexagonal port:** `IProductValidationPort` rompe el acoplamiento síncrono `CreateOrderUseCase → IProductRepository`. `HttpProductValidationAdapter` llama a product-service vía GraphQL con `fetch` nativo (Node 22).
+  - [x] **Async stock decrement:** `IEventPublisher` + `RedisEventPublisher` (ioredis) publica en canal `order:created`. product-service puede suscribirse para decrementar stock de forma asíncrona. Event publish failure es no-fatal.
+  - [x] **Federation subgraph:** `type Order @key(fields: "id")`, `type OrderItem @key(fields: "id")`. Scalars: `Decimal`, `DateTime`, `JSON`. Queries: `orders`, `order`, `ordersByStatus`, `orderStats`. Mutations: `createOrder`, `updateOrder`, `updateOrderStatus`, `bulkUpdateOrderStatus`. User/Product como stubs de Federation.
+  - [x] **legacy-api limpiado:** `type Order` y `type OrderItem` reducidos a stubs `@key(fields: "id") { id: ID! }`. `OrderTracking` eliminado. Inputs `CreateOrderInput`, `UpdateOrderInput`, `CreateOrderItemInput`, `OrderFilterInput`, `PaginatedOrders` eliminados. Queries `orders`, `order`, `orderByNumber`, `userOrders`, `orderItems`, `orderTracking`, `orderTransactions` eliminados. Mutations `createOrder`, `updateOrder`, `updateOrderStatus`, `cancelOrder`, `shipOrder`, `deliverOrder`, `createOrderItem`, `updateOrderItem`, `deleteOrderItem`, `applyCoupon`, `removeCoupon`, `bulkUpdateOrderStatus` eliminados. Container sin `createOrderUseCase`, `getOrdersUseCase`, `getOrderByIdUseCase`, `updateOrderUseCase`. Se conserva `orderRepository` + `getOrderStatsUseCase` para `dashboardMetrics` y `orderAnalytics`.
+  - [x] **Gateway y Docker actualizados:** quinto subgraph `order-service` en `IntrospectAndCompose`; servicio `order-service` en docker-compose (puerto 3005, depends_on postgres+redis, `PRODUCT_SERVICE_URL: http://product-service:3003/graphql`); `supergraph.yaml` extendido; `.env.template` con `ORDER_SERVICE_PORT=3005`; `Dockerfile.order-service`.
+  - [x] **Build y type-check limpios:** `nx run order-service:build` y `nx run legacy-api:type-check` verdes.
 - [ ] **4.5** `user-service` (auth, addresses, sessions, analytics) — el hub, al final.
 - [ ] **4.6** Retirar de `legacy-api` cada dominio migrado hasta vaciarlo.
 

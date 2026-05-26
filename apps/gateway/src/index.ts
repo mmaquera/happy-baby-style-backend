@@ -13,6 +13,7 @@ const LEGACY_API_URL = process.env.LEGACY_API_URL || 'http://localhost:3001/grap
 const CATEGORY_SERVICE_URL = process.env.CATEGORY_SERVICE_URL || 'http://localhost:3002/graphql';
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:3003/graphql';
 const MEDIA_SERVICE_URL = process.env.MEDIA_SERVICE_URL || 'http://localhost:3004/graphql';
+const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:3005/graphql';
 const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').split(',');
 
 // Forward the Authorization header from the client to every subgraph.
@@ -54,6 +55,7 @@ async function start() {
         { name: 'category', url: CATEGORY_SERVICE_URL },
         { name: 'product', url: PRODUCT_SERVICE_URL },
         { name: 'media', url: MEDIA_SERVICE_URL },
+        { name: 'order', url: ORDER_SERVICE_URL },
       ],
     }),
     buildService({ url }) {
@@ -78,7 +80,7 @@ async function start() {
 
   app.listen(PORT, () => {
     console.log(`🚀 Gateway running at http://localhost:${PORT}/graphql`);
-    console.log(`📡 Composing subgraphs: legacy → ${LEGACY_API_URL} | category → ${CATEGORY_SERVICE_URL} | product → ${PRODUCT_SERVICE_URL} | media → ${MEDIA_SERVICE_URL}`);
+    console.log(`📡 Composing subgraphs: legacy → ${LEGACY_API_URL} | category → ${CATEGORY_SERVICE_URL} | product → ${PRODUCT_SERVICE_URL} | media → ${MEDIA_SERVICE_URL} | order → ${ORDER_SERVICE_URL}`);
   });
 }
 

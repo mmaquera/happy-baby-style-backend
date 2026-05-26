@@ -9,10 +9,6 @@ import { PrismaAuditRepository } from '@infrastructure/repositories/PrismaAuditR
 import { PrismaSecurityEventRepository } from '@infrastructure/repositories/PrismaSecurityEventRepository';
 import { GoogleOAuthService } from '@infrastructure/auth/GoogleOAuthService';
 import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUseCase';
-import { CreateOrderUseCase } from '@application/use-cases/order/CreateOrderUseCase';
-import { GetOrdersUseCase } from '@application/use-cases/order/GetOrdersUseCase';
-import { GetOrderByIdUseCase } from '@application/use-cases/order/GetOrderByIdUseCase';
-import { UpdateOrderUseCase } from '@application/use-cases/order/UpdateOrderUseCase';
 import { GetOrderStatsUseCase } from '@application/use-cases/order/GetOrderStatsUseCase';
 import { CreateUserUseCase } from '@application/use-cases/user/CreateUserUseCase';
 import { GetUsersUseCase } from '@application/use-cases/user/GetUsersUseCase';
@@ -101,11 +97,7 @@ export class Container {
     
     // Casos de uso de Categorías → migradas a category-service (Federation)
 
-    // Casos de uso de Pedidos
-    const createOrderUseCase = new CreateOrderUseCase(orderRepository, productRepository);
-    const getOrdersUseCase = new GetOrdersUseCase(orderRepository);
-    const getOrderByIdUseCase = new GetOrderByIdUseCase(orderRepository);
-    const updateOrderUseCase = new UpdateOrderUseCase(orderRepository);
+    // orderRepository kept for getOrderStatsUseCase (dashboardMetrics cross-domain aggregation)
     const getOrderStatsUseCase = new GetOrderStatsUseCase(orderRepository);
     
     // Casos de uso de Usuarios
@@ -197,10 +189,7 @@ export class Container {
     this.dependencies.set('getProductsUseCase', getProductsUseCase);
     // category use cases → migrated to category-service
     // uploadImage/uploadSvg use cases → migrated to media-service
-    this.dependencies.set('createOrderUseCase', createOrderUseCase);
-    this.dependencies.set('getOrdersUseCase', getOrdersUseCase);
-    this.dependencies.set('getOrderByIdUseCase', getOrderByIdUseCase);
-    this.dependencies.set('updateOrderUseCase', updateOrderUseCase);
+    // createOrder / getOrders / getOrderById / updateOrder → migrated to order-service
     this.dependencies.set('getOrderStatsUseCase', getOrderStatsUseCase);
     this.dependencies.set('createUserUseCase', createUserUseCase);
     this.dependencies.set('getUsersUseCase', getUsersUseCase);

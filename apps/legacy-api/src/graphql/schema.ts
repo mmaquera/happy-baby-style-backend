@@ -180,7 +180,6 @@ export const typeDefs = gql`
     
     # Relations
     addresses: [UserAddress!]!
-    orders: [Order!]!
     cartItems: [ShoppingCartItem!]!
     favorites: [UserFavorite!]!
     paymentMethods: [PaymentMethod!]!
@@ -221,7 +220,6 @@ export const typeDefs = gql`
     
     # Relations
     user: UserProfile!
-    orders: [Order!]!
   }
 
   # =====================================================
@@ -283,66 +281,13 @@ export const typeDefs = gql`
     product: Product!
   }
 
-  # =====================================================
-  # ORDER MANAGEMENT TYPES
-  # =====================================================
-
-  type Order {
+  # Order types are owned by order-service (Federation)
+  type Order @key(fields: "id") {
     id: ID!
-    userId: ID!
-    orderNumber: String!
-    status: OrderStatus!
-    subtotal: Decimal!
-    taxAmount: Decimal!
-    shippingAmount: Decimal!
-    discountAmount: Decimal!
-    totalAmount: Decimal!
-    currency: String!
-    shippingAddressId: String
-    notes: String
-    createdAt: DateTime!
-    updatedAt: DateTime!
-    
-    # Relations
-    user: UserProfile!
-    items: [OrderItem!]!
-    shippingAddress: UserAddress
-    paymentMethods: [PaymentMethod!]!
-    tracking: [OrderTracking!]!
-    transactions: [Transaction!]!
-    couponUsage: [CouponUsage!]!
   }
 
-  type OrderItem {
+  type OrderItem @key(fields: "id") {
     id: ID!
-    orderId: ID!
-    productId: ID!
-    quantity: Int!
-    unitPrice: Decimal!
-    totalPrice: Decimal!
-    createdAt: DateTime!
-    
-    # Relations
-    order: Order!
-    product: Product!
-  }
-
-  type OrderTracking {
-    id: ID!
-    orderId: ID!
-    status: String!
-    location: String
-    description: String
-    trackingNumber: String
-    carrierId: String
-    estimatedDelivery: DateTime
-    actualDelivery: DateTime
-    createdAt: DateTime!
-    updatedAt: DateTime!
-    
-    # Relations
-    order: Order!
-    carrier: Carrier
   }
 
   # =====================================================
@@ -821,33 +766,6 @@ export const typeDefs = gql`
     isDefault: Boolean
   }
 
-  # Order Management Inputs
-  input CreateOrderInput {
-    userId: ID!
-    orderNumber: String!
-    subtotal: Decimal!
-    taxAmount: Decimal
-    shippingAmount: Decimal
-    discountAmount: Decimal
-    totalAmount: Decimal!
-    currency: String
-    shippingAddressId: String
-    notes: String
-  }
-
-  input UpdateOrderInput {
-    status: OrderStatus
-    notes: String
-  }
-
-  input CreateOrderItemInput {
-    orderId: ID!
-    productId: ID!
-    quantity: Int!
-    unitPrice: Decimal!
-    totalPrice: Decimal!
-  }
-
   # Payment Inputs
   input CreateSavedPaymentMethodInput {
     userId: ID!
@@ -1001,15 +919,6 @@ export const typeDefs = gql`
   }
 
   # Filter and Pagination Inputs
-  input OrderFilterInput {
-    userId: ID
-    status: OrderStatus
-    startDate: DateTime
-    endDate: DateTime
-    minAmount: Decimal
-    maxAmount: Decimal
-  }
-
   input UserFilterInput {
     role: UserRole
     isActive: Boolean
@@ -1033,12 +942,6 @@ export const typeDefs = gql`
   # =====================================================
   # RESPONSE TYPES
   # =====================================================
-
-  type PaginatedOrders {
-    orders: [Order!]!
-    total: Int!
-    hasMore: Boolean!
-  }
 
   type PaginatedUsers {
     users: [User!]!
@@ -1557,16 +1460,6 @@ export const typeDefs = gql`
     userFavorites(userId: ID!): [UserFavorite!]!
     isProductFavorited(userId: ID!, productId: ID!): Boolean!
     
-    # Order queries
-    orders(filter: OrderFilterInput, pagination: PaginationInput): PaginatedOrders!
-    order(id: ID!): Order
-    orderByNumber(orderNumber: String!): Order
-    userOrders(userId: ID!, pagination: PaginationInput): PaginatedOrders!
-    
-    # Order tracking queries
-    orderTracking(orderId: ID!): [OrderTracking!]!
-    orderItems(orderId: ID!): [OrderItem!]!
-    
     # Payment queries
     userPaymentMethods(userId: ID!): [PaymentMethod!]!
     savedPaymentMethods(userId: ID!): [SavedPaymentMethod!]!
@@ -1574,7 +1467,6 @@ export const typeDefs = gql`
     
     # Transaction queries
     userTransactions(userId: ID!): [Transaction!]!
-    orderTransactions(orderId: ID!): [Transaction!]!
     transaction(id: ID!): Transaction
     
     # Coupon queries
@@ -1687,19 +1579,6 @@ export const typeDefs = gql`
     removeFromFavorites(userId: ID!, productId: ID!): SuccessResponse!
     toggleFavorite(userId: ID!, productId: ID!): UserFavorite!
     
-    # Order mutations
-    createOrder(input: CreateOrderInput!): Order!
-    updateOrder(id: ID!, input: UpdateOrderInput!): Order!
-    updateOrderStatus(id: ID!, status: OrderStatus!): Order!
-    cancelOrder(id: ID!): Order!
-    shipOrder(id: ID!, trackingNumber: String): Order!
-    deliverOrder(id: ID!): Order!
-    
-    # Order item mutations
-    createOrderItem(input: CreateOrderItemInput!): OrderItem!
-    updateOrderItem(id: ID!, quantity: Int!, unitPrice: Decimal!): OrderItem!
-    deleteOrderItem(id: ID!): SuccessResponse!
-    
     # Payment mutations
     createSavedPaymentMethod(input: CreateSavedPaymentMethodInput!): SavedPaymentMethod!
     updateSavedPaymentMethod(id: ID!, input: UpdateSavedPaymentMethodInput!): SavedPaymentMethod!
@@ -1712,9 +1591,6 @@ export const typeDefs = gql`
     createCoupon(input: CreateCouponInput!): Coupon!
     updateCoupon(id: ID!, input: UpdateCouponInput!): Coupon!
     deleteCoupon(id: ID!): SuccessResponse!
-    applyCoupon(orderId: ID!, couponCode: String!): Order!
-    removeCoupon(orderId: ID!): Order!
-    
     # Review mutations
     createProductReview(input: CreateProductReviewInput!): ProductReview!
     updateProductReview(id: ID!, input: UpdateProductReviewInput!): ProductReview!
@@ -1751,7 +1627,6 @@ export const typeDefs = gql`
     updateUserSessionAnalytics(id: ID!, input: UpdateUserSessionAnalyticsInput!): UpdateUserSessionAnalyticsResponse!
     deleteUserSessionAnalytics(id: ID!): DeleteUserSessionAnalyticsResponse!
     
-    # Bulk operations
-    bulkUpdateOrderStatus(orders: [ID!]!, status: OrderStatus!): [Order!]!
+    # Bulk operations — bulkUpdateOrderStatus → migrated to order-service (Federation)
   }
 `; 

@@ -9,10 +9,6 @@ import { RESPONSE_CODES } from '@hbs/shared-kernel';
 import { LoggerFactory } from '@hbs/logging';
 import { ILogger } from '@hbs/logging';
 import { GetProductsUseCase } from '@application/use-cases/product/GetProductsUseCase';
-import { GetOrdersUseCase } from '@application/use-cases/order/GetOrdersUseCase';
-import { GetOrderByIdUseCase } from '@application/use-cases/order/GetOrderByIdUseCase';
-import { CreateOrderUseCase } from '@application/use-cases/order/CreateOrderUseCase';
-import { UpdateOrderUseCase } from '@application/use-cases/order/UpdateOrderUseCase';
 import { GetOrderStatsUseCase } from '@application/use-cases/order/GetOrderStatsUseCase';
 import { GetUsersUseCase } from '@application/use-cases/user/GetUsersUseCase';
 import { GetUserByIdUseCase } from '@application/use-cases/user/GetUserByIdUseCase';
@@ -478,36 +474,7 @@ export const resolvers = {
     },
 
     // products / product / productBySku / searchProducts → migrated to product-service (Federation)
-
-    // Order queries
-    orders: async (_: any, { filter, pagination }: any) => {
-      const getOrdersUseCase = container.get<GetOrdersUseCase>('getOrdersUseCase');
-      const result = await getOrdersUseCase.execute({
-        filters: filter,
-        pagination: pagination || { limit: 10, offset: 0 }
-      });
-
-      return {
-        orders: result.orders.map(transformOrder),
-        total: result.total,
-        hasMore: result.hasMore
-      };
-    },
-
-    order: async (_: any, { id }: { id: string }) => {
-      const getOrderByIdUseCase = container.get<GetOrderByIdUseCase>('getOrderByIdUseCase');
-      const order = await getOrderByIdUseCase.execute(id);
-      return order ? transformOrder(order) : null;
-    },
-
-    orderByNumber: async (_: any, { orderNumber }: { orderNumber: string }) => {
-      const getOrdersUseCase = container.get<GetOrdersUseCase>('getOrdersUseCase');
-      const result = await getOrdersUseCase.execute({
-        filters: { orderNumber },
-        pagination: { limit: 1, offset: 0 }
-      });
-      return result.orders[0] ? transformOrder(result.orders[0]) : null;
-    },
+    // orders / order / orderByNumber / userOrders / orderItems → migrated to order-service (Federation)
 
     // User queries
     users: async (_: any, { filter, pagination }: any, context: any) => {
@@ -1363,25 +1330,6 @@ export const resolvers = {
       }
     },
 
-    userOrders: async (_: any, { userId, pagination }: any) => {
-      try {
-        const getUserOrderHistoryUseCase = container.get<GetUserOrderHistoryUseCase>('getUserOrderHistoryUseCase');
-        const result = await getUserOrderHistoryUseCase.execute({
-          userId,
-          limit: pagination?.limit || 20,
-          offset: pagination?.offset || 0
-        });
-
-        return {
-          orders: result.orders.map(transformOrder),
-          total: result.total,
-          hasMore: result.hasMore
-        };
-      } catch (error: any) {
-        return { orders: [], total: 0, hasMore: false };
-      }
-    },
-
     // Address queries - implemented with user repository
     userAddresses: async (_: any, { userId }: { userId: string }, context: Context) => {
       const startTime = Date.now();
@@ -1502,20 +1450,6 @@ export const resolvers = {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-    },
-
-    orderItems: async (_: any, { orderId }: { orderId: string }) => {
-      return [
-        {
-          id: 'item-1',
-          orderId: orderId,
-          productId: 'prod-1',
-          quantity: 2,
-          unitPrice: 24.99,
-          totalPrice: 49.98,
-          createdAt: new Date()
-        }
-      ];
     },
 
     userPaymentMethods: async (_: any, { userId }: { userId: string }) => {
@@ -2304,37 +2238,7 @@ export const resolvers = {
 
   Mutation: {
     // createProduct / updateProduct / deleteProduct → migrated to product-service (Federation)
-
-    // Order mutations
-    createOrder: async (_: any, { input }: { input: any }) => {
-      const createOrderUseCase = container.get<CreateOrderUseCase>('createOrderUseCase');
-      const order = await createOrderUseCase.execute({
-        customerEmail: input.customerEmail,
-        customerName: input.customerName,
-        customerPhone: input.customerPhone,
-        items: input.items,
-        shippingAddress: input.shippingAddress
-      });
-      return transformOrder(order);
-    },
-
-    updateOrder: async (_: any, { id, input }: { id: string; input: any }) => {
-      const updateOrderUseCase = container.get<UpdateOrderUseCase>('updateOrderUseCase');
-      const order = await updateOrderUseCase.execute(id, {
-        status: input.status,
-        customerEmail: input.customerEmail,
-        customerName: input.customerName,
-        customerPhone: input.customerPhone,
-        deliveredAt: input.deliveredAt
-      });
-      return transformOrder(order);
-    },
-
-    updateOrderStatus: async (_: any, { id, status }: { id: string; status: string }) => {
-      const updateOrderUseCase = container.get<UpdateOrderUseCase>('updateOrderUseCase');
-      const order = await updateOrderUseCase.execute(id, { status: status as any });
-      return transformOrder(order);
-    },
+    // createOrder / updateOrder / updateOrderStatus / cancelOrder / shipOrder / deliverOrder / bulkUpdateOrderStatus → migrated to order-service (Federation)
 
     // User mutations
     createUser: async (_: any, { input }: { input: any }, context: any) => {
@@ -3792,94 +3696,14 @@ export const resolvers = {
     // createCategory / updateCategory / deleteCategory → migrated to category-service (Federation)
 
     // createProductVariant / updateProductVariant / deleteProductVariant → migrated to product-service (Federation)
+    // cancelOrder / shipOrder / deliverOrder / createOrderItem / updateOrderItem / deleteOrderItem / bulkUpdateOrderStatus → migrated to order-service (Federation)
     addToCart: () => null,
     updateCartItem: () => null,
     removeFromCart: () => ({ success: true, message: 'Item removed from cart' }),
     clearUserCart: () => ({ success: true, message: 'Cart cleared successfully' }),
-    cancelOrder: () => null,
-    shipOrder: () => null,
-    deliverOrder: () => null,
-    createOrderItem: () => null,
-    updateOrderItem: () => null,
-    deleteOrderItem: () => ({ success: true, message: 'Order item deleted successfully' }),
     createPaymentMethod: () => null,
     updatePaymentMethod: () => null,
     deletePaymentMethod: () => ({ success: true, message: 'Payment method deleted successfully' }),
-    // bulkUpdateProducts → migrated to product-service (Federation)
-    bulkUpdateOrderStatus: async (_: any, { orders, status }: { orders: string[]; status: string }, context: any) => {
-      const startTime = Date.now();
-      const traceId = `bulk-update-order-status-${Date.now()}`;
-      const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-      
-      try {
-        if (!orders || orders.length === 0) {
-          const duration = Date.now() - startTime;
-          return ResponseFactory.createErrorResponse(
-            'No orders provided',
-            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
-            { orders },
-            {
-              requestId,
-              traceId,
-              duration
-            }
-          );
-        }
-
-        if (!status) {
-          const duration = Date.now() - startTime;
-          return ResponseFactory.createErrorResponse(
-            'Status is required',
-            RESPONSE_CODES.MISSING_REQUIRED_FIELD,
-            { status },
-            {
-              requestId,
-              traceId,
-              duration
-            }
-          );
-        }
-
-        // TODO: Implementar bulk update real
-        // Por ahora retornamos un placeholder
-        const duration = Date.now() - startTime;
-        
-        return ResponseFactory.createSuccessResponse(
-          [],
-          'Bulk update order status completed successfully',
-          RESPONSE_CODES.SUCCESS,
-          {
-            requestId,
-            traceId,
-            duration
-          }
-        );
-        
-      } catch (error: any) {
-        const duration = Date.now() - startTime;
-        
-        // Log del error con contexto completo
-        console.error('BulkUpdateOrderStatus resolver error:', {
-          error: error.message,
-          orders,
-          status,
-          context: { requestId, traceId },
-          duration,
-          timestamp: new Date()
-        });
-        
-        return ResponseFactory.createErrorResponse(
-          `Failed to bulk update order status: ${error.message || 'Unknown error'}`,
-          RESPONSE_CODES.INTERNAL_ERROR,
-          { orders, status, error: error.message },
-          {
-            requestId,
-            traceId,
-            duration
-          }
-        );
-      }
-    },
 
     // Session Analytics mutations
     createUserSessionAnalytics: async (_: any, { input }: { input: any }, context: any) => {
