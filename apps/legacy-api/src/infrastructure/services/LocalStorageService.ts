@@ -1,11 +1,11 @@
 import { IStorageService } from '../../domain/interfaces/IStorageService';
 import { IFileValidationService } from '../../domain/interfaces/IFileValidationService';
 import { FileValidationService } from '../../application/validation/FileValidationService';
-import { 
-  FileUploadError, 
-  FileDeleteError, 
+import {
+  FileUploadError,
+  FileDeleteError,
   FileValidationError,
-  StorageConfigurationError
+  StorageConfigurationError,
 } from '../../domain/errors/StorageError';
 import { storageConfig } from '../../config/storage';
 import { ILogger } from '@hbs/logging';
@@ -30,10 +30,7 @@ export class LocalStorageService implements IStorageService {
   private readonly logger: ILogger;
   private readonly performanceLogger: PerformanceLogger;
 
-  constructor(
-    logger?: ILogger, 
-    validationService?: IFileValidationService
-  ) {
+  constructor(logger?: ILogger, validationService?: IFileValidationService) {
     this.baseUrl = storageConfig.baseUrl;
     this.uploadDir = path.join(process.cwd(), storageConfig.uploadDir);
     this.validationService = validationService || new FileValidationService();
@@ -45,26 +42,26 @@ export class LocalStorageService implements IStorageService {
   private async ensureUploadDirExists(): Promise<void> {
     try {
       await stat(this.uploadDir);
-      this.logger.debug('Upload directory already exists', { 
+      this.logger.debug('Upload directory already exists', {
         path: this.uploadDir,
-        context: 'LocalStorageService.ensureUploadDirExists'
+        context: 'LocalStorageService.ensureUploadDirExists',
       });
     } catch (error) {
       try {
         await mkdir(this.uploadDir, { recursive: true });
-        this.logger.info('Created upload directory', { 
+        this.logger.info('Created upload directory', {
           path: this.uploadDir,
-          context: 'LocalStorageService.ensureUploadDirExists'
+          context: 'LocalStorageService.ensureUploadDirExists',
         });
       } catch (mkdirError) {
         const errorMessage = mkdirError instanceof Error ? mkdirError.message : 'Unknown error';
-        this.logger.error('Failed to create upload directory', new Error(errorMessage), { 
-          path: this.uploadDir, 
-          context: 'LocalStorageService.ensureUploadDirExists'
-        });
-        throw new StorageConfigurationError('Failed to create upload directory', { 
+        this.logger.error('Failed to create upload directory', new Error(errorMessage), {
           path: this.uploadDir,
-          originalError: errorMessage
+          context: 'LocalStorageService.ensureUploadDirExists',
+        });
+        throw new StorageConfigurationError('Failed to create upload directory', {
+          path: this.uploadDir,
+          originalError: errorMessage,
         });
       }
     }
@@ -74,32 +71,30 @@ export class LocalStorageService implements IStorageService {
     buffer: Buffer,
     fileName: string,
     mimeType: string,
-    folder?: string
+    folder?: string,
   ): Promise<string> {
     const startTime = Date.now();
-    const operationId = this.performanceLogger.startTimer('fileUpload', { 
-      fileName, 
-      mimeType, 
+    const operationId = this.performanceLogger.startTimer('fileUpload', {
+      fileName,
+      mimeType,
       fileSize: buffer.length,
-      folder: folder || 'root'
+      folder: folder || 'root',
     });
 
     try {
-      this.logger.info('Starting file upload', { 
-        fileName, 
-        mimeType, 
+      this.logger.info('Starting file upload', {
+        fileName,
+        mimeType,
         fileSize: buffer.length,
         folder: folder || 'root',
-        context: 'LocalStorageService.uploadFile'
+        context: 'LocalStorageService.uploadFile',
       });
 
       // Validate file before processing
       this.validationService.validateFile(fileName, mimeType, buffer.length);
 
       // Create subfolder if specified
-      const targetDir = folder 
-        ? path.join(this.uploadDir, folder)
-        : this.uploadDir;
+      const targetDir = folder ? path.join(this.uploadDir, folder) : this.uploadDir;
 
       if (folder) {
         await this.ensureDirectoryExists(targetDir);
@@ -108,65 +103,69 @@ export class LocalStorageService implements IStorageService {
       // Generate unique filename
       const uniqueFileName = this.generateUniqueFileName(fileName, mimeType);
       const filePath = path.join(targetDir, uniqueFileName);
-      
+
       // Write file
       await writeFile(filePath, buffer);
 
       // Return relative path (without baseUrl for flexibility)
-      const relativePath = folder 
+      const relativePath = folder
         ? `${storageConfig.uploadDir}/${folder}/${uniqueFileName}`
         : `${storageConfig.uploadDir}/${uniqueFileName}`;
 
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
+      this.performanceLogger.endTimer(operationId, {
         success: true,
         relativePath,
-        uniqueFileName
+        uniqueFileName,
       });
 
-      this.logger.info('File upload completed successfully', { 
-        fileName, 
+      this.logger.info('File upload completed successfully', {
+        fileName,
         uniqueFileName,
         relativePath,
         fileSize: buffer.length,
         duration,
-        context: 'LocalStorageService.uploadFile'
+        context: 'LocalStorageService.uploadFile',
       });
 
       return relativePath;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
+      this.performanceLogger.endTimer(operationId, {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       if (error instanceof FileValidationError) {
-        this.logger.warn('File validation failed during upload', { 
-          fileName, 
-          mimeType, 
+        this.logger.warn('File validation failed during upload', {
+          fileName,
+          mimeType,
           error: error.message,
           details: error.details,
           duration,
-          context: 'LocalStorageService.uploadFile'
+          context: 'LocalStorageService.uploadFile',
         });
         throw error;
       }
 
-      this.logger.error('File upload failed', error instanceof Error ? error : new Error('Unknown error'), { 
-        fileName, 
-        mimeType, 
-        fileSize: buffer.length,
-        duration,
-        context: 'LocalStorageService.uploadFile'
-      });
+      this.logger.error(
+        'File upload failed',
+        error instanceof Error ? error : new Error('Unknown error'),
+        {
+          fileName,
+          mimeType,
+          fileSize: buffer.length,
+          duration,
+          context: 'LocalStorageService.uploadFile',
+        },
+      );
 
-      throw new FileUploadError('Failed to upload file', { 
+      throw new FileUploadError('Failed to upload file', {
         fileName,
         mimeType,
         fileSize: buffer.length,
         originalError: error instanceof Error ? error.message : 'Unknown error',
-        duration
+        duration,
       });
     }
   }
@@ -176,9 +175,9 @@ export class LocalStorageService implements IStorageService {
     const operationId = this.performanceLogger.startTimer('fileDeletion', { fileUrl });
 
     try {
-      this.logger.info('Starting file deletion', { 
+      this.logger.info('Starting file deletion', {
         fileUrl,
-        context: 'LocalStorageService.deleteFile'
+        context: 'LocalStorageService.deleteFile',
       });
 
       // Extract relative path from URL
@@ -190,60 +189,64 @@ export class LocalStorageService implements IStorageService {
       try {
         await stat(filePath);
         await unlink(filePath);
-        
+
         const duration = Date.now() - startTime;
-        this.performanceLogger.endTimer(operationId, { 
+        this.performanceLogger.endTimer(operationId, {
           success: true,
-          filePath
+          filePath,
         });
-        
-        this.logger.info('File deleted successfully', { 
-          fileUrl, 
+
+        this.logger.info('File deleted successfully', {
+          fileUrl,
           filePath,
           duration,
-          context: 'LocalStorageService.deleteFile'
+          context: 'LocalStorageService.deleteFile',
         });
       } catch (error) {
         // File doesn't exist, that's okay
         const duration = Date.now() - startTime;
-        this.performanceLogger.endTimer(operationId, { 
+        this.performanceLogger.endTimer(operationId, {
           success: true,
-          fileNotFound: true
+          fileNotFound: true,
         });
-        
-        this.logger.warn('File not found for deletion', { 
-          fileUrl, 
+
+        this.logger.warn('File not found for deletion', {
+          fileUrl,
           filePath,
           duration,
-          context: 'LocalStorageService.deleteFile'
+          context: 'LocalStorageService.deleteFile',
         });
       }
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
+      this.performanceLogger.endTimer(operationId, {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
-      this.logger.error('File deletion failed', error instanceof Error ? error : new Error('Unknown error'), { 
-        fileUrl, 
-        duration,
-        context: 'LocalStorageService.deleteFile'
-      });
+      this.logger.error(
+        'File deletion failed',
+        error instanceof Error ? error : new Error('Unknown error'),
+        {
+          fileUrl,
+          duration,
+          context: 'LocalStorageService.deleteFile',
+        },
+      );
 
-      throw new FileDeleteError('Failed to delete file', { 
+      throw new FileDeleteError('Failed to delete file', {
         fileUrl,
         originalError: error instanceof Error ? error.message : 'Unknown error',
-        duration
+        duration,
       });
     }
   }
 
   getPublicUrl(fileName: string, folder?: string): string {
-    const relativePath = folder 
+    const relativePath = folder
       ? `${storageConfig.uploadDir}/${folder}/${fileName}`
       : `${storageConfig.uploadDir}/${fileName}`;
-      
+
     return `${this.baseUrl}/${relativePath}`;
   }
 
@@ -271,19 +274,19 @@ export class LocalStorageService implements IStorageService {
     fileName: string,
     publicUrl: string,
     requestId?: string,
-    traceId?: string
+    traceId?: string,
   ): BaseResponse<{ url: string; fileName: string }> {
     return ResponseFactory.createSuccessResponse(
       {
         url: publicUrl,
-        fileName
+        fileName,
       },
       'File uploaded successfully',
       RESPONSE_CODES.CREATED,
       {
         requestId,
-        traceId
-      }
+        traceId,
+      },
     );
   }
 
@@ -291,19 +294,19 @@ export class LocalStorageService implements IStorageService {
   getDeletionResponse(
     fileUrl: string,
     requestId?: string,
-    traceId?: string
+    traceId?: string,
   ): BaseResponse<{ fileUrl: string; deletedAt: string }> {
     return ResponseFactory.createSuccessResponse(
       {
         fileUrl,
-        deletedAt: new Date().toISOString()
+        deletedAt: new Date().toISOString(),
       },
       'File deleted successfully',
       RESPONSE_CODES.DELETED,
       {
         requestId,
-        traceId
-      }
+        traceId,
+      },
     );
   }
 
@@ -312,9 +315,9 @@ export class LocalStorageService implements IStorageService {
       await stat(dirPath);
     } catch (error) {
       await mkdir(dirPath, { recursive: true });
-      this.logger.debug('Created subdirectory', { 
+      this.logger.debug('Created subdirectory', {
         path: dirPath,
-        context: 'LocalStorageService.ensureDirectoryExists'
+        context: 'LocalStorageService.ensureDirectoryExists',
       });
     }
   }
@@ -323,10 +326,10 @@ export class LocalStorageService implements IStorageService {
     const timestamp = Date.now();
     const ext = this.validationService.getExtensionFromMimeType(mimeType);
     const baseName = path.basename(fileName, path.extname(fileName));
-    
+
     // Sanitize base name to remove any remaining invalid characters
     const sanitizedBaseName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    
+
     return `${sanitizedBaseName}_${timestamp}${ext}`;
   }
 }

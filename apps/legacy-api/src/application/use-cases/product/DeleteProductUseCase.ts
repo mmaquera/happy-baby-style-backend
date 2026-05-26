@@ -5,9 +5,7 @@ export interface DeleteProductRequest {
 }
 
 export class DeleteProductUseCase {
-  constructor(
-    private readonly productRepository: IProductRepository
-  ) {}
+  constructor(private readonly productRepository: IProductRepository) {}
 
   async execute(request: DeleteProductRequest): Promise<void> {
     if (!request.id) {
@@ -29,4 +27,4 @@ export class DeleteProductUseCase {
 
     await this.productRepository.delete(request.id);
   }
-} 
+}

@@ -19,7 +19,7 @@ function transformImage(image: any) {
   return {
     ...image,
     url: buildMediaUrl(image.url),
-    createdAt: image.createdAt instanceof Date ? image.createdAt.toISOString() : image.createdAt
+    createdAt: image.createdAt instanceof Date ? image.createdAt.toISOString() : image.createdAt,
   };
 }
 
@@ -27,14 +27,14 @@ function transformSvg(svg: any) {
   return {
     ...svg,
     url: buildMediaUrl(svg.url),
-    createdAt: svg.createdAt instanceof Date ? svg.createdAt.toISOString() : svg.createdAt
+    createdAt: svg.createdAt instanceof Date ? svg.createdAt.toISOString() : svg.createdAt,
   };
 }
 
 export function createResolvers(
   imageRepository: IImageRepository,
   svgRepository: ISvgRepository,
-  storageService: IStorageService
+  storageService: IStorageService,
 ) {
   const uploadImageUseCase = new UploadImageUseCase(imageRepository, storageService);
   const uploadSvgUseCase = new UploadSvgUseCase(svgRepository, storageService);
@@ -47,7 +47,10 @@ export function createResolvers(
         return transformImage(image);
       },
 
-      imagesByEntity: async (_: any, { entityId, entityType }: { entityId: string; entityType: ImageEntityType }) => {
+      imagesByEntity: async (
+        _: any,
+        { entityId, entityType }: { entityId: string; entityType: ImageEntityType },
+      ) => {
         const images = await imageRepository.findByEntityId(entityId, entityType);
         return images.map(transformImage);
       },
@@ -58,7 +61,10 @@ export function createResolvers(
         return transformSvg(svg);
       },
 
-      svgsByEntity: async (_: any, { entityType, entityId }: { entityType: SvgEntityType; entityId: string }) => {
+      svgsByEntity: async (
+        _: any,
+        { entityType, entityId }: { entityType: SvgEntityType; entityId: string },
+      ) => {
         const svgs = await svgRepository.findByEntity(entityType, entityId);
         return svgs.map(transformSvg);
       },
@@ -70,11 +76,15 @@ export function createResolvers(
 
       svgsCount: async () => {
         return svgRepository.count();
-      }
+      },
     },
 
     Mutation: {
-      uploadImage: async (_: any, { file, entityType, entityId }: { file: any; entityType: string; entityId: string }, context: any) => {
+      uploadImage: async (
+        _: any,
+        { file, entityType, entityId }: { file: any; entityType: string; entityId: string },
+        context: any,
+      ) => {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `upload-image-${Date.now()}-${entityId}`;
 
@@ -86,13 +96,13 @@ export function createResolvers(
           const fileInfo = {
             filename: file?.file?.filename || file?.filename || 'unknown',
             mimetype: file?.file?.mimetype || file?.mimetype || 'unknown',
-            size: file?.file?.size || file?.size || 0
+            size: file?.file?.size || file?.size || 0,
           };
 
           const result = await uploadImageUseCase.execute({
             file,
             entityType: entityType as ImageEntityType,
-            entityId
+            entityId,
           });
 
           const fullUrl = buildMediaUrl(result.url);
@@ -101,11 +111,14 @@ export function createResolvers(
             { url: fullUrl, filename: result.fileName || result.url, imageId: result.id },
             'Image uploaded successfully',
             RESPONSE_CODES.CREATED,
-            { requestId, traceId }
+            { requestId, traceId },
           );
         } catch (error: any) {
           let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
-          if (error.message?.includes('Invalid file type') || error.message?.includes('File size too large')) {
+          if (
+            error.message?.includes('Invalid file type') ||
+            error.message?.includes('File size too large')
+          ) {
             errorCode = RESPONSE_CODES.VALIDATION_ERROR;
           } else if (error.message?.includes('Failed to upload')) {
             errorCode = RESPONSE_CODES.SERVICE_UNAVAILABLE;
@@ -115,18 +128,28 @@ export function createResolvers(
             error.message || 'Failed to upload image',
             errorCode,
             { operation: 'uploadImage', entityType, entityId },
-            { requestId, traceId }
+            { requestId, traceId },
           );
         }
       },
 
-      uploadSvg: async (_: any, { file, entityType, entityId, optimize = true, sanitize = true }: {
-        file: any;
-        entityType: string;
-        entityId: string;
-        optimize?: boolean;
-        sanitize?: boolean;
-      }, context: any) => {
+      uploadSvg: async (
+        _: any,
+        {
+          file,
+          entityType,
+          entityId,
+          optimize = true,
+          sanitize = true,
+        }: {
+          file: any;
+          entityType: string;
+          entityId: string;
+          optimize?: boolean;
+          sanitize?: boolean;
+        },
+        context: any,
+      ) => {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `upload-svg-${Date.now()}-${entityId}`;
 
@@ -149,7 +172,7 @@ export function createResolvers(
             entityType: entityType as SvgEntityType,
             entityId,
             optimize,
-            sanitize
+            sanitize,
           });
 
           const fullUrl = buildMediaUrl(result.url);
@@ -161,20 +184,30 @@ export function createResolvers(
               svgId: result.id,
               dimensions: result.dimensions,
               viewBox: result.viewBox,
-              optimized: result.optimized
+              optimized: result.optimized,
             },
             'SVG uploaded successfully',
-            { requestId, traceId }
+            { requestId, traceId },
           );
         } catch (error: any) {
           let errorCode: string = RESPONSE_CODES.SVG_UPLOAD_ERROR;
-          if (error.message?.includes('Invalid SVG format') || error.message?.includes('Invalid MIME type')) {
+          if (
+            error.message?.includes('Invalid SVG format') ||
+            error.message?.includes('Invalid MIME type')
+          ) {
             errorCode = RESPONSE_CODES.INVALID_SVG_FORMAT;
-          } else if (error.message?.includes('SVG content') || error.message?.includes('Invalid XML')) {
+          } else if (
+            error.message?.includes('SVG content') ||
+            error.message?.includes('Invalid XML')
+          ) {
             errorCode = RESPONSE_CODES.INVALID_SVG_CONTENT;
           } else if (error.message?.includes('File size') || error.message?.includes('too large')) {
             errorCode = RESPONSE_CODES.SVG_SIZE_EXCEEDED;
-          } else if (error.message?.includes('security') || error.message?.includes('script') || error.message?.includes('javascript')) {
+          } else if (
+            error.message?.includes('security') ||
+            error.message?.includes('script') ||
+            error.message?.includes('javascript')
+          ) {
             errorCode = RESPONSE_CODES.SVG_SECURITY_VIOLATION;
           }
 
@@ -182,7 +215,7 @@ export function createResolvers(
             error.message || 'Failed to upload SVG',
             errorCode,
             { operation: 'uploadSvg', entityType, entityId, optimize, sanitize },
-            { requestId, traceId }
+            { requestId, traceId },
           );
         }
       },
@@ -202,7 +235,7 @@ export function createResolvers(
         } catch {
           return false;
         }
-      }
+      },
     },
 
     Image: {
@@ -210,7 +243,7 @@ export function createResolvers(
         const image = await imageRepository.findById(id);
         if (!image) return null;
         return transformImage(image);
-      }
+      },
     },
 
     Svg: {
@@ -218,7 +251,7 @@ export function createResolvers(
         const svg = await svgRepository.findById(id);
         if (!svg) return null;
         return transformSvg(svg);
-      }
-    }
+      },
+    },
   };
 }

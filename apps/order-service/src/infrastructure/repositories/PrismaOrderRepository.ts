@@ -1,6 +1,17 @@
 import { PrismaClient } from '@prisma/client';
-import { IOrderRepository, OrderFilters, OrderStats } from '../../domain/repositories/IOrderRepository';
-import { Order, CreateOrderRequest, UpdateOrderRequest, OrderItem, ShippingAddress, OrderStatus } from '../../domain/entities/Order';
+import {
+  IOrderRepository,
+  OrderFilters,
+  OrderStats,
+} from '../../domain/repositories/IOrderRepository';
+import {
+  Order,
+  CreateOrderRequest,
+  UpdateOrderRequest,
+  OrderItem,
+  ShippingAddress,
+  OrderStatus,
+} from '../../domain/entities/Order';
 import { LoggerFactory, ILogger } from '@hbs/logging';
 
 export class PrismaOrderRepository implements IOrderRepository {
@@ -30,29 +41,32 @@ export class PrismaOrderRepository implements IOrderRepository {
           shippingState: orderData.shippingAddress.state,
           shippingZipCode: orderData.shippingAddress.zipCode,
           shippingCountry: orderData.shippingAddress.country || 'PE',
-          notes: ''
+          notes: '',
         },
-        include: { items: true }
+        include: { items: true },
       });
 
       const orderItems = await Promise.all(
-        orderData.items.map(item =>
+        orderData.items.map((item) =>
           this.prisma.orderItem.create({
             data: {
               orderId: order.id,
               productId: item.productId,
               quantity: item.quantity,
               unitPrice: 0,
-              totalPrice: 0
-            }
-          })
-        )
+              totalPrice: 0,
+            },
+          }),
+        ),
       );
 
       this.logger.info('Order created', { orderId: order.id });
       return this.mapToOrder(order, orderItems);
     } catch (error) {
-      this.logger.error('Error creating order', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error creating order',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -61,12 +75,15 @@ export class PrismaOrderRepository implements IOrderRepository {
     try {
       const order = await this.prisma.order.findUnique({
         where: { id },
-        include: { items: true }
+        include: { items: true },
       });
       if (!order) return null;
       return this.mapToOrder(order, order.items);
     } catch (error) {
-      this.logger.error('Error finding order', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding order',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -89,12 +106,15 @@ export class PrismaOrderRepository implements IOrderRepository {
         include: { items: true },
         orderBy: { createdAt: 'desc' },
         take: filters?.limit,
-        skip: filters?.offset
+        skip: filters?.offset,
       });
 
-      return orders.map(o => this.mapToOrder(o, o.items));
+      return orders.map((o) => this.mapToOrder(o, o.items));
     } catch (error) {
-      this.logger.error('Error finding orders', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding orders',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -110,12 +130,15 @@ export class PrismaOrderRepository implements IOrderRepository {
       const updated = await this.prisma.order.update({
         where: { id },
         data: updateData,
-        include: { items: true }
+        include: { items: true },
       });
 
       return this.mapToOrder(updated, updated.items);
     } catch (error) {
-      this.logger.error('Error updating order', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error updating order',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -125,7 +148,10 @@ export class PrismaOrderRepository implements IOrderRepository {
       await this.prisma.order.delete({ where: { id } });
       return true;
     } catch (error) {
-      this.logger.error('Error deleting order', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error deleting order',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -135,11 +161,14 @@ export class PrismaOrderRepository implements IOrderRepository {
       const orders = await this.prisma.order.findMany({
         where: { status: status as OrderStatus },
         include: { items: true },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
-      return orders.map(o => this.mapToOrder(o, o.items));
+      return orders.map((o) => this.mapToOrder(o, o.items));
     } catch (error) {
-      this.logger.error('Error finding orders by status', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding orders by status',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -149,11 +178,14 @@ export class PrismaOrderRepository implements IOrderRepository {
       const orders = await this.prisma.order.findMany({
         where: { customerEmail: email },
         include: { items: true },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
-      return orders.map(o => this.mapToOrder(o, o.items));
+      return orders.map((o) => this.mapToOrder(o, o.items));
     } catch (error) {
-      this.logger.error('Error finding orders by email', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding orders by email',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -163,16 +195,22 @@ export class PrismaOrderRepository implements IOrderRepository {
       const updated = await this.prisma.order.update({
         where: { id },
         data: { status: status as OrderStatus },
-        include: { items: true }
+        include: { items: true },
       });
       return this.mapToOrder(updated, updated.items);
     } catch (error) {
-      this.logger.error('Error updating order status', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error updating order status',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
 
-  async addOrderItem(orderId: string, item: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>): Promise<OrderItem> {
+  async addOrderItem(
+    orderId: string,
+    item: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>,
+  ): Promise<OrderItem> {
     try {
       const created = await this.prisma.orderItem.create({
         data: {
@@ -180,12 +218,15 @@ export class PrismaOrderRepository implements IOrderRepository {
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.price,
-          totalPrice: item.price * item.quantity
-        }
+          totalPrice: item.price * item.quantity,
+        },
       });
       return this.mapToOrderItem(created);
     } catch (error) {
-      this.logger.error('Error adding order item', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error adding order item',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -195,7 +236,10 @@ export class PrismaOrderRepository implements IOrderRepository {
       await this.prisma.orderItem.delete({ where: { id: itemId } });
       return true;
     } catch (error) {
-      this.logger.error('Error removing order item', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error removing order item',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -204,11 +248,14 @@ export class PrismaOrderRepository implements IOrderRepository {
     try {
       const items = await this.prisma.orderItem.findMany({
         where: { orderId },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
       });
-      return items.map(i => this.mapToOrderItem(i));
+      return items.map((i) => this.mapToOrderItem(i));
     } catch (error) {
-      this.logger.error('Error getting order items', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error getting order items',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -220,35 +267,39 @@ export class PrismaOrderRepository implements IOrderRepository {
       city: addressData.city,
       state: addressData.state,
       zipCode: addressData.zipCode,
-      country: addressData.country
+      country: addressData.country,
     };
   }
 
   async getShippingAddress(id: string): Promise<ShippingAddress | null> {
     try {
       const order = await this.prisma.order.findFirst({
-        where: { shippingAddressId: id }
+        where: { shippingAddressId: id },
       });
       if (!order || !order.shippingStreet) return null;
       return this.buildShippingAddress(order);
     } catch (error) {
-      this.logger.error('Error getting shipping address', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error getting shipping address',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
 
   async getOrderStats(): Promise<OrderStats> {
     try {
-      const [total, pending, processing, shipped, delivered, cancelled, revenue, avg] = await Promise.all([
-        this.prisma.order.count(),
-        this.prisma.order.count({ where: { status: 'pending' } }),
-        this.prisma.order.count({ where: { status: 'processing' } }),
-        this.prisma.order.count({ where: { status: 'shipped' } }),
-        this.prisma.order.count({ where: { status: 'delivered' } }),
-        this.prisma.order.count({ where: { status: 'cancelled' } }),
-        this.prisma.order.aggregate({ _sum: { totalAmount: true } }),
-        this.prisma.order.aggregate({ _avg: { totalAmount: true } })
-      ]);
+      const [total, pending, processing, shipped, delivered, cancelled, revenue, avg] =
+        await Promise.all([
+          this.prisma.order.count(),
+          this.prisma.order.count({ where: { status: 'pending' } }),
+          this.prisma.order.count({ where: { status: 'processing' } }),
+          this.prisma.order.count({ where: { status: 'shipped' } }),
+          this.prisma.order.count({ where: { status: 'delivered' } }),
+          this.prisma.order.count({ where: { status: 'cancelled' } }),
+          this.prisma.order.aggregate({ _sum: { totalAmount: true } }),
+          this.prisma.order.aggregate({ _avg: { totalAmount: true } }),
+        ]);
 
       return {
         totalOrders: total,
@@ -258,10 +309,13 @@ export class PrismaOrderRepository implements IOrderRepository {
         deliveredOrders: delivered,
         cancelledOrders: cancelled,
         totalRevenue: Number(revenue._sum.totalAmount) || 0,
-        averageOrderValue: Number(avg._avg.totalAmount) || 0
+        averageOrderValue: Number(avg._avg.totalAmount) || 0,
       };
     } catch (error) {
-      this.logger.error('Error calculating order stats', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error calculating order stats',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -271,11 +325,14 @@ export class PrismaOrderRepository implements IOrderRepository {
       const orders = await this.prisma.order.findMany({
         where: { createdAt: { gte: startDate, lte: endDate } },
         include: { items: true },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
-      return orders.map(o => this.mapToOrder(o, o.items));
+      return orders.map((o) => this.mapToOrder(o, o.items));
     } catch (error) {
-      this.logger.error('Error finding orders by date range', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding orders by date range',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -293,7 +350,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       city: order.shippingCity || '',
       state: order.shippingState || '',
       zipCode: order.shippingZipCode || '',
-      country: order.shippingCountry || 'PE'
+      country: order.shippingCountry || 'PE',
     };
   }
 
@@ -316,10 +373,10 @@ export class PrismaOrderRepository implements IOrderRepository {
       createdAt: prismaOrder.createdAt,
       updatedAt: prismaOrder.updatedAt,
       deliveredAt: prismaOrder.deliveredAt || undefined,
-      items: (items || []).map(i => this.mapToOrderItem(i)),
+      items: (items || []).map((i) => this.mapToOrderItem(i)),
       shippingAddress: prismaOrder.shippingStreet
         ? this.buildShippingAddress(prismaOrder)
-        : undefined
+        : undefined,
     };
   }
 
@@ -330,7 +387,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       productId: prismaItem.productId,
       quantity: prismaItem.quantity,
       price: Number(prismaItem.unitPrice),
-      createdAt: prismaItem.createdAt
+      createdAt: prismaItem.createdAt,
     };
   }
 }

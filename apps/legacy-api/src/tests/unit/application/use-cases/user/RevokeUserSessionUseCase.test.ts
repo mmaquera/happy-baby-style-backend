@@ -42,7 +42,7 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   verifyPassword: jest.fn(),
   updatePassword: jest.fn(),
   getUserById: jest.fn(),
-  getUserByEmail: jest.fn()
+  getUserByEmail: jest.fn(),
 };
 
 const mockLogger: jest.Mocked<ILogger> = {
@@ -52,7 +52,7 @@ const mockLogger: jest.Mocked<ILogger> = {
   debug: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(),
-  setTraceId: jest.fn()
+  setTraceId: jest.fn(),
 };
 
 describe('RevokeUserSessionUseCase', () => {
@@ -67,7 +67,7 @@ describe('RevokeUserSessionUseCase', () => {
     const validRequest = {
       sessionId: 'session-123',
       userId: 'user-456',
-      reason: 'Security concern'
+      reason: 'Security concern',
     };
 
     const mockSession: UserSession = {
@@ -81,7 +81,7 @@ describe('RevokeUserSessionUseCase', () => {
       ipAddress: '192.168.1.1',
       isActive: true,
       createdAt: new Date('2024-01-15T10:00:00Z'),
-      updatedAt: new Date('2024-01-15T10:00:00Z')
+      updatedAt: new Date('2024-01-15T10:00:00Z'),
     };
 
     it('should revoke user session successfully', async () => {
@@ -99,15 +99,17 @@ describe('RevokeUserSessionUseCase', () => {
       expect(result.analyticsCleaned).toBe(true);
       expect(mockAuthRepository.updateSession).toHaveBeenCalledWith('session-123', {
         isActive: false,
-        expiresAt: expect.any(Date)
+        expiresAt: expect.any(Date),
       });
-      expect(mockAuthRepository.deleteSessionAnalyticsBySessionId).toHaveBeenCalledWith('session-123');
+      expect(mockAuthRepository.deleteSessionAnalyticsBySessionId).toHaveBeenCalledWith(
+        'session-123',
+      );
       expect(mockLogger.info).toHaveBeenCalledWith(
         'User session revoked successfully',
         expect.objectContaining({
           sessionId: 'session-123',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
 
@@ -127,8 +129,8 @@ describe('RevokeUserSessionUseCase', () => {
         'Session already inactive, no action needed',
         expect.objectContaining({
           sessionId: 'session-123',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
 
@@ -154,8 +156,8 @@ describe('RevokeUserSessionUseCase', () => {
         expect.objectContaining({
           sessionId: 'session-123',
           sessionUserId: 'other-user-789',
-          requestingUserId: 'user-456'
-        })
+          requestingUserId: 'user-456',
+        }),
       );
     });
 
@@ -163,7 +165,9 @@ describe('RevokeUserSessionUseCase', () => {
       // Arrange
       mockAuthRepository.findSessionByToken.mockResolvedValue(mockSession);
       mockAuthRepository.updateSession.mockResolvedValue({ ...mockSession, isActive: false });
-      mockAuthRepository.deleteSessionAnalyticsBySessionId.mockRejectedValue(new Error('Analytics cleanup failed'));
+      mockAuthRepository.deleteSessionAnalyticsBySessionId.mockRejectedValue(
+        new Error('Analytics cleanup failed'),
+      );
 
       // Act
       const result = await useCase.execute(validRequest);
@@ -175,8 +179,8 @@ describe('RevokeUserSessionUseCase', () => {
         'Failed to clean session analytics',
         expect.objectContaining({
           sessionId: 'session-123',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
 
@@ -220,8 +224,8 @@ describe('RevokeUserSessionUseCase', () => {
         repositoryError,
         expect.objectContaining({
           sessionId: 'session-123',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
   });

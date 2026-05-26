@@ -25,7 +25,7 @@ export enum SvgEntityType {
   USER = 'user',
   CATEGORY = 'category',
   ICON = 'icon',
-  LOGO = 'logo'
+  LOGO = 'logo',
 }
 
 export class SvgEntity implements Svg {
@@ -43,7 +43,7 @@ export class SvgEntity implements Svg {
     public readonly createdAt: Date,
     public readonly dimensions?: { width?: number; height?: number },
     public readonly viewBox?: string,
-    public readonly optimized: boolean = false
+    public readonly optimized: boolean = false,
   ) {}
 
   static create(data: Omit<Svg, 'id' | 'createdAt'>): SvgEntity {
@@ -61,7 +61,7 @@ export class SvgEntity implements Svg {
       new Date(),
       data.dimensions,
       data.viewBox,
-      data.optimized
+      data.optimized,
     );
   }
 
@@ -130,7 +130,7 @@ export class SvgEntity implements Svg {
     if (widthMatch && heightMatch) {
       metadata.dimensions = {
         width: parseFloat(widthMatch[1]),
-        height: parseFloat(heightMatch[1])
+        height: parseFloat(heightMatch[1]),
       };
     }
 

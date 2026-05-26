@@ -1,7 +1,12 @@
 import { IStorageService } from '../../domain/interfaces/IStorageService';
 import { IFileValidationService } from '../../domain/interfaces/IFileValidationService';
 import { FileValidationService } from '../../application/validation/FileValidationService';
-import { FileUploadError, FileDeleteError, FileValidationError, StorageConfigurationError } from '../../domain/errors/StorageError';
+import {
+  FileUploadError,
+  FileDeleteError,
+  FileValidationError,
+  StorageConfigurationError,
+} from '../../domain/errors/StorageError';
 import { LoggerFactory, ILogger } from '@hbs/logging';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -15,7 +20,7 @@ const stat = promisify(fs.stat);
 // Inlined from @config/storage
 const storageConfig = {
   baseUrl: process.env.STORAGE_BASE_URL || 'http://localhost:3001',
-  uploadDir: process.env.STORAGE_UPLOAD_DIR || 'uploads'
+  uploadDir: process.env.STORAGE_UPLOAD_DIR || 'uploads',
 };
 
 export class LocalStorageService implements IStorageService {
@@ -41,12 +46,20 @@ export class LocalStorageService implements IStorageService {
         this.logger.info('Created upload directory', { path: this.uploadDir });
       } catch (mkdirError) {
         const msg = mkdirError instanceof Error ? mkdirError.message : 'Unknown error';
-        throw new StorageConfigurationError('Failed to create upload directory', { path: this.uploadDir, originalError: msg });
+        throw new StorageConfigurationError('Failed to create upload directory', {
+          path: this.uploadDir,
+          originalError: msg,
+        });
       }
     }
   }
 
-  async uploadFile(buffer: Buffer, fileName: string, mimeType: string, folder?: string): Promise<string> {
+  async uploadFile(
+    buffer: Buffer,
+    fileName: string,
+    mimeType: string,
+    folder?: string,
+  ): Promise<string> {
     try {
       this.validationService.validateFile(fileName, mimeType, buffer.length);
 
@@ -65,18 +78,26 @@ export class LocalStorageService implements IStorageService {
         ? `${storageConfig.uploadDir}/${folder}/${uniqueFileName}`
         : `${storageConfig.uploadDir}/${uniqueFileName}`;
 
-      this.logger.info('File uploaded', { fileName, uniqueFileName, relativePath, fileSize: buffer.length });
+      this.logger.info('File uploaded', {
+        fileName,
+        uniqueFileName,
+        relativePath,
+        fileSize: buffer.length,
+      });
 
       return relativePath;
     } catch (error) {
       if (error instanceof FileValidationError) throw error;
 
-      this.logger.error('File upload failed', error instanceof Error ? error : new Error('Unknown error'));
+      this.logger.error(
+        'File upload failed',
+        error instanceof Error ? error : new Error('Unknown error'),
+      );
       throw new FileUploadError('Failed to upload file', {
         fileName,
         mimeType,
         fileSize: buffer.length,
-        originalError: error instanceof Error ? error.message : 'Unknown error'
+        originalError: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -95,10 +116,13 @@ export class LocalStorageService implements IStorageService {
         this.logger.warn('File not found for deletion', { fileUrl, filePath });
       }
     } catch (error) {
-      this.logger.error('File deletion failed', error instanceof Error ? error : new Error('Unknown error'));
+      this.logger.error(
+        'File deletion failed',
+        error instanceof Error ? error : new Error('Unknown error'),
+      );
       throw new FileDeleteError('Failed to delete file', {
         fileUrl,
-        originalError: error instanceof Error ? error.message : 'Unknown error'
+        originalError: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

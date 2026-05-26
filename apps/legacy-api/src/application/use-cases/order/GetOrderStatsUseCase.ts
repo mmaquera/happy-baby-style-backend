@@ -7,7 +7,9 @@ export class GetOrderStatsUseCase {
     try {
       return await this.orderRepository.getOrderStats();
     } catch (error) {
-      throw new Error(`Failed to get order stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get order stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
-} 
+}

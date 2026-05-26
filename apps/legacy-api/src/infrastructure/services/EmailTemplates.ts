@@ -10,9 +10,9 @@ export class EmailTemplates {
    * @param expirationHours - Horas de expiración del token
    */
   static getPasswordResetTemplate(
-    userName: string, 
-    resetUrl: string, 
-    expirationHours: number = 1
+    userName: string,
+    resetUrl: string,
+    expirationHours: number = 1,
   ): string {
     return `
       <!DOCTYPE html>

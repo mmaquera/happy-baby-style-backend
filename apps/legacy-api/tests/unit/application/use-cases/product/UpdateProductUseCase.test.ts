@@ -1,4 +1,7 @@
-import { UpdateProductUseCase, UpdateProductRequest } from '@application/use-cases/product/UpdateProductUseCase';
+import {
+  UpdateProductUseCase,
+  UpdateProductRequest,
+} from '@application/use-cases/product/UpdateProductUseCase';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
 import { ProductEntity } from '@domain/entities/Product';
 
@@ -17,7 +20,7 @@ const mockProductRepository: jest.Mocked<IProductRepository> = {
   getProductVariants: jest.fn(),
   updateVariant: jest.fn(),
   deleteVariant: jest.fn(),
-  getCategories: jest.fn()
+  getCategories: jest.fn(),
 };
 
 describe('UpdateProductUseCase', () => {
@@ -45,7 +48,7 @@ describe('UpdateProductUseCase', () => {
       4.5,
       5,
       new Date(),
-      new Date()
+      new Date(),
     );
 
     it('should update product successfully with valid data', async () => {
@@ -54,7 +57,7 @@ describe('UpdateProductUseCase', () => {
         id: '1',
         name: 'Updated Product',
         price: 39.99,
-        description: 'Updated Description'
+        description: 'Updated Description',
       };
 
       const updatedProduct = new ProductEntity(
@@ -73,7 +76,7 @@ describe('UpdateProductUseCase', () => {
         4.5,
         5,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -88,7 +91,7 @@ describe('UpdateProductUseCase', () => {
       expect(mockProductRepository.update).toHaveBeenCalledWith('1', {
         name: 'Updated Product',
         price: 39.99,
-        description: 'Updated Description'
+        description: 'Updated Description',
       });
     });
 
@@ -96,7 +99,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '',
-        name: 'Updated Product'
+        name: 'Updated Product',
       };
 
       // Act & Assert
@@ -108,7 +111,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: 'non-existent',
-        name: 'Updated Product'
+        name: 'Updated Product',
       };
 
       mockProductRepository.findById.mockResolvedValue(null);
@@ -123,7 +126,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        sku: 'EXISTING-SKU'
+        sku: 'EXISTING-SKU',
       };
 
       const existingProductWithSku = new ProductEntity(
@@ -142,7 +145,7 @@ describe('UpdateProductUseCase', () => {
         4.5,
         5,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -157,7 +160,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        sku: 'SKU-1' // Same SKU as existing product
+        sku: 'SKU-1', // Same SKU as existing product
       };
 
       const updatedProduct = new ProductEntity(
@@ -176,7 +179,7 @@ describe('UpdateProductUseCase', () => {
         4.5,
         5,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -195,7 +198,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        price: -10
+        price: -10,
       };
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -208,7 +211,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        salePrice: -5
+        salePrice: -5,
       };
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -222,20 +225,22 @@ describe('UpdateProductUseCase', () => {
       const request: UpdateProductRequest = {
         id: '1',
         price: 30,
-        salePrice: 35
+        salePrice: 35,
       };
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
 
       // Act & Assert
-      await expect(useCase.execute(request)).rejects.toThrow('Sale price must be less than regular price');
+      await expect(useCase.execute(request)).rejects.toThrow(
+        'Sale price must be less than regular price',
+      );
     });
 
     it('should throw error when stock quantity is negative', async () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        stockQuantity: -5
+        stockQuantity: -5,
       };
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -248,7 +253,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        rating: 6
+        rating: 6,
       };
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -261,7 +266,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        reviewCount: -1
+        reviewCount: -1,
       };
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -274,7 +279,7 @@ describe('UpdateProductUseCase', () => {
       // Arrange
       const request: UpdateProductRequest = {
         id: '1',
-        name: 'Updated Product'
+        name: 'Updated Product',
       };
 
       mockProductRepository.findById.mockResolvedValue(mockExistingProduct);
@@ -285,4 +290,4 @@ describe('UpdateProductUseCase', () => {
       await expect(useCase.execute(request)).rejects.toThrow('Database error');
     });
   });
-}); 
+});

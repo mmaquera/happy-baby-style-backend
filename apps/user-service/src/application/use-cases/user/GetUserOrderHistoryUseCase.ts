@@ -1,5 +1,8 @@
 // Order is owned by order-service — minimal stub for cross-domain history queries
-export interface Order { id: string; [key: string]: any; }
+export interface Order {
+  id: string;
+  [key: string]: any;
+}
 
 export interface UserOrderHistoryRequest {
   userId: string;
@@ -23,7 +26,7 @@ export interface UserOrderHistoryResponse {
 }
 
 export interface IUserOrderRepository {
-  getUserOrders(params: UserOrderHistoryRequest): Promise<{orders: Order[], total: number}>;
+  getUserOrders(params: UserOrderHistoryRequest): Promise<{ orders: Order[]; total: number }>;
   getUserOrderStats(userId: string): Promise<{
     totalOrders: number;
     totalSpent: number;
@@ -58,7 +61,7 @@ export class GetUserOrderHistoryUseCase {
     const { orders, total } = await this.orderRepository.getUserOrders({
       ...params,
       limit,
-      offset
+      offset,
     });
 
     // Get user order statistics
@@ -71,7 +74,7 @@ export class GetUserOrderHistoryUseCase {
       orders,
       total,
       hasMore,
-      stats
+      stats,
     };
   }
 
@@ -91,7 +94,7 @@ export class GetUserOrderHistoryUseCase {
       limit,
       offset: 0,
       sortBy: 'created_at',
-      sortOrder: 'desc'
+      sortOrder: 'desc',
     });
 
     return orders;
@@ -111,7 +114,7 @@ export class GetUserOrderHistoryUseCase {
       userId,
       status,
       sortBy: 'created_at',
-      sortOrder: 'desc'
+      sortOrder: 'desc',
     });
 
     return orders;
@@ -136,18 +139,18 @@ export class GetUserOrderHistoryUseCase {
     const { orders } = await this.orderRepository.getUserOrders({
       userId,
       limit: 1000, // High limit to get all orders for stats
-      offset: 0
+      offset: 0,
     });
 
     // Calculate orders by status
     const ordersByStatus: Record<string, number> = {};
-    orders.forEach(order => {
+    orders.forEach((order) => {
       ordersByStatus[order.status] = (ordersByStatus[order.status] || 0) + 1;
     });
 
     return {
       ...stats,
-      ordersByStatus
+      ordersByStatus,
     };
   }
 }

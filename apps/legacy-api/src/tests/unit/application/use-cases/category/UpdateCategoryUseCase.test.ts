@@ -1,4 +1,7 @@
-import { UpdateCategoryUseCase, UpdateCategoryRequest } from '@application/use-cases/category/UpdateCategoryUseCase';
+import {
+  UpdateCategoryUseCase,
+  UpdateCategoryRequest,
+} from '@application/use-cases/category/UpdateCategoryUseCase';
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '@domain/entities/Product';
 import { NotFoundError, DuplicateError, ValidationError } from '@domain/errors/DomainError';
@@ -13,7 +16,7 @@ const mockCategoryRepository: jest.Mocked<ICategoryRepository> = {
   update: jest.fn(),
   delete: jest.fn(),
   findActive: jest.fn(),
-  updateSortOrder: jest.fn()
+  updateSortOrder: jest.fn(),
 };
 
 // Mock del logger
@@ -24,10 +27,10 @@ jest.mock('@hbs/logging', () => ({
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
-        debug: jest.fn()
-      })
-    })
-  }
+        debug: jest.fn(),
+      }),
+    }),
+  },
 }));
 
 describe('UpdateCategoryUseCase', () => {
@@ -36,10 +39,10 @@ describe('UpdateCategoryUseCase', () => {
 
   beforeEach(() => {
     updateCategoryUseCase = new UpdateCategoryUseCase(mockCategoryRepository);
-    
+
     // Reset mocks
     jest.clearAllMocks();
-    
+
     // Mock de categoría existente
     mockCategory = new CategoryEntity(
       'cat-1',
@@ -50,7 +53,7 @@ describe('UpdateCategoryUseCase', () => {
       true,
       1,
       new Date('2025-01-01'),
-      new Date('2025-01-01')
+      new Date('2025-01-01'),
     );
   });
 
@@ -59,7 +62,7 @@ describe('UpdateCategoryUseCase', () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        name: 'Updated Baby Clothing'
+        name: 'Updated Baby Clothing',
       };
 
       const updatedCategory = new CategoryEntity(
@@ -71,7 +74,7 @@ describe('UpdateCategoryUseCase', () => {
         true,
         1,
         new Date('2025-01-01'),
-        new Date('2025-01-02')
+        new Date('2025-01-02'),
       );
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -86,7 +89,9 @@ describe('UpdateCategoryUseCase', () => {
       expect(result.data?.entity.name).toBe('Updated Baby Clothing');
       expect(result.data?.changes).toContain('name');
       expect(result.data?.changes).toHaveLength(1);
-      expect(mockCategoryRepository.update).toHaveBeenCalledWith('cat-1', { name: 'Updated Baby Clothing' });
+      expect(mockCategoryRepository.update).toHaveBeenCalledWith('cat-1', {
+        name: 'Updated Baby Clothing',
+      });
     });
 
     it('should update multiple fields successfully', async () => {
@@ -95,7 +100,7 @@ describe('UpdateCategoryUseCase', () => {
         id: 'cat-1',
         name: 'Updated Baby Clothing',
         description: 'New description',
-        sortOrder: 5
+        sortOrder: 5,
       };
 
       const updatedCategory = new CategoryEntity(
@@ -107,7 +112,7 @@ describe('UpdateCategoryUseCase', () => {
         true,
         5,
         new Date('2025-01-01'),
-        new Date('2025-01-02')
+        new Date('2025-01-02'),
       );
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -129,7 +134,7 @@ describe('UpdateCategoryUseCase', () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        name: 'Baby Clothing' // Mismo nombre
+        name: 'Baby Clothing', // Mismo nombre
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -148,22 +153,20 @@ describe('UpdateCategoryUseCase', () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'non-existent',
-        name: 'New Name'
+        name: 'New Name',
       };
 
       mockCategoryRepository.findById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(NotFoundError);
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow(NotFoundError);
     });
 
     it('should throw DuplicateError when new name already exists', async () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        name: 'Existing Category Name'
+        name: 'Existing Category Name',
       };
 
       const existingCategory = new CategoryEntity(
@@ -175,23 +178,21 @@ describe('UpdateCategoryUseCase', () => {
         true,
         2,
         new Date('2025-01-01'),
-        new Date('2025-01-01')
+        new Date('2025-01-01'),
       );
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
       mockCategoryRepository.findByName.mockResolvedValue(existingCategory);
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(DuplicateError);
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow(DuplicateError);
     });
 
     it('should throw DuplicateError when new slug already exists', async () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        slug: 'existing-slug'
+        slug: 'existing-slug',
       };
 
       const existingCategory = new CategoryEntity(
@@ -203,16 +204,14 @@ describe('UpdateCategoryUseCase', () => {
         true,
         2,
         new Date('2025-01-01'),
-        new Date('2025-01-01')
+        new Date('2025-01-01'),
       );
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
       mockCategoryRepository.findBySlug.mockResolvedValue(existingCategory);
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(DuplicateError);
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow(DuplicateError);
     });
 
     it('should trim whitespace from string fields', async () => {
@@ -220,7 +219,7 @@ describe('UpdateCategoryUseCase', () => {
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
         name: '  Updated Name  ',
-        description: '  Updated Description  '
+        description: '  Updated Description  ',
       };
 
       const updatedCategory = new CategoryEntity(
@@ -232,7 +231,7 @@ describe('UpdateCategoryUseCase', () => {
         true,
         1,
         new Date('2025-01-01'),
-        new Date('2025-01-02')
+        new Date('2025-01-02'),
       );
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -248,7 +247,7 @@ describe('UpdateCategoryUseCase', () => {
       expect(result.data?.changes).toContain('description');
       expect(mockCategoryRepository.update).toHaveBeenCalledWith('cat-1', {
         name: 'Updated Name',
-        description: 'Updated Description'
+        description: 'Updated Description',
       });
     });
 
@@ -256,67 +255,59 @@ describe('UpdateCategoryUseCase', () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        name: 'A' // Muy corto
+        name: 'A', // Muy corto
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow(ValidationError);
     });
 
     it('should validate slug format', async () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        slug: 'invalid slug with spaces' // Formato inválido
+        slug: 'invalid slug with spaces', // Formato inválido
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow(ValidationError);
     });
 
     it('should validate image URL format', async () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        imageUrl: 'not-a-valid-url' // URL inválida
+        imageUrl: 'not-a-valid-url', // URL inválida
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow(ValidationError);
     });
 
     it('should validate sort order range', async () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        sortOrder: 1000 // Fuera del rango
+        sortOrder: 1000, // Fuera del rango
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow(ValidationError);
     });
 
     it('should handle repository errors gracefully', async () => {
       // Arrange
       const request: UpdateCategoryRequest = {
         id: 'cat-1',
-        name: 'New Name'
+        name: 'New Name',
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -324,9 +315,7 @@ describe('UpdateCategoryUseCase', () => {
       mockCategoryRepository.update.mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
-      await expect(updateCategoryUseCase.execute(request))
-        .rejects
-        .toThrow('Database error');
+      await expect(updateCategoryUseCase.execute(request)).rejects.toThrow('Database error');
     });
   });
 });

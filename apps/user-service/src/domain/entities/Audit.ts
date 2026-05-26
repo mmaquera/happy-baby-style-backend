@@ -1,6 +1,6 @@
 /**
  * Entidades de dominio para Auditoría y Eventos de Seguridad
- * 
+ *
  * Principios aplicados:
  * - Domain-Driven Design: Entidades que representan conceptos del dominio
  * - Clean Architecture: Capa de dominio sin dependencias externas
@@ -63,7 +63,7 @@ export enum SecurityEventType {
   LOGOUT = 'logout',
   ACCOUNT_LOCKED = 'account_locked',
   ACCOUNT_UNLOCKED = 'account_unlocked',
-  SUSPICIOUS_ACTIVITY = 'suspicious_activity'
+  SUSPICIOUS_ACTIVITY = 'suspicious_activity',
 }
 
 /**
@@ -76,6 +76,5 @@ export enum AuditAction {
   PASSWORD_UPDATE = 'password_update',
   PASSWORD_RESET = 'password_reset',
   LOGIN = 'login',
-  LOGOUT = 'logout'
+  LOGOUT = 'logout',
 }
-

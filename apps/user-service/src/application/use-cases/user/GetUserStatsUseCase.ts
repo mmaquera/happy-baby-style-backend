@@ -7,4 +7,4 @@ export class GetUserStatsUseCase {
   async execute(): Promise<UserStats> {
     return await this.userRepository.getUserStats();
   }
-} 
+}

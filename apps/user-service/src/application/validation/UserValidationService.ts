@@ -39,7 +39,6 @@ export interface ValidationResult {
 }
 
 export class UserValidationService {
-  
   /**
    * Validate user registration data
    */
@@ -89,7 +88,7 @@ export class UserValidationService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -134,7 +133,7 @@ export class UserValidationService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -201,7 +200,7 @@ export class UserValidationService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -236,7 +235,7 @@ export class UserValidationService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -260,7 +259,7 @@ export class UserValidationService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -285,24 +284,31 @@ export class UserValidationService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
   // ==================== PRIVATE VALIDATION METHODS ====================
 
   private validateRequired(field: string, value: any): void {
-    if (value === undefined || value === null || 
-        (typeof value === 'string' && value.trim().length === 0)) {
+    if (
+      value === undefined ||
+      value === null ||
+      (typeof value === 'string' && value.trim().length === 0)
+    ) {
       throw new Error(`${field} is required`);
     }
   }
 
-  private validateString(field: string, value: any, options?: {
-    minLength?: number;
-    maxLength?: number;
-    pattern?: RegExp;
-  }): void {
+  private validateString(
+    field: string,
+    value: any,
+    options?: {
+      minLength?: number;
+      maxLength?: number;
+      pattern?: RegExp;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       if (typeof value !== 'string') {
         throw new Error(`${field} must be a string`);
@@ -322,11 +328,15 @@ export class UserValidationService {
     }
   }
 
-  private validateNumber(field: string, value: any, options?: {
-    min?: number;
-    max?: number;
-    integer?: boolean;
-  }): void {
+  private validateNumber(
+    field: string,
+    value: any,
+    options?: {
+      min?: number;
+      max?: number;
+      integer?: boolean;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       if (typeof value !== 'number' || isNaN(value)) {
         throw new Error(`${field} must be a number`);
@@ -346,13 +356,17 @@ export class UserValidationService {
     }
   }
 
-  private validateDate(field: string, value: any, options?: {
-    minDate?: Date;
-    maxDate?: Date;
-  }): void {
+  private validateDate(
+    field: string,
+    value: any,
+    options?: {
+      minDate?: Date;
+      maxDate?: Date;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       let date: Date;
-      
+
       if (value instanceof Date) {
         date = value;
       } else if (typeof value === 'string') {
@@ -411,8 +425,16 @@ export class UserValidationService {
 
     // Check for common weak passwords
     const commonPasswords = [
-      'password', 'password123', '123456', 'qwerty', 'abc123',
-      'admin', 'letmein', 'welcome', 'monkey', 'dragon'
+      'password',
+      'password123',
+      '123456',
+      'qwerty',
+      'abc123',
+      'admin',
+      'letmein',
+      'welcome',
+      'monkey',
+      'dragon',
     ];
 
     if (commonPasswords.includes(password.toLowerCase())) {
@@ -421,7 +443,7 @@ export class UserValidationService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -442,7 +464,7 @@ export class UserValidationService {
     const now = new Date();
     const minAge = new Date(now.getFullYear() - 120, now.getMonth(), now.getDate());
     const maxAge = new Date(now.getFullYear() - 13, now.getMonth(), now.getDate());
-    
+
     return birthDate >= minAge && birthDate <= maxAge;
   }
 
@@ -488,9 +510,9 @@ export class UserValidationService {
       /delete.*from/i,
       /<[^>]*>/,
       /eval\(/i,
-      /expression\(/i
+      /expression\(/i,
     ];
 
-    return suspiciousPatterns.some(pattern => pattern.test(content));
+    return suspiciousPatterns.some((pattern) => pattern.test(content));
   }
 }

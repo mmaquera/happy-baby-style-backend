@@ -3,7 +3,12 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/user-service/src",
   "projectType": "application",
-  "implicitDependencies": ["logging", "prisma", "shared-kernel", "auth"],
+  "implicitDependencies": [
+    "logging",
+    "prisma",
+    "shared-kernel",
+    "auth"
+  ],
   "targets": {
     "build": {
       "executor": "nx:run-commands",
@@ -11,7 +16,9 @@
         "command": "rm -rf apps/user-service/dist && tsc -p apps/user-service/tsconfig.json",
         "cwd": "{workspaceRoot}"
       },
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "type-check": {
       "executor": "nx:run-commands",
@@ -19,7 +26,10 @@
         "command": "tsc --noEmit -p apps/user-service/tsconfig.json",
         "cwd": "{workspaceRoot}"
       },
-      "dependsOn": ["^build"]
-    }
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "lint": {}
   }
 }

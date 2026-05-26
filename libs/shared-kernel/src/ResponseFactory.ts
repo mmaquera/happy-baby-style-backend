@@ -2,15 +2,15 @@ import { BaseResponse, ResponseMetadata, PaginatedData, PaginationInfo } from '.
 
 export class ResponseFactory {
   private static generateMetadata(
-    requestId?: string, 
-    traceId?: string, 
-    duration?: number
+    requestId?: string,
+    traceId?: string,
+    duration?: number,
   ): ResponseMetadata {
     return {
       requestId,
       traceId,
       duration,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -18,7 +18,7 @@ export class ResponseFactory {
     data: T,
     message: string,
     code: string = 'SUCCESS',
-    metadata?: Partial<ResponseMetadata>
+    metadata?: Partial<ResponseMetadata>,
   ): BaseResponse<T> {
     return {
       success: true,
@@ -28,8 +28,8 @@ export class ResponseFactory {
       timestamp: new Date().toISOString(),
       metadata: {
         ...this.generateMetadata(),
-        ...metadata
-      }
+        ...metadata,
+      },
     };
   }
 
@@ -37,7 +37,7 @@ export class ResponseFactory {
     message: string,
     code: string,
     details?: any,
-    metadata?: Partial<ResponseMetadata>
+    metadata?: Partial<ResponseMetadata>,
   ): BaseResponse<null> {
     return {
       success: false,
@@ -47,8 +47,8 @@ export class ResponseFactory {
       timestamp: new Date().toISOString(),
       metadata: {
         ...this.generateMetadata(),
-        ...metadata
-      }
+        ...metadata,
+      },
     };
   }
 
@@ -56,13 +56,13 @@ export class ResponseFactory {
     items: T[],
     pagination: PaginationInfo,
     message: string = 'Data retrieved successfully',
-    metadata?: Partial<ResponseMetadata>
+    metadata?: Partial<ResponseMetadata>,
   ): BaseResponse<PaginatedData<T>> {
     return this.createSuccessResponse(
       { items, pagination },
       message,
       'PAGINATED_SUCCESS',
-      metadata
+      metadata,
     );
   }
 
@@ -77,28 +77,17 @@ export class ResponseFactory {
       optimized: boolean;
     },
     message: string = 'SVG uploaded successfully',
-    metadata?: Partial<ResponseMetadata>
+    metadata?: Partial<ResponseMetadata>,
   ): BaseResponse<typeof svgData> {
-    return this.createSuccessResponse(
-      svgData,
-      message,
-      'SVG_UPLOADED',
-      metadata
-    );
+    return this.createSuccessResponse(svgData, message, 'SVG_UPLOADED', metadata);
   }
 
   static createSvgErrorResponse(
     message: string,
     code: string = 'SVG_UPLOAD_ERROR',
     details?: any,
-    metadata?: Partial<ResponseMetadata>
+    metadata?: Partial<ResponseMetadata>,
   ): BaseResponse<null> {
-    return this.createErrorResponse(
-      message,
-      code,
-      details,
-      metadata
-    );
+    return this.createErrorResponse(message, code, details, metadata);
   }
 }
-

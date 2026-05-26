@@ -58,11 +58,11 @@ export interface RateLimitStatus {
  * Rate limiting configuration for endpoints
  */
 export interface RateLimitConfig {
-  windowMs: number;        // Time window in milliseconds
-  maxRequests: number;     // Maximum requests per window
-  blockDuration: number;   // Duration to block after limit exceeded
+  windowMs: number; // Time window in milliseconds
+  maxRequests: number; // Maximum requests per window
+  blockDuration: number; // Duration to block after limit exceeded
   skipSuccessfulRequests: boolean; // Whether to skip successful requests
-  message: string;         // Message to return when limit exceeded
+  message: string; // Message to return when limit exceeded
 }
 
 /**
@@ -72,7 +72,7 @@ export enum RateLimitEventType {
   REQUEST_ALLOWED = 'request_allowed',
   REQUEST_BLOCKED = 'request_blocked',
   LIMIT_EXCEEDED = 'limit_exceeded',
-  RATE_LIMIT_RESET = 'rate_limit_reset'
+  RATE_LIMIT_RESET = 'rate_limit_reset',
 }
 
 /**

@@ -44,7 +44,7 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   verifyPassword: jest.fn(),
   updatePassword: jest.fn(),
   getUserById: jest.fn(),
-  getUserByEmail: jest.fn()
+  getUserByEmail: jest.fn(),
 };
 
 // Mock del logger
@@ -55,12 +55,12 @@ const mockLogger: jest.Mocked<ILogger> = {
   debug: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(),
-  setTraceId: jest.fn()
+  setTraceId: jest.fn(),
 };
 
 // Mock del caso de uso
 const mockLogoutUserUseCase: jest.Mocked<LogoutUserUseCase> = {
-  execute: jest.fn()
+  execute: jest.fn(),
 } as any;
 
 describe('GraphQL logoutUser Mutation Integration', () => {
@@ -68,14 +68,14 @@ describe('GraphQL logoutUser Mutation Integration', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock del container
     container = {
-      get: jest.fn()
+      get: jest.fn(),
     } as any;
-    
+
     (Container.getInstance as jest.Mock).mockReturnValue(container);
-    
+
     // Configurar mocks
     container.get.mockImplementation((key: string) => {
       switch (key) {
@@ -94,22 +94,22 @@ describe('GraphQL logoutUser Mutation Integration', () => {
       user: {
         id: 'user-123',
         email: 'test@example.com',
-        role: 'customer'
+        role: 'customer',
       },
       req: {
         headers: {
           'x-request-id': 'req-test-123',
-          'user-agent': 'Mozilla/5.0 (Test)'
+          'user-agent': 'Mozilla/5.0 (Test)',
         },
-        ip: '192.168.1.100'
-      }
+        ip: '192.168.1.100',
+      },
     };
 
     const mockLogoutResult = {
       userId: 'user-123',
       loggedOutAt: new Date().toISOString(),
       reason: 'user_request',
-      sessionsInvalidated: 2
+      sessionsInvalidated: 2,
     };
 
     it('should successfully logout authenticated user', async () => {
@@ -121,11 +121,11 @@ describe('GraphQL logoutUser Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `logout-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           // Obtener logger del container
           const logger = container.get<ILogger>('defaultLogger');
-          
+
           // Log de inicio de operación
           logger.info('Starting user logout process', {
             operation: 'logoutUser',
@@ -134,14 +134,14 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             context: {
               hasUser: !!context.user,
               userId: context.user?.id,
-              userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
-            }
+              userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            },
           });
 
           // Validar que el usuario esté autenticado
           if (!context.user) {
             const duration = Date.now() - startTime;
-            
+
             logger.warn('Logout attempted without authentication', {
               operation: 'logoutUser',
               requestId,
@@ -149,10 +149,10 @@ describe('GraphQL logoutUser Mutation Integration', () => {
               duration,
               context: {
                 userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-                ip: context?.req?.ip || 'unknown'
-              }
+                ip: context?.req?.ip || 'unknown',
+              },
             });
-            
+
             return {
               success: false,
               message: 'User not authenticated',
@@ -162,22 +162,22 @@ describe('GraphQL logoutUser Mutation Integration', () => {
               metadata: {
                 requestId,
                 traceId,
-                duration
-              }
+                duration,
+              },
             };
           }
 
           // Obtener caso de uso de logout
           const logoutUserUseCase = container.get<LogoutUserUseCase>('logoutUserUseCase');
-          
+
           // Ejecutar logout
           const result = await logoutUserUseCase.execute({
             userId: context.user.id,
-            reason: 'user_request'
+            reason: 'user_request',
           });
 
           const duration = Date.now() - startTime;
-          
+
           // Log de éxito
           logger.info('User logout completed successfully', {
             operation: 'logoutUser',
@@ -187,10 +187,10 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             duration,
             result: {
               sessionsInvalidated: result.sessionsInvalidated,
-              reason: result.reason
-            }
+              reason: result.reason,
+            },
           });
-          
+
           // Crear respuesta exitosa
           return {
             success: true,
@@ -198,7 +198,7 @@ describe('GraphQL logoutUser Mutation Integration', () => {
               userId: result.userId,
               loggedOutAt: result.loggedOutAt,
               reason: result.reason,
-              sessionsInvalidated: result.sessionsInvalidated
+              sessionsInvalidated: result.sessionsInvalidated,
             },
             message: 'User logged out successfully',
             code: 'LOGGED_OUT',
@@ -206,13 +206,12 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
-
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           // Log del error con contexto completo
           const logger = container.get<ILogger>('defaultLogger');
           logger.error('LogoutUser resolver error', error, {
@@ -223,15 +222,15 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             errorDetails: {
               message: error.message,
               type: error.constructor.name,
-              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
             },
             context: {
               hasUser: !!context.user,
               userId: context.user?.id,
-              userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
-            }
+              userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            },
           });
-          
+
           // Crear respuesta de error
           return {
             success: false,
@@ -242,8 +241,8 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
@@ -259,7 +258,7 @@ describe('GraphQL logoutUser Mutation Integration', () => {
         userId: 'user-123',
         loggedOutAt: expect.any(String),
         reason: 'user_request',
-        sessionsInvalidated: 2
+        sessionsInvalidated: 2,
       });
       expect(result.metadata).toHaveProperty('requestId');
       expect(result.metadata).toHaveProperty('traceId');
@@ -269,12 +268,18 @@ describe('GraphQL logoutUser Mutation Integration', () => {
       // Verificar que se llamó al caso de uso
       expect(mockLogoutUserUseCase.execute).toHaveBeenCalledWith({
         userId: 'user-123',
-        reason: 'user_request'
+        reason: 'user_request',
       });
 
       // Verificar logging
-      expect(mockLogger.info).toHaveBeenCalledWith('Starting user logout process', expect.any(Object));
-      expect(mockLogger.info).toHaveBeenCalledWith('User logout completed successfully', expect.any(Object));
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Starting user logout process',
+        expect.any(Object),
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'User logout completed successfully',
+        expect.any(Object),
+      );
     });
 
     it('should return error when user is not authenticated', async () => {
@@ -283,10 +288,10 @@ describe('GraphQL logoutUser Mutation Integration', () => {
         req: {
           headers: {
             'x-request-id': 'req-test-123',
-            'user-agent': 'Mozilla/5.0 (Test)'
+            'user-agent': 'Mozilla/5.0 (Test)',
           },
-          ip: '192.168.1.100'
-        }
+          ip: '192.168.1.100',
+        },
       };
 
       // Simular la mutación GraphQL
@@ -294,11 +299,11 @@ describe('GraphQL logoutUser Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `logout-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           // Obtener logger del container
           const logger = container.get<ILogger>('defaultLogger');
-          
+
           // Log de inicio de operación
           logger.info('Starting user logout process', {
             operation: 'logoutUser',
@@ -307,14 +312,14 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             context: {
               hasUser: !!context.user,
               userId: context.user?.id,
-              userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
-            }
+              userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            },
           });
 
           // Validar que el usuario esté autenticado
           if (!context.user) {
             const duration = Date.now() - startTime;
-            
+
             logger.warn('Logout attempted without authentication', {
               operation: 'logoutUser',
               requestId,
@@ -322,10 +327,10 @@ describe('GraphQL logoutUser Mutation Integration', () => {
               duration,
               context: {
                 userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-                ip: context?.req?.ip || 'unknown'
-              }
+                ip: context?.req?.ip || 'unknown',
+              },
             });
-            
+
             return {
               success: false,
               message: 'User not authenticated',
@@ -335,17 +340,16 @@ describe('GraphQL logoutUser Mutation Integration', () => {
               metadata: {
                 requestId,
                 traceId,
-                duration
-              }
+                duration,
+              },
             };
           }
 
           // Este código no debería ejecutarse
           return { success: false };
-
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           // Log del error
           const logger = container.get<ILogger>('defaultLogger');
           logger.error('LogoutUser resolver error', error, {
@@ -355,15 +359,15 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             duration,
             errorDetails: {
               message: error.message,
-              type: error.constructor.name
+              type: error.constructor.name,
             },
             context: {
               hasUser: !!context.user,
               userId: context.user?.id,
-              userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
-            }
+              userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            },
           });
-          
+
           return {
             success: false,
             message: error.message || 'Internal server error',
@@ -373,8 +377,8 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
@@ -392,7 +396,10 @@ describe('GraphQL logoutUser Mutation Integration', () => {
       expect(result.metadata).toHaveProperty('duration');
 
       // Verificar logging de warning
-      expect(mockLogger.warn).toHaveBeenCalledWith('Logout attempted without authentication', expect.any(Object));
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Logout attempted without authentication',
+        expect.any(Object),
+      );
     });
 
     it('should handle errors gracefully', async () => {
@@ -405,11 +412,11 @@ describe('GraphQL logoutUser Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `logout-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           // Obtener logger del container
           const logger = container.get<ILogger>('defaultLogger');
-          
+
           // Log de inicio de operación
           logger.info('Starting user logout process', {
             operation: 'logoutUser',
@@ -418,14 +425,14 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             context: {
               hasUser: !!context.user,
               userId: context.user?.id,
-              userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
-            }
+              userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            },
           });
 
           // Validar que el usuario esté autenticado
           if (!context.user) {
             const duration = Date.now() - startTime;
-            
+
             logger.warn('Logout attempted without authentication', {
               operation: 'logoutUser',
               requestId,
@@ -433,10 +440,10 @@ describe('GraphQL logoutUser Mutation Integration', () => {
               duration,
               context: {
                 userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-                ip: context?.req?.ip || 'unknown'
-              }
+                ip: context?.req?.ip || 'unknown',
+              },
             });
-            
+
             return {
               success: false,
               message: 'User not authenticated',
@@ -446,26 +453,25 @@ describe('GraphQL logoutUser Mutation Integration', () => {
               metadata: {
                 requestId,
                 traceId,
-                duration
-              }
+                duration,
+              },
             };
           }
 
           // Obtener caso de uso de logout
           const logoutUserUseCase = container.get<LogoutUserUseCase>('logoutUserUseCase');
-          
+
           // Ejecutar logout (esto fallará)
           const result = await logoutUserUseCase.execute({
             userId: context.user.id,
-            reason: 'user_request'
+            reason: 'user_request',
           });
 
           // Este código no debería ejecutarse
           return { success: true };
-
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           // Log del error con contexto completo
           const logger = container.get<ILogger>('defaultLogger');
           logger.error('LogoutUser resolver error', error, {
@@ -476,15 +482,15 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             errorDetails: {
               message: error.message,
               type: error.constructor.name,
-              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
             },
             context: {
               hasUser: !!context.user,
               userId: context.user?.id,
-              userAgent: context?.req?.headers?.['user-agent'] || 'unknown'
-            }
+              userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            },
           });
-          
+
           // Crear respuesta de error
           return {
             success: false,
@@ -495,8 +501,8 @@ describe('GraphQL logoutUser Mutation Integration', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
@@ -514,7 +520,11 @@ describe('GraphQL logoutUser Mutation Integration', () => {
       expect(result.metadata).toHaveProperty('duration');
 
       // Verificar logging de error
-      expect(mockLogger.error).toHaveBeenCalledWith('LogoutUser resolver error', error, expect.any(Object));
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'LogoutUser resolver error',
+        error,
+        expect.any(Object),
+      );
     });
   });
 });

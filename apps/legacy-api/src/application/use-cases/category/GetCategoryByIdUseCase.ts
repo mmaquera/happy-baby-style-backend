@@ -12,9 +12,7 @@ export interface GetCategoryByIdRequest {
 export class GetCategoryByIdUseCase {
   private readonly logger: ILogger;
 
-  constructor(
-    private readonly categoryRepository: ICategoryRepository
-  ) {
+  constructor(private readonly categoryRepository: ICategoryRepository) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('GetCategoryByIdUseCase');
   }
 
@@ -22,17 +20,17 @@ export class GetCategoryByIdUseCase {
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'GetCategoryById' }
+    context: { useCase: 'GetCategoryById' },
   })
   async execute(request: GetCategoryByIdRequest): Promise<CategoryEntity> {
     try {
       this.logger.info('Starting GetCategoryById use case execution', {
-        categoryId: request.id
+        categoryId: request.id,
       });
 
       if (!request.id || request.id.trim() === '') {
         this.logger.warn('GetCategoryById failed: invalid category ID', {
-          categoryId: request.id
+          categoryId: request.id,
         });
         throw new Error('Category ID is required');
       }
@@ -41,20 +39,20 @@ export class GetCategoryByIdUseCase {
 
       if (!category) {
         this.logger.warn('GetCategoryById failed: category not found', {
-          categoryId: request.id
+          categoryId: request.id,
         });
         throw new NotFoundError('Category', request.id);
       }
 
       this.logger.info('GetCategoryById use case completed successfully', {
         categoryId: request.id,
-        categoryName: category.name
+        categoryName: category.name,
       });
 
       return category;
     } catch (error: any) {
       this.logger.error('GetCategoryById use case failed', error, {
-        categoryId: request.id
+        categoryId: request.id,
       });
       throw error;
     }

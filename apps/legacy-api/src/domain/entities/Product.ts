@@ -17,7 +17,7 @@ export interface Product {
   reviewCount: number;
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Relaciones
   category?: Category;
   variants?: ProductVariant[];
@@ -67,10 +67,12 @@ export class ProductEntity implements Product {
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly category?: Category,
-    public readonly variants?: ProductVariant[]
+    public readonly variants?: ProductVariant[],
   ) {}
 
-  static create(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount'>): ProductEntity {
+  static create(
+    data: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount'>,
+  ): ProductEntity {
     const now = new Date();
     return new ProductEntity(
       crypto.randomUUID(),
@@ -88,7 +90,7 @@ export class ProductEntity implements Product {
       0, // rating inicial
       0, // reviewCount inicial
       now,
-      now
+      now,
     );
   }
 
@@ -111,7 +113,7 @@ export class ProductEntity implements Product {
       this.createdAt,
       new Date(),
       data.category ?? this.category,
-      data.variants ?? this.variants
+      data.variants ?? this.variants,
     );
   }
 
@@ -129,7 +131,8 @@ export class ProductEntity implements Product {
   }
 
   getTotalStock(): number {
-    const variantsStock = this.variants?.reduce((sum, variant) => sum + variant.stockQuantity, 0) || 0;
+    const variantsStock =
+      this.variants?.reduce((sum, variant) => sum + variant.stockQuantity, 0) || 0;
     return this.stockQuantity + variantsStock;
   }
 
@@ -149,10 +152,12 @@ export class ProductVariantEntity implements ProductVariant {
     public readonly stockQuantity: number,
     public readonly isActive: boolean,
     public readonly createdAt: Date,
-    public readonly updatedAt: Date
+    public readonly updatedAt: Date,
   ) {}
 
-  static create(data: Omit<ProductVariant, 'id' | 'createdAt' | 'updatedAt'>): ProductVariantEntity {
+  static create(
+    data: Omit<ProductVariant, 'id' | 'createdAt' | 'updatedAt'>,
+  ): ProductVariantEntity {
     const now = new Date();
     return new ProductVariantEntity(
       crypto.randomUUID(),
@@ -164,11 +169,13 @@ export class ProductVariantEntity implements ProductVariant {
       data.stockQuantity,
       data.isActive,
       now,
-      now
+      now,
     );
   }
 
-  update(data: Partial<Omit<ProductVariant, 'id' | 'createdAt' | 'updatedAt'>>): ProductVariantEntity {
+  update(
+    data: Partial<Omit<ProductVariant, 'id' | 'createdAt' | 'updatedAt'>>,
+  ): ProductVariantEntity {
     return new ProductVariantEntity(
       this.id,
       data.productId ?? this.productId,
@@ -179,7 +186,7 @@ export class ProductVariantEntity implements ProductVariant {
       data.stockQuantity ?? this.stockQuantity,
       data.isActive ?? this.isActive,
       this.createdAt,
-      new Date()
+      new Date(),
     );
   }
 
@@ -198,7 +205,7 @@ export class CategoryEntity implements Category {
     public readonly isActive: boolean,
     public readonly sortOrder: number,
     public readonly createdAt: Date,
-    public readonly updatedAt: Date
+    public readonly updatedAt: Date,
   ) {}
 
   static create(data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): CategoryEntity {
@@ -212,7 +219,7 @@ export class CategoryEntity implements Category {
       data.isActive,
       data.sortOrder,
       now,
-      now
+      now,
     );
   }
 
@@ -226,7 +233,7 @@ export class CategoryEntity implements Category {
       data.isActive ?? this.isActive,
       data.sortOrder ?? this.sortOrder,
       this.createdAt,
-      new Date()
+      new Date(),
     );
   }
 }

@@ -24,7 +24,11 @@ export class DeleteCategoryUseCase {
     const traceId = `delete-category-${Date.now()}`;
 
     try {
-      this.logger.info('Starting category deletion process', { categoryId: request.id, forceDelete: request.forceDelete, traceId });
+      this.logger.info('Starting category deletion process', {
+        categoryId: request.id,
+        forceDelete: request.forceDelete,
+        traceId,
+      });
 
       const existingCategory = await this.categoryRepository.findById(request.id);
       if (!existingCategory) {
@@ -43,9 +47,12 @@ export class DeleteCategoryUseCase {
       }
 
       return { id: request.id, deletedAt, softDelete };
-
     } catch (error) {
-      this.logger.error('Failed to delete category', error instanceof Error ? error : new Error(String(error)), { categoryId: request.id, traceId });
+      this.logger.error(
+        'Failed to delete category',
+        error instanceof Error ? error : new Error(String(error)),
+        { categoryId: request.id, traceId },
+      );
       throw error;
     }
   }

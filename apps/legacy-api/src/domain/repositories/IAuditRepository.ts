@@ -2,7 +2,7 @@ import { AuditLog, CreateAuditLogRequest } from '@domain/entities/Audit';
 
 /**
  * Repositorio de dominio para logs de auditoría
- * 
+ *
  * Principios aplicados:
  * - Dependency Inversion: Interface en la capa de dominio
  * - Clean Architecture: Define el contrato sin implementación
@@ -33,4 +33,3 @@ export interface IAuditRepository {
    */
   findByTableAndRecord(tableName: string, recordId: string): Promise<AuditLog[]>;
 }
-

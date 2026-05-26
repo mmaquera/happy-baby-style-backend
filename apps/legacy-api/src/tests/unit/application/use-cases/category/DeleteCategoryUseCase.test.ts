@@ -1,4 +1,7 @@
-import { DeleteCategoryUseCase, DeleteCategoryRequest } from '@application/use-cases/category/DeleteCategoryUseCase';
+import {
+  DeleteCategoryUseCase,
+  DeleteCategoryRequest,
+} from '@application/use-cases/category/DeleteCategoryUseCase';
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '@domain/entities/Product';
 import { NotFoundError } from '@domain/errors/DomainError';
@@ -13,7 +16,7 @@ const mockCategoryRepository: jest.Mocked<ICategoryRepository> = {
   update: jest.fn(),
   delete: jest.fn(),
   findActive: jest.fn(),
-  updateSortOrder: jest.fn()
+  updateSortOrder: jest.fn(),
 };
 
 // Mock del logger
@@ -24,10 +27,10 @@ jest.mock('@hbs/logging', () => ({
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
-        debug: jest.fn()
-      })
-    })
-  }
+        debug: jest.fn(),
+      }),
+    }),
+  },
 }));
 
 describe('DeleteCategoryUseCase', () => {
@@ -36,10 +39,10 @@ describe('DeleteCategoryUseCase', () => {
 
   beforeEach(() => {
     deleteCategoryUseCase = new DeleteCategoryUseCase(mockCategoryRepository);
-    
+
     // Reset mocks
     jest.clearAllMocks();
-    
+
     // Mock de categoría existente
     mockCategory = new CategoryEntity(
       'cat-1',
@@ -50,7 +53,7 @@ describe('DeleteCategoryUseCase', () => {
       true,
       1,
       new Date('2025-01-01'),
-      new Date('2025-01-01')
+      new Date('2025-01-01'),
     );
   });
 
@@ -58,7 +61,7 @@ describe('DeleteCategoryUseCase', () => {
     it('should perform soft delete by default', async () => {
       // Arrange
       const request: DeleteCategoryRequest = {
-        id: 'cat-1'
+        id: 'cat-1',
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -72,7 +75,7 @@ describe('DeleteCategoryUseCase', () => {
       expect(result.id).toBe('cat-1');
       expect(result.deletedAt).toBeInstanceOf(Date);
       expect(mockCategoryRepository.update).toHaveBeenCalledWith('cat-1', {
-        isActive: false
+        isActive: false,
       });
       expect(mockCategoryRepository.delete).not.toHaveBeenCalled();
     });
@@ -81,7 +84,7 @@ describe('DeleteCategoryUseCase', () => {
       // Arrange
       const request: DeleteCategoryRequest = {
         id: 'cat-1',
-        forceDelete: true
+        forceDelete: true,
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -101,52 +104,46 @@ describe('DeleteCategoryUseCase', () => {
     it('should throw NotFoundError when category does not exist', async () => {
       // Arrange
       const request: DeleteCategoryRequest = {
-        id: 'non-existent'
+        id: 'non-existent',
       };
 
       mockCategoryRepository.findById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(deleteCategoryUseCase.execute(request))
-        .rejects
-        .toThrow(NotFoundError);
+      await expect(deleteCategoryUseCase.execute(request)).rejects.toThrow(NotFoundError);
     });
 
     it('should handle repository update errors gracefully', async () => {
       // Arrange
       const request: DeleteCategoryRequest = {
-        id: 'cat-1'
+        id: 'cat-1',
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
       mockCategoryRepository.update.mockRejectedValue(new Error('Update failed'));
 
       // Act & Assert
-      await expect(deleteCategoryUseCase.execute(request))
-        .rejects
-        .toThrow('Update failed');
+      await expect(deleteCategoryUseCase.execute(request)).rejects.toThrow('Update failed');
     });
 
     it('should handle repository delete errors gracefully', async () => {
       // Arrange
       const request: DeleteCategoryRequest = {
         id: 'cat-1',
-        forceDelete: true
+        forceDelete: true,
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
       mockCategoryRepository.delete.mockRejectedValue(new Error('Delete failed'));
 
       // Act & Assert
-      await expect(deleteCategoryUseCase.execute(request))
-        .rejects
-        .toThrow('Delete failed');
+      await expect(deleteCategoryUseCase.execute(request)).rejects.toThrow('Delete failed');
     });
 
     it('should log appropriate messages for soft delete', async () => {
       // Arrange
       const request: DeleteCategoryRequest = {
-        id: 'cat-1'
+        id: 'cat-1',
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -157,7 +154,7 @@ describe('DeleteCategoryUseCase', () => {
 
       // Assert
       expect(mockCategoryRepository.update).toHaveBeenCalledWith('cat-1', {
-        isActive: false
+        isActive: false,
       });
     });
 
@@ -165,7 +162,7 @@ describe('DeleteCategoryUseCase', () => {
       // Arrange
       const request: DeleteCategoryRequest = {
         id: 'cat-1',
-        forceDelete: true
+        forceDelete: true,
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -181,7 +178,7 @@ describe('DeleteCategoryUseCase', () => {
     it('should return correct result structure for soft delete', async () => {
       // Arrange
       const request: DeleteCategoryRequest = {
-        id: 'cat-1'
+        id: 'cat-1',
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -194,7 +191,7 @@ describe('DeleteCategoryUseCase', () => {
       expect(result).toEqual({
         id: 'cat-1',
         deletedAt: expect.any(Date),
-        softDelete: true
+        softDelete: true,
       });
     });
 
@@ -202,7 +199,7 @@ describe('DeleteCategoryUseCase', () => {
       // Arrange
       const request: DeleteCategoryRequest = {
         id: 'cat-1',
-        forceDelete: true
+        forceDelete: true,
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
@@ -215,7 +212,7 @@ describe('DeleteCategoryUseCase', () => {
       expect(result).toEqual({
         id: 'cat-1',
         deletedAt: expect.any(Date),
-        softDelete: false
+        softDelete: false,
       });
     });
 

@@ -2,12 +2,20 @@
   "name": "product-service",
   "projectType": "application",
   "sourceRoot": "apps/product-service/src",
-  "implicitDependencies": ["logging", "prisma", "shared-kernel"],
+  "implicitDependencies": [
+    "logging",
+    "prisma",
+    "shared-kernel"
+  ],
   "targets": {
     "build": {
       "executor": "nx:run-commands",
-      "outputs": ["{projectRoot}/dist"],
-      "dependsOn": ["^build"],
+      "outputs": [
+        "{projectRoot}/dist"
+      ],
+      "dependsOn": [
+        "^build"
+      ],
       "options": {
         "command": "rm -rf apps/product-service/dist && tsc -p apps/product-service/tsconfig.json"
       }
@@ -26,6 +34,7 @@
           "TS_NODE_PROJECT": "apps/product-service/tsconfig.json"
         }
       }
-    }
+    },
+    "lint": {}
   }
 }

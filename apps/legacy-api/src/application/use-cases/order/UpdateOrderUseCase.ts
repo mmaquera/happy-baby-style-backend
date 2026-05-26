@@ -23,7 +23,9 @@ export class UpdateOrderUseCase {
 
       return await this.orderRepository.update(id, orderData);
     } catch (error) {
-      throw new Error(`Failed to update order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update order: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
@@ -34,7 +36,7 @@ export class UpdateOrderUseCase {
       processing: ['shipped', 'cancelled'],
       shipped: ['delivered'],
       delivered: [], // Estado final
-      cancelled: [] // Estado final
+      cancelled: [], // Estado final
     };
 
     const allowedTransitions = validTransitions[currentStatus] || [];
@@ -42,4 +44,4 @@ export class UpdateOrderUseCase {
       throw new Error(`Invalid status transition from ${currentStatus} to ${newStatus}`);
     }
   }
-} 
+}

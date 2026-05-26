@@ -12,7 +12,7 @@ const svgConfig = {
   allowedExtensions: ['.svg'],
   maxContentSize: parseInt(process.env.SVG_MAX_CONTENT_SIZE || '1048576'),
   enableSanitization: process.env.SVG_ENABLE_SANITIZATION !== 'false',
-  enableOptimization: process.env.SVG_ENABLE_OPTIMIZATION !== 'false'
+  enableOptimization: process.env.SVG_ENABLE_OPTIMIZATION !== 'false',
 };
 
 export interface UploadSvgRequest {
@@ -28,7 +28,7 @@ export class UploadSvgUseCase {
 
   constructor(
     private readonly svgRepository: ISvgRepository,
-    private readonly storageService: IStorageService
+    private readonly storageService: IStorageService,
   ) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('UploadSvgUseCase');
   }
@@ -64,7 +64,7 @@ export class UploadSvgUseCase {
       buffer,
       fileName,
       fileInfo.mimetype,
-      `${entityType}s/${entityId}`
+      `${entityType}s/${entityId}`,
     );
 
     const svg = SvgEntity.create({
@@ -79,7 +79,7 @@ export class UploadSvgUseCase {
       entityId,
       dimensions: metadata.dimensions,
       viewBox: metadata.viewBox,
-      optimized: optimize && svgConfig.enableOptimization
+      optimized: optimize && svgConfig.enableOptimization,
     });
 
     const savedSvg = await this.svgRepository.create(svg);
@@ -89,12 +89,17 @@ export class UploadSvgUseCase {
     return savedSvg;
   }
 
-  private extractFileInfo(file: any): { filename: string; mimetype: string; size: number; encoding: string } {
+  private extractFileInfo(file: any): {
+    filename: string;
+    mimetype: string;
+    size: number;
+    encoding: string;
+  } {
     return {
       filename: file?.file?.filename || file?.filename || 'unknown',
       mimetype: file?.file?.mimetype || file?.mimetype || 'unknown',
       size: file?.file?.size || file?.size || 0,
-      encoding: file?.file?.encoding || file?.encoding || 'unknown'
+      encoding: file?.file?.encoding || file?.encoding || 'unknown',
     };
   }
 
@@ -112,7 +117,9 @@ export class UploadSvgUseCase {
         throw new InvalidFormatError('Unable to read SVG content from file object');
       }
     } catch (error) {
-      throw new InvalidFormatError(`Failed to read SVG content: ${error instanceof Error ? error.message : String(error)}`);
+      throw new InvalidFormatError(
+        `Failed to read SVG content: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

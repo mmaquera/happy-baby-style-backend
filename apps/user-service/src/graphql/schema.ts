@@ -1,15 +1,36 @@
 import gql from 'graphql-tag';
 
 export const typeDefs = gql`
-  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@external", "@requires", "@provides", "@shareable"])
+  extend schema
+    @link(
+      url: "https://specs.apollo.dev/federation/v2.0"
+      import: ["@key", "@external", "@requires", "@provides", "@shareable"]
+    )
 
   scalar DateTime
   scalar Decimal
   scalar JSON
 
-  enum UserRole { admin customer staff }
-  enum AuthProvider { email google facebook apple }
-  enum OrderStatus { pending confirmed processing shipped delivered cancelled refunded }
+  enum UserRole {
+    admin
+    customer
+    staff
+  }
+  enum AuthProvider {
+    email
+    google
+    facebook
+    apple
+  }
+  enum OrderStatus {
+    pending
+    confirmed
+    processing
+    shipped
+    delivered
+    cancelled
+    refunded
+  }
 
   # ── Federation-owned types ───────────────────────────────────────────────────
 
@@ -676,7 +697,11 @@ export const typeDefs = gql`
     userSessionAnalytics(userId: ID!): [UserSessionAnalytics!]!
 
     # User activity queries
-    userOrderHistory(userId: ID!, filter: UserOrderHistoryFilter, pagination: PaginationInput): UserOrderHistoryResponse!
+    userOrderHistory(
+      userId: ID!
+      filter: UserOrderHistoryFilter
+      pagination: PaginationInput
+    ): UserOrderHistoryResponse!
     userFavoriteStats(userId: ID!): UserFavoriteStats!
     userActivitySummary(userId: ID!): UserActivitySummary!
 
@@ -700,7 +725,11 @@ export const typeDefs = gql`
     deleteUser(id: ID!): SuccessResponse!
     activateUser(id: ID!): User!
     deactivateUser(id: ID!): User!
-    updateUserPassword(email: String!, currentPassword: String!, newPassword: String!): SuccessResponse!
+    updateUserPassword(
+      email: String!
+      currentPassword: String!
+      newPassword: String!
+    ): SuccessResponse!
     requestPasswordReset(email: String!): PasswordResetRequestResponse!
     resetPassword(token: String!, newPassword: String!): PasswordResetConfirmResponse!
     setUserPassword(userId: ID!, newPassword: String!): SetUserPasswordResponse!
@@ -718,14 +747,24 @@ export const typeDefs = gql`
 
     # Session mutations
     revokeUserSession(sessionId: ID!, userId: ID!, reason: String): RevokeUserSessionResponse!
-    revokeAllUserSessions(userId: ID!, requestingUserId: ID!, reason: String, excludeCurrentSession: Boolean): RevokeAllUserSessionsResponse!
+    revokeAllUserSessions(
+      userId: ID!
+      requestingUserId: ID!
+      reason: String
+      excludeCurrentSession: Boolean
+    ): RevokeAllUserSessionsResponse!
     unlinkUserAccount(accountId: ID!): SuccessResponse!
     forcePasswordReset(userId: ID!): SuccessResponse!
     impersonateUser(userId: ID!): AuthResponse!
 
     # Session Analytics mutations
-    createUserSessionAnalytics(input: CreateUserSessionAnalyticsInput!): CreateUserSessionAnalyticsResponse!
-    updateUserSessionAnalytics(id: ID!, input: UpdateUserSessionAnalyticsInput!): UpdateUserSessionAnalyticsResponse!
+    createUserSessionAnalytics(
+      input: CreateUserSessionAnalyticsInput!
+    ): CreateUserSessionAnalyticsResponse!
+    updateUserSessionAnalytics(
+      id: ID!
+      input: UpdateUserSessionAnalyticsInput!
+    ): UpdateUserSessionAnalyticsResponse!
     deleteUserSessionAnalytics(id: ID!): DeleteUserSessionAnalyticsResponse!
   }
 `;

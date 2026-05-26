@@ -38,9 +38,7 @@ export interface UpdateCategoryResult {
 export class UpdateCategoryUseCase {
   private readonly logger: ILogger;
 
-  constructor(
-    private readonly categoryRepository: ICategoryRepository
-  ) {
+  constructor(private readonly categoryRepository: ICategoryRepository) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('UpdateCategoryUseCase');
   }
 
@@ -48,16 +46,16 @@ export class UpdateCategoryUseCase {
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'UpdateCategory' }
+    context: { useCase: 'UpdateCategory' },
   })
   async execute(request: UpdateCategoryRequest): Promise<UpdateCategoryResult> {
     const startTime = Date.now();
     const traceId = `update-category-${Date.now()}`;
-    
+
     try {
       this.logger.info('Starting category update process', {
         categoryId: request.id,
-        traceId
+        traceId,
       });
 
       // Validar que la categoría existe
@@ -65,7 +63,7 @@ export class UpdateCategoryUseCase {
       if (!existingCategory) {
         this.logger.warn('Category update failed: category not found', {
           categoryId: request.id,
-          traceId
+          traceId,
         });
         throw new NotFoundError('Category', request.id);
       }
@@ -87,7 +85,7 @@ export class UpdateCategoryUseCase {
               categoryId: request.id,
               newName: request.name,
               existingCategoryId: existingCategoryByName.id,
-              traceId
+              traceId,
             });
             throw new DuplicateError('Category', 'name', request.name);
           }
@@ -96,7 +94,10 @@ export class UpdateCategoryUseCase {
         changes.push('name');
       }
 
-      if (request.description !== undefined && request.description !== existingCategory.description) {
+      if (
+        request.description !== undefined &&
+        request.description !== existingCategory.description
+      ) {
         updateData.description = request.description?.trim();
         changes.push('description');
       }
@@ -110,7 +111,7 @@ export class UpdateCategoryUseCase {
               categoryId: request.id,
               newSlug: request.slug,
               existingCategoryId: existingCategoryBySlug.id,
-              traceId
+              traceId,
             });
             throw new DuplicateError('Category', 'slug', request.slug);
           }
@@ -138,31 +139,31 @@ export class UpdateCategoryUseCase {
       if (changes.length === 0) {
         this.logger.info('No changes detected for category', {
           categoryId: request.id,
-          traceId
+          traceId,
         });
-        
+
         const duration = Date.now() - startTime;
         return ResponseFactory.createSuccessResponse(
           {
             entity: existingCategory,
             id: existingCategory.id,
             updatedAt: existingCategory.updatedAt,
-            changes: []
+            changes: [],
           },
           'No changes detected for category',
           RESPONSE_CODES.SUCCESS,
           {
             requestId: undefined,
             traceId,
-            duration
-          }
+            duration,
+          },
         ) as UpdateCategoryResult;
       }
 
       this.logger.debug('Updating category with changes', {
         categoryId: request.id,
         changes,
-        traceId
+        traceId,
       });
 
       // Actualizar la categoría
@@ -174,7 +175,7 @@ export class UpdateCategoryUseCase {
         categoryId: request.id,
         changes,
         duration,
-        traceId
+        traceId,
       });
 
       return ResponseFactory.createSuccessResponse(
@@ -182,27 +183,30 @@ export class UpdateCategoryUseCase {
           entity: updatedCategory,
           id: updatedCategory.id,
           updatedAt: updatedCategory.updatedAt,
-          changes
+          changes,
         },
         'Category updated successfully',
         RESPONSE_CODES.UPDATED,
         {
           requestId: undefined,
           traceId,
-          duration
-        }
+          duration,
+        },
       ) as UpdateCategoryResult;
-
     } catch (error) {
       const duration = Date.now() - startTime;
-      
-      this.logger.error('Failed to update category', error instanceof Error ? error : new Error(String(error)), {
-        categoryId: request.id,
-        changes: request,
-        duration,
-        traceId
-      });
-      
+
+      this.logger.error(
+        'Failed to update category',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          categoryId: request.id,
+          changes: request,
+          duration,
+          traceId,
+        },
+      );
+
       // Re-throw para mantener el flujo de errores
       throw error;
     }
@@ -216,14 +220,14 @@ export class UpdateCategoryUseCase {
     if (request.name !== undefined) {
       this.validateString('name', request.name, {
         minLength: 2,
-        maxLength: 100
+        maxLength: 100,
       });
     }
 
     // Validar descripción si se proporciona
     if (request.description !== undefined) {
       this.validateString('description', request.description, {
-        maxLength: 500
+        maxLength: 500,
       });
     }
 
@@ -232,7 +236,7 @@ export class UpdateCategoryUseCase {
       this.validateString('slug', request.slug, {
         minLength: 2,
         maxLength: 100,
-        pattern: /^[a-z0-9-]+$/
+        pattern: /^[a-z0-9-]+$/,
       });
     }
 
@@ -246,35 +250,46 @@ export class UpdateCategoryUseCase {
       this.validateNumber('sortOrder', request.sortOrder, {
         min: 0,
         max: 999,
-        integer: true
+        integer: true,
       });
     }
   }
 
   // Métodos de validación privados
   private validateRequired(field: string, value: any): void {
-    if (value === undefined || value === null || 
-        (typeof value === 'string' && value.trim().length === 0)) {
+    if (
+      value === undefined ||
+      value === null ||
+      (typeof value === 'string' && value.trim().length === 0)
+    ) {
       throw new ValidationError(`Field '${field}' is required`);
     }
   }
 
-  private validateString(field: string, value: any, options?: {
-    minLength?: number;
-    maxLength?: number;
-    pattern?: RegExp;
-  }): void {
+  private validateString(
+    field: string,
+    value: any,
+    options?: {
+      minLength?: number;
+      maxLength?: number;
+      pattern?: RegExp;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       if (typeof value !== 'string') {
         throw new ValidationError(`Field '${field}' must be a string`);
       }
 
       if (options?.minLength && value.length < options.minLength) {
-        throw new ValidationError(`Field '${field}' must be at least ${options.minLength} characters long`);
+        throw new ValidationError(
+          `Field '${field}' must be at least ${options.minLength} characters long`,
+        );
       }
 
       if (options?.maxLength && value.length > options.maxLength) {
-        throw new ValidationError(`Field '${field}' must not exceed ${options.maxLength} characters`);
+        throw new ValidationError(
+          `Field '${field}' must not exceed ${options.maxLength} characters`,
+        );
       }
 
       if (options?.pattern && !options.pattern.test(value)) {
@@ -283,11 +298,15 @@ export class UpdateCategoryUseCase {
     }
   }
 
-  private validateNumber(field: string, value: any, options?: {
-    min?: number;
-    max?: number;
-    integer?: boolean;
-  }): void {
+  private validateNumber(
+    field: string,
+    value: any,
+    options?: {
+      min?: number;
+      max?: number;
+      integer?: boolean;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       if (typeof value !== 'number' || isNaN(value)) {
         throw new ValidationError(`Field '${field}' must be a number`);
@@ -318,7 +337,7 @@ export class UpdateCategoryUseCase {
       }
 
       const trimmedUrl = value.trim();
-      
+
       // Si es una URL absoluta, validar con URL constructor
       if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
         try {
@@ -326,7 +345,7 @@ export class UpdateCategoryUseCase {
         } catch {
           throw new ValidationError(`Field '${field}' has an invalid format`);
         }
-      } 
+      }
       // Si es una ruta relativa, validar que tenga formato válido
       else if (trimmedUrl.startsWith('/')) {
         // Validar que la ruta relativa tenga formato válido

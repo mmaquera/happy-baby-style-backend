@@ -10,62 +10,62 @@ import { Order } from '@domain/entities/Order';
 
 export class DataLoaders {
   private container: Container;
-  
+
   // Product loaders
   public readonly productLoader: DataLoader<string, ProductEntity | null>;
   public readonly productsByCategoryLoader: DataLoader<string, ProductEntity[]>;
   public readonly productsBySkuLoader: DataLoader<string, ProductEntity | null>;
-  
+
   // Order loaders
   public readonly orderLoader: DataLoader<string, Order | null>;
   public readonly ordersByUserLoader: DataLoader<string, Order[]>;
-  
+
   // User loaders
   public readonly userLoader: DataLoader<string, any | null>;
-  
+
   // Category loaders
   public readonly categoryLoader: DataLoader<string, CategoryEntity | null>;
 
   constructor() {
     this.container = Container.getInstance();
-    
+
     // Initialize product loaders
     this.productLoader = new DataLoader(
       async (ids: readonly string[]) => this.batchLoadProducts(ids),
-      { cache: true, maxBatchSize: 100 }
+      { cache: true, maxBatchSize: 100 },
     );
 
     this.productsByCategoryLoader = new DataLoader(
       async (categoryIds: readonly string[]) => this.batchLoadProductsByCategory(categoryIds),
-      { cache: true, maxBatchSize: 50 }
+      { cache: true, maxBatchSize: 50 },
     );
 
     this.productsBySkuLoader = new DataLoader(
       async (skus: readonly string[]) => this.batchLoadProductsBySku(skus),
-      { cache: true, maxBatchSize: 100 }
+      { cache: true, maxBatchSize: 100 },
     );
 
     // Initialize order loaders
-    this.orderLoader = new DataLoader(
-      async (ids: readonly string[]) => this.batchLoadOrders(ids),
-      { cache: true, maxBatchSize: 100 }
-    );
+    this.orderLoader = new DataLoader(async (ids: readonly string[]) => this.batchLoadOrders(ids), {
+      cache: true,
+      maxBatchSize: 100,
+    });
 
     this.ordersByUserLoader = new DataLoader(
       async (userIds: readonly string[]) => this.batchLoadOrdersByUser(userIds),
-      { cache: true, maxBatchSize: 50 }
+      { cache: true, maxBatchSize: 50 },
     );
 
     // Initialize user loaders
-    this.userLoader = new DataLoader(
-      async (ids: readonly string[]) => this.batchLoadUsers(ids),
-      { cache: true, maxBatchSize: 100 }
-    );
+    this.userLoader = new DataLoader(async (ids: readonly string[]) => this.batchLoadUsers(ids), {
+      cache: true,
+      maxBatchSize: 100,
+    });
 
     // Initialize category loaders
     this.categoryLoader = new DataLoader(
       async (ids: readonly string[]) => this.batchLoadCategories(ids),
-      { cache: true, maxBatchSize: 100 }
+      { cache: true, maxBatchSize: 100 },
     );
   }
 
@@ -73,10 +73,10 @@ export class DataLoaders {
   private async batchLoadProducts(ids: readonly string[]): Promise<(ProductEntity | null)[]> {
     try {
       const productRepository = this.container.get<IProductRepository>('productRepository');
-      
+
       // Create a map for fast lookup
       const productMap = new Map<string, ProductEntity>();
-      
+
       // Batch load all products - this would ideally be implemented in the repository
       // For now, we'll load them one by one, but in a real implementation,
       // you'd add a batchFindByIds method to the repository
@@ -88,22 +88,24 @@ export class DataLoaders {
       }
 
       // Return results in the same order as requested
-      return ids.map(id => productMap.get(id) || null);
+      return ids.map((id) => productMap.get(id) || null);
     } catch (error) {
       console.error('Error in batchLoadProducts:', error);
       return ids.map(() => null);
     }
   }
 
-  private async batchLoadProductsByCategory(categoryIds: readonly string[]): Promise<ProductEntity[][]> {
+  private async batchLoadProductsByCategory(
+    categoryIds: readonly string[],
+  ): Promise<ProductEntity[][]> {
     try {
       const productRepository = this.container.get<IProductRepository>('productRepository');
-      
+
       // Create a map for fast lookup
       const productsByCategory = new Map<string, ProductEntity[]>();
-      
+
       // Initialize empty arrays for all categories
-      categoryIds.forEach(categoryId => {
+      categoryIds.forEach((categoryId) => {
         productsByCategory.set(categoryId, []);
       });
 
@@ -114,7 +116,7 @@ export class DataLoaders {
       }
 
       // Return results in the same order as requested
-      return categoryIds.map(categoryId => productsByCategory.get(categoryId) || []);
+      return categoryIds.map((categoryId) => productsByCategory.get(categoryId) || []);
     } catch (error) {
       console.error('Error in batchLoadProductsByCategory:', error);
       return categoryIds.map(() => []);
@@ -124,9 +126,9 @@ export class DataLoaders {
   private async batchLoadProductsBySku(skus: readonly string[]): Promise<(ProductEntity | null)[]> {
     try {
       const productRepository = this.container.get<IProductRepository>('productRepository');
-      
+
       const productMap = new Map<string, ProductEntity>();
-      
+
       for (const sku of skus) {
         const product = await productRepository.findBySku(sku);
         if (product) {
@@ -134,7 +136,7 @@ export class DataLoaders {
         }
       }
 
-      return skus.map(sku => productMap.get(sku) || null);
+      return skus.map((sku) => productMap.get(sku) || null);
     } catch (error) {
       console.error('Error in batchLoadProductsBySku:', error);
       return skus.map(() => null);
@@ -145,9 +147,9 @@ export class DataLoaders {
   private async batchLoadOrders(ids: readonly string[]): Promise<(Order | null)[]> {
     try {
       const orderRepository = this.container.get<IOrderRepository>('orderRepository');
-      
+
       const orderMap = new Map<string, Order>();
-      
+
       for (const id of ids) {
         const order = await orderRepository.findById(id);
         if (order) {
@@ -155,7 +157,7 @@ export class DataLoaders {
         }
       }
 
-      return ids.map(id => orderMap.get(id) || null);
+      return ids.map((id) => orderMap.get(id) || null);
     } catch (error) {
       console.error('Error in batchLoadOrders:', error);
       return ids.map(() => null);
@@ -165,11 +167,11 @@ export class DataLoaders {
   private async batchLoadOrdersByUser(userIds: readonly string[]): Promise<Order[][]> {
     try {
       const orderRepository = this.container.get<IOrderRepository>('orderRepository');
-      
+
       const ordersByUser = new Map<string, Order[]>();
-      
+
       // Initialize empty arrays for all users
-      userIds.forEach(userId => {
+      userIds.forEach((userId) => {
         ordersByUser.set(userId, []);
       });
 
@@ -179,7 +181,7 @@ export class DataLoaders {
         ordersByUser.set(userId, orders);
       }
 
-      return userIds.map(userId => ordersByUser.get(userId) || []);
+      return userIds.map((userId) => ordersByUser.get(userId) || []);
     } catch (error) {
       console.error('Error in batchLoadOrdersByUser:', error);
       return userIds.map(() => []);
@@ -190,9 +192,9 @@ export class DataLoaders {
   private async batchLoadUsers(ids: readonly string[]): Promise<(any | null)[]> {
     try {
       const userRepository = this.container.get<IUserRepository>('userRepository');
-      
+
       const userMap = new Map<string, any>();
-      
+
       for (const id of ids) {
         const user = await userRepository.getUserById(id);
         if (user) {
@@ -200,7 +202,7 @@ export class DataLoaders {
         }
       }
 
-      return ids.map(id => userMap.get(id) || null);
+      return ids.map((id) => userMap.get(id) || null);
     } catch (error) {
       console.error('Error in batchLoadUsers:', error);
       return ids.map(() => null);
@@ -211,9 +213,9 @@ export class DataLoaders {
   private async batchLoadCategories(ids: readonly string[]): Promise<(CategoryEntity | null)[]> {
     try {
       const categoryRepository = this.container.get<ICategoryRepository>('categoryRepository');
-      
+
       const categoryMap = new Map<string, CategoryEntity>();
-      
+
       for (const id of ids) {
         const category = await categoryRepository.findById(id);
         if (category) {
@@ -221,7 +223,7 @@ export class DataLoaders {
         }
       }
 
-      return ids.map(id => categoryMap.get(id) || null);
+      return ids.map((id) => categoryMap.get(id) || null);
     } catch (error) {
       console.error('Error in batchLoadCategories:', error);
       return ids.map(() => null);

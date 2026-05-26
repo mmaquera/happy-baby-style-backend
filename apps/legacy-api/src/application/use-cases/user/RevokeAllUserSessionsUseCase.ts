@@ -21,14 +21,14 @@ export interface RevokeAllUserSessionsResponse {
 export class RevokeAllUserSessionsUseCase {
   constructor(
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   @LoggingDecorator.logUseCase({
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'RevokeAllUserSessions' }
+    context: { useCase: 'RevokeAllUserSessions' },
   })
   async execute(request: RevokeAllUserSessionsRequest): Promise<RevokeAllUserSessionsResponse> {
     this.logger.info('Starting all user sessions revocation', {
@@ -36,7 +36,7 @@ export class RevokeAllUserSessionsUseCase {
       requestingUserId: request.requestingUserId,
       reason: request.reason,
       excludeCurrentSession: request.excludeCurrentSession,
-      operation: 'RevokeAllUserSessions'
+      operation: 'RevokeAllUserSessions',
     });
 
     try {
@@ -50,27 +50,27 @@ export class RevokeAllUserSessionsUseCase {
         this.logger.warn('User attempting to revoke sessions of another user', {
           userId: request.userId,
           requestingUserId: request.requestingUserId,
-          operation: 'RevokeAllUserSessions'
+          operation: 'RevokeAllUserSessions',
         });
         // For now, we'll allow it but log it. In production, you might want to check admin roles
       }
 
       // Get all active sessions for the user
       const activeSessions = await this.authRepository.findSessionsByUserId(request.userId);
-      const sessionsToRevoke = activeSessions.filter(session => session.isActive);
+      const sessionsToRevoke = activeSessions.filter((session) => session.isActive);
 
       if (sessionsToRevoke.length === 0) {
         this.logger.info('No active sessions to revoke', {
           userId: request.userId,
-          operation: 'RevokeAllUserSessions'
+          operation: 'RevokeAllUserSessions',
         });
-        
+
         return {
           userId: request.userId,
           sessionsRevoked: 0,
           analyticsCleaned: 0,
           revokedAt: new Date().toISOString(),
-          reason: request.reason
+          reason: request.reason,
         };
       }
 
@@ -83,7 +83,7 @@ export class RevokeAllUserSessionsUseCase {
           // Revoke the session
           await this.authRepository.updateSession(session.id, {
             isActive: false,
-            expiresAt: new Date() // Force immediate expiration
+            expiresAt: new Date(), // Force immediate expiration
           });
           sessionsRevoked++;
 
@@ -98,7 +98,7 @@ export class RevokeAllUserSessionsUseCase {
               sessionToken: session.sessionToken,
               userId: request.userId,
               error: analyticsError instanceof Error ? analyticsError.message : 'Unknown error',
-              operation: 'RevokeAllUserSessions'
+              operation: 'RevokeAllUserSessions',
             });
           }
         } catch (sessionError) {
@@ -107,7 +107,7 @@ export class RevokeAllUserSessionsUseCase {
             sessionId: session.id,
             sessionToken: session.sessionToken,
             userId: request.userId,
-            operation: 'RevokeAllUserSessions'
+            operation: 'RevokeAllUserSessions',
           });
         }
       }
@@ -117,7 +117,7 @@ export class RevokeAllUserSessionsUseCase {
         sessionsRevoked,
         analyticsCleaned,
         reason: request.reason,
-        operation: 'RevokeAllUserSessions'
+        operation: 'RevokeAllUserSessions',
       });
 
       return {
@@ -125,14 +125,13 @@ export class RevokeAllUserSessionsUseCase {
         sessionsRevoked,
         analyticsCleaned,
         revokedAt: new Date().toISOString(),
-        reason: request.reason
+        reason: request.reason,
       };
-
     } catch (error) {
       this.logger.error('Failed to revoke all user sessions', error as Error, {
         userId: request.userId,
         requestingUserId: request.requestingUserId,
-        operation: 'RevokeAllUserSessions'
+        operation: 'RevokeAllUserSessions',
       });
       throw error;
     }
@@ -155,7 +154,10 @@ export class RevokeAllUserSessionsUseCase {
       throw new ValidationError('Reason must be less than 500 characters');
     }
 
-    if (request.excludeCurrentSession !== undefined && typeof request.excludeCurrentSession !== 'boolean') {
+    if (
+      request.excludeCurrentSession !== undefined &&
+      typeof request.excludeCurrentSession !== 'boolean'
+    ) {
       throw new ValidationError('Exclude current session must be a boolean if provided');
     }
   }

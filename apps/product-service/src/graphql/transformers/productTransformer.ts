@@ -30,7 +30,7 @@ export function transformProduct(product: ProductEntity) {
     discountPercentage: product.getDiscountPercentage(),
     totalStock: product.getTotalStock(),
     isInStock: product.isInStock(),
-    variants: product.variants?.map(transformVariant) || []
+    variants: product.variants?.map(transformVariant) || [],
   };
 }
 
@@ -46,6 +46,6 @@ export function transformVariant(variant: ProductVariantEntity) {
     isActive: variant.isActive,
     createdAt: variant.createdAt.toISOString(),
     updatedAt: variant.updatedAt.toISOString(),
-    isInStock: variant.isInStock()
+    isInStock: variant.isInStock(),
   };
 }

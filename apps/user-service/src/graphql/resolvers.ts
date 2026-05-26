@@ -40,7 +40,8 @@ const decimalScalar = new GraphQLScalarType({
   name: 'Decimal',
   serialize: (value: any) => Number(value),
   parseValue: (value: any) => Number(value),
-  parseLiteral: (ast) => (ast.kind === Kind.FLOAT || ast.kind === Kind.INT ? Number(ast.value) : null),
+  parseLiteral: (ast) =>
+    ast.kind === Kind.FLOAT || ast.kind === Kind.INT ? Number(ast.value) : null,
 });
 
 const jsonScalar = new GraphQLScalarType({
@@ -69,11 +70,24 @@ const transformUserAddress = (addr: any) => ({
   postalCode: addr.postalCode || addr.postal_code,
   country: addr.country || 'CO',
   phone: addr.phone || null,
-  isDefault: addr.isDefault !== undefined ? addr.isDefault : addr.is_default !== undefined ? addr.is_default : false,
+  isDefault:
+    addr.isDefault !== undefined
+      ? addr.isDefault
+      : addr.is_default !== undefined
+        ? addr.is_default
+        : false,
   createdAt: addr.createdAt || addr.created_at,
   updatedAt: addr.updatedAt || addr.updated_at,
-  fullName: `${addr.firstName || addr.first_name || ''} ${addr.lastName || addr.last_name || ''}`.trim(),
-  fullAddress: [addr.address1 || addr.addressLine1, addr.city, addr.state, addr.postalCode || addr.postal_code].filter(Boolean).join(', '),
+  fullName:
+    `${addr.firstName || addr.first_name || ''} ${addr.lastName || addr.last_name || ''}`.trim(),
+  fullAddress: [
+    addr.address1 || addr.addressLine1,
+    addr.city,
+    addr.state,
+    addr.postalCode || addr.postal_code,
+  ]
+    .filter(Boolean)
+    .join(', '),
   user: { __typename: 'UserProfile', id: addr.userId || addr.user_id },
 });
 
@@ -86,12 +100,23 @@ const transformUserProfile = (profile: any) => ({
   dateOfBirth: profile.dateOfBirth || profile.date_of_birth || null,
   avatar: profile.avatar || null,
   role: profile.role || 'customer',
-  emailVerified: profile.emailVerified !== undefined ? profile.emailVerified : profile.email_verified !== undefined ? profile.email_verified : false,
-  isActive: profile.isActive !== undefined ? profile.isActive : profile.is_active !== undefined ? profile.is_active : true,
+  emailVerified:
+    profile.emailVerified !== undefined
+      ? profile.emailVerified
+      : profile.email_verified !== undefined
+        ? profile.email_verified
+        : false,
+  isActive:
+    profile.isActive !== undefined
+      ? profile.isActive
+      : profile.is_active !== undefined
+        ? profile.is_active
+        : true,
   lastLoginAt: profile.lastLoginAt || profile.last_login_at || null,
   createdAt: profile.createdAt || profile.created_at,
   updatedAt: profile.updatedAt || profile.updated_at,
-  fullName: `${profile.firstName || profile.first_name || ''} ${profile.lastName || profile.last_name || ''}`.trim(),
+  fullName:
+    `${profile.firstName || profile.first_name || ''} ${profile.lastName || profile.last_name || ''}`.trim(),
   addresses: profile.addresses?.map(transformUserAddress) || [],
 });
 
@@ -99,8 +124,18 @@ const transformUser = (user: any) => ({
   id: user.id,
   email: user.email,
   role: user.role,
-  isActive: user.isActive !== undefined ? user.isActive : user.is_active !== undefined ? user.is_active : true,
-  emailVerified: user.emailVerified !== undefined ? user.emailVerified : user.email_verified !== undefined ? user.email_verified : false,
+  isActive:
+    user.isActive !== undefined
+      ? user.isActive
+      : user.is_active !== undefined
+        ? user.is_active
+        : true,
+  emailVerified:
+    user.emailVerified !== undefined
+      ? user.emailVerified
+      : user.email_verified !== undefined
+        ? user.email_verified
+        : false,
   lastLoginAt: user.lastLoginAt || user.last_login_at || null,
   createdAt: user.createdAt || user.created_at,
   updatedAt: user.updatedAt || user.updated_at,
@@ -145,14 +180,30 @@ export interface UserServiceDeps {
 
 export function createResolvers(deps: UserServiceDeps) {
   const {
-    authRepository, auditRepository, securityEventRepository,
-    createUserUseCase, getUsersUseCase, getUserByIdUseCase, updateUserUseCase,
-    getUserStatsUseCase, authenticateUserUseCase, updateUserPasswordUseCase,
-    setUserPasswordUseCase, logoutUserUseCase, refreshTokenUseCase,
-    createUserAddressUseCase, updateUserAddressUseCase, deleteUserAddressUseCase,
-    getUserAddressByIdUseCase, setDefaultAddressUseCase, getUserOrderHistoryUseCase,
-    createUserSessionAnalyticsUseCase, updateUserSessionAnalyticsUseCase,
-    getUserSessionAnalyticsUseCase, revokeUserSessionUseCase, revokeAllUserSessionsUseCase,
+    authRepository,
+    auditRepository,
+    securityEventRepository,
+    createUserUseCase,
+    getUsersUseCase,
+    getUserByIdUseCase,
+    updateUserUseCase,
+    getUserStatsUseCase,
+    authenticateUserUseCase,
+    updateUserPasswordUseCase,
+    setUserPasswordUseCase,
+    logoutUserUseCase,
+    refreshTokenUseCase,
+    createUserAddressUseCase,
+    updateUserAddressUseCase,
+    deleteUserAddressUseCase,
+    getUserAddressByIdUseCase,
+    setDefaultAddressUseCase,
+    getUserOrderHistoryUseCase,
+    createUserSessionAnalyticsUseCase,
+    updateUserSessionAnalyticsUseCase,
+    getUserSessionAnalyticsUseCase,
+    revokeUserSessionUseCase,
+    revokeAllUserSessionsUseCase,
   } = deps;
 
   return {
@@ -207,11 +258,18 @@ export function createResolvers(deps: UserServiceDeps) {
           return ResponseFactory.createSuccessResponse(
             {
               items: users.map(transformUser),
-              pagination: { total: users.length, limit, offset, hasMore: users.length === limit, currentPage, totalPages: currentPage },
+              pagination: {
+                total: users.length,
+                limit,
+                offset,
+                hasMore: users.length === limit,
+                currentPage,
+                totalPages: currentPage,
+              },
             },
             'Users retrieved successfully',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
@@ -219,7 +277,7 @@ export function createResolvers(deps: UserServiceDeps) {
             `Failed to fetch users: ${error.message}`,
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         }
       },
@@ -242,17 +300,32 @@ export function createResolvers(deps: UserServiceDeps) {
             'Authentication required',
             RESPONSE_CODES.AUTHENTICATION_FAILED,
             {},
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         }
         try {
           const user = await getUserByIdUseCase.execute(context.user.id);
           if (!user) {
-            return ResponseFactory.createErrorResponse('User not found', RESPONSE_CODES.RESOURCE_NOT_FOUND, {}, { requestId, traceId, duration: 0 });
+            return ResponseFactory.createErrorResponse(
+              'User not found',
+              RESPONSE_CODES.RESOURCE_NOT_FOUND,
+              {},
+              { requestId, traceId, duration: 0 },
+            );
           }
-          return ResponseFactory.createSuccessResponse(transformUser(user), 'Current user retrieved', RESPONSE_CODES.SUCCESS, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createSuccessResponse(
+            transformUser(user),
+            'Current user retrieved',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed to get current user: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed to get current user: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -260,21 +333,27 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const users = await deps.userRepository.searchUsers(query);
           return users.map(transformUser);
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       },
 
       activeUsers: async () => {
         try {
           const users = await deps.userRepository.getActiveUsers();
           return users.map(transformUser);
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       },
 
       usersByRole: async (_: any, { role }: { role: string }) => {
         try {
           const users = await deps.userRepository.getUsersByRole(role as any);
           return users.map(transformUser);
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       },
 
       usersByProvider: async (_: any, { provider }: { provider: string }, context: any) => {
@@ -282,9 +361,19 @@ export function createResolvers(deps: UserServiceDeps) {
         const traceId = `users-by-provider-${Date.now()}`;
         try {
           const accounts = await authRepository.findUserAccountByProvider(provider as any, '');
-          return ResponseFactory.createSuccessResponse([], 'Users by provider retrieved', RESPONSE_CODES.SUCCESS, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createSuccessResponse(
+            [],
+            'Users by provider retrieved',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -296,13 +385,23 @@ export function createResolvers(deps: UserServiceDeps) {
           const stats = await getUserStatsUseCase.execute();
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
-            { totalUsers: stats.totalUsers, activeUsers: stats.activeUsers, newUsersThisMonth: stats.newUsersThisMonth, usersByRole: stats.usersByRole },
+            {
+              totalUsers: stats.totalUsers,
+              activeUsers: stats.activeUsers,
+              newUsersThisMonth: stats.newUsersThisMonth,
+              usersByRole: stats.usersByRole,
+            },
             'User stats retrieved',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -320,7 +419,14 @@ export function createResolvers(deps: UserServiceDeps) {
             userEngagement: {},
           };
         } catch (error: any) {
-          return { totalUsers: 0, activeUsers: 0, newUsersThisMonth: 0, usersByRole: {}, topSpenders: [], userEngagement: {} };
+          return {
+            totalUsers: 0,
+            activeUsers: 0,
+            newUsersThisMonth: 0,
+            usersByRole: {},
+            topSpenders: [],
+            userEngagement: {},
+          };
         }
       },
 
@@ -330,9 +436,19 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const user = await getUserByIdUseCase.execute(userId);
           const addresses = user?.addresses?.map(transformUserAddress) || [];
-          return ResponseFactory.createSuccessResponse({ items: addresses }, 'Addresses retrieved', RESPONSE_CODES.SUCCESS, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createSuccessResponse(
+            { items: addresses },
+            'Addresses retrieved',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -342,31 +458,52 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const address = await getUserAddressByIdUseCase.execute(id);
           if (!address) {
-            return ResponseFactory.createErrorResponse('Address not found', RESPONSE_CODES.RESOURCE_NOT_FOUND, {}, { requestId, traceId, duration: 0 });
+            return ResponseFactory.createErrorResponse(
+              'Address not found',
+              RESPONSE_CODES.RESOURCE_NOT_FOUND,
+              {},
+              { requestId, traceId, duration: 0 },
+            );
           }
-          return ResponseFactory.createSuccessResponse({ entity: transformUserAddress(address) }, 'Address retrieved', RESPONSE_CODES.SUCCESS, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createSuccessResponse(
+            { entity: transformUserAddress(address) },
+            'Address retrieved',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
       userAccounts: async (_: any, { userId }: { userId: string }) => {
         try {
           return await authRepository.findUserAccountsByUserId(userId);
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       },
 
       userSessions: async (_: any, { userId }: { userId: string }) => {
         try {
           return await authRepository.findSessionsByUserId(userId);
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       },
 
       activeSessions: async (_: any, { userId }: { userId: string }) => {
         try {
           const sessions = await authRepository.findSessionsByUserId(userId);
           return sessions.filter((s: any) => s.isActive && new Date(s.expiresAt) > new Date());
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       },
 
       userSessionAnalytics: async (_: any, { userId }: { userId: string }, context: any) => {
@@ -375,12 +512,18 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const result = await getUserSessionAnalyticsUseCase.execute({ userId });
           return result || [];
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       },
 
       userOrderHistory: async (_: any, { userId, filter, pagination }: any) => {
         try {
-          const result = await getUserOrderHistoryUseCase.execute({ userId, limit: pagination?.limit || 20, offset: pagination?.offset || 0 });
+          const result = await getUserOrderHistoryUseCase.execute({
+            userId,
+            limit: pagination?.limit || 20,
+            offset: pagination?.offset || 0,
+          });
           return {
             orders: (result.orders || []).map((o: any) => ({ __typename: 'Order', id: o.id })),
             total: result.total || 0,
@@ -394,7 +537,18 @@ export function createResolvers(deps: UserServiceDeps) {
             },
           };
         } catch {
-          return { orders: [], total: 0, hasMore: false, stats: { totalOrders: 0, totalSpent: 0, averageOrderValue: 0, lastOrderDate: null, ordersByStatus: {} } };
+          return {
+            orders: [],
+            total: 0,
+            hasMore: false,
+            stats: {
+              totalOrders: 0,
+              totalSpent: 0,
+              averageOrderValue: 0,
+              lastOrderDate: null,
+              ordersByStatus: {},
+            },
+          };
         }
       },
 
@@ -403,7 +557,14 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userActivitySummary: async (_: any, { userId }: { userId: string }) => {
-        return { recentOrders: [], favoriteProducts: [], cartItemsCount: 0, totalSpent: 0, joinDate: new Date(), lastActivity: new Date() };
+        return {
+          recentOrders: [],
+          favoriteProducts: [],
+          cartItemsCount: 0,
+          totalSpent: 0,
+          joinDate: new Date(),
+          lastActivity: new Date(),
+        };
       },
 
       userAuditLogs: async (_: any, { userId }: { userId: string }, context: any) => {
@@ -411,9 +572,19 @@ export function createResolvers(deps: UserServiceDeps) {
         const traceId = `audit-logs-${Date.now()}`;
         try {
           const logs = await auditRepository.findByUserId(userId);
-          return ResponseFactory.createSuccessResponse({ items: logs }, 'Audit logs retrieved', RESPONSE_CODES.SUCCESS, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createSuccessResponse(
+            { items: logs },
+            'Audit logs retrieved',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -422,9 +593,19 @@ export function createResolvers(deps: UserServiceDeps) {
         const traceId = `security-events-${Date.now()}`;
         try {
           const events = await securityEventRepository.findByUserId(userId);
-          return ResponseFactory.createSuccessResponse({ items: events }, 'Security events retrieved', RESPONSE_CODES.SUCCESS, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createSuccessResponse(
+            { items: events },
+            'Security events retrieved',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
     },
@@ -451,14 +632,23 @@ export function createResolvers(deps: UserServiceDeps) {
           });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
-            { user: transformUser(result.user), accessToken: result.accessToken, refreshToken: result.refreshToken },
+            {
+              user: transformUser(result.user),
+              accessToken: result.accessToken,
+              refreshToken: result.refreshToken,
+            },
             'User registered successfully',
             RESPONSE_CODES.CREATED,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          return ResponseFactory.createErrorResponse(`Registration failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            `Registration failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -475,14 +665,23 @@ export function createResolvers(deps: UserServiceDeps) {
           });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
-            { user: transformUser(result.user), accessToken: result.accessToken, refreshToken: result.refreshToken },
+            {
+              user: transformUser(result.user),
+              accessToken: result.accessToken,
+              refreshToken: result.refreshToken,
+            },
             'Login successful',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          return ResponseFactory.createErrorResponse(`Login failed: ${error.message}`, RESPONSE_CODES.AUTHENTICATION_FAILED, {}, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            `Login failed: ${error.message}`,
+            RESPONSE_CODES.AUTHENTICATION_FAILED,
+            {},
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -492,7 +691,9 @@ export function createResolvers(deps: UserServiceDeps) {
             await logoutUserUseCase.execute(context.user.id);
           }
           return { success: true, message: 'Logged out successfully' };
-        } catch { return { success: true, message: 'Logged out' }; }
+        } catch {
+          return { success: true, message: 'Logged out' };
+        }
       },
 
       refreshToken: async (_: any, { refreshToken }: any, context: any) => {
@@ -501,13 +702,22 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const result = await refreshTokenUseCase.execute({ refreshToken });
           return ResponseFactory.createSuccessResponse(
-            { user: transformUser(result.user), accessToken: result.tokens.accessToken, refreshToken: result.tokens.refreshToken },
+            {
+              user: transformUser(result.user),
+              accessToken: result.tokens.accessToken,
+              refreshToken: result.tokens.refreshToken,
+            },
             'Token refreshed',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Token refresh failed: ${error.message}`, RESPONSE_CODES.AUTHENTICATION_FAILED, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Token refresh failed: ${error.message}`,
+            RESPONSE_CODES.AUTHENTICATION_FAILED,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -521,19 +731,33 @@ export function createResolvers(deps: UserServiceDeps) {
             password: input.password,
             role: input.role,
             isActive: input.isActive !== undefined ? input.isActive : true,
-            profile: { firstName: input.firstName, lastName: input.lastName, phone: input.phone, birthDate: input.dateOfBirth },
+            profile: {
+              firstName: input.firstName,
+              lastName: input.lastName,
+              phone: input.phone,
+              birthDate: input.dateOfBirth,
+            },
           });
           const duration = Date.now() - startTime;
           const transformedUser = transformUser(user);
           return ResponseFactory.createSuccessResponse(
-            { entity: transformedUser, id: user.id, createdAt: user.createdAt?.toISOString() || new Date().toISOString() },
+            {
+              entity: transformedUser,
+              id: user.id,
+              createdAt: user.createdAt?.toISOString() || new Date().toISOString(),
+            },
             'User created successfully',
             RESPONSE_CODES.CREATED,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          return ResponseFactory.createErrorResponse(`Failed to create user: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            `Failed to create user: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -542,7 +766,13 @@ export function createResolvers(deps: UserServiceDeps) {
           email: input.email,
           role: input.role,
           isActive: input.isActive,
-          profile: { firstName: input.firstName, lastName: input.lastName, phone: input.phone, birthDate: input.dateOfBirth, avatarUrl: input.avatarUrl },
+          profile: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+            birthDate: input.dateOfBirth,
+            avatarUrl: input.avatarUrl,
+          },
         });
         return transformUser(user);
       },
@@ -566,11 +796,20 @@ export function createResolvers(deps: UserServiceDeps) {
         return transformUser(user);
       },
 
-      updateUserPassword: async (_: any, { email, currentPassword, newPassword }: any, context: any) => {
+      updateUserPassword: async (
+        _: any,
+        { email, currentPassword, newPassword }: any,
+        context: any,
+      ) => {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `update-password-${Date.now()}`;
         try {
-          await updateUserPasswordUseCase.execute({ email, currentPassword, newPassword, confirmPassword: newPassword });
+          await updateUserPasswordUseCase.execute({
+            email,
+            currentPassword,
+            newPassword,
+            confirmPassword: newPassword,
+          });
           return { success: true, message: 'Password updated successfully' };
         } catch (error: any) {
           return { success: false, message: `Failed to update password: ${error.message}` };
@@ -586,14 +825,14 @@ export function createResolvers(deps: UserServiceDeps) {
             { email, timestamp: new Date().toISOString() },
             'Password reset email sent',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
           return ResponseFactory.createSuccessResponse(
             { email, timestamp: new Date().toISOString() },
             'If this email exists, a reset link has been sent',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         }
       },
@@ -607,10 +846,15 @@ export function createResolvers(deps: UserServiceDeps) {
             { timestamp: new Date().toISOString(), passwordUpdated: true },
             'Password reset successfully',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Reset failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Reset failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -618,15 +862,24 @@ export function createResolvers(deps: UserServiceDeps) {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `set-password-${Date.now()}`;
         try {
-          await setUserPasswordUseCase.execute({ userId, newPassword, adminUserId: context?.req?.user?.id || 'system' });
+          await setUserPasswordUseCase.execute({
+            userId,
+            newPassword,
+            adminUserId: context?.req?.user?.id || 'system',
+          });
           return ResponseFactory.createSuccessResponse(
             { userId, timestamp: new Date().toISOString(), passwordUpdated: true },
             'Password set successfully',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -636,14 +889,27 @@ export function createResolvers(deps: UserServiceDeps) {
           password: input.password,
           role: input.role,
           isActive: input.isActive !== undefined ? input.isActive : true,
-          profile: { firstName: input.firstName, lastName: input.lastName, phone: input.phone, birthDate: input.dateOfBirth },
+          profile: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+            birthDate: input.dateOfBirth,
+          },
         });
-        return user.profile ? transformUserProfile(user.profile) : transformUserProfile({ ...user, firstName: input.firstName, lastName: input.lastName });
+        return user.profile
+          ? transformUserProfile(user.profile)
+          : transformUserProfile({ ...user, firstName: input.firstName, lastName: input.lastName });
       },
 
       updateUserProfile: async (_: any, { userId, input }: any) => {
         const user = await updateUserUseCase.execute(userId, {
-          profile: { firstName: input.firstName, lastName: input.lastName, phone: input.phone, birthDate: input.dateOfBirth, avatarUrl: input.avatarUrl },
+          profile: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+            birthDate: input.dateOfBirth,
+            avatarUrl: input.avatarUrl,
+          },
         });
         return user.profile ? transformUserProfile(user.profile) : null;
       },
@@ -681,11 +947,16 @@ export function createResolvers(deps: UserServiceDeps) {
             { entity: transformed, id: address.id, createdAt: address.createdAt?.toISOString() },
             'Address created',
             RESPONSE_CODES.CREATED,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -707,13 +978,23 @@ export function createResolvers(deps: UserServiceDeps) {
           });
           const transformed = transformUserAddress(address);
           return ResponseFactory.createSuccessResponse(
-            { entity: transformed, id: address.id, updatedAt: address.updatedAt?.toISOString(), changes: Object.keys(input) },
+            {
+              entity: transformed,
+              id: address.id,
+              updatedAt: address.updatedAt?.toISOString(),
+              changes: Object.keys(input),
+            },
             'Address updated',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -726,10 +1007,15 @@ export function createResolvers(deps: UserServiceDeps) {
             { id, deletedAt: new Date().toISOString(), softDelete: false },
             'Address deleted',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -742,10 +1028,15 @@ export function createResolvers(deps: UserServiceDeps) {
             { userId, addressId, updatedAt: new Date().toISOString() },
             'Default address set',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -755,29 +1046,59 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const result = await revokeUserSessionUseCase.execute({ sessionId, userId, reason });
           return ResponseFactory.createSuccessResponse(
-            { sessionId: result.sessionId, revokedAt: result.revokedAt, reason: result.reason, analyticsCleaned: result.analyticsCleaned },
+            {
+              sessionId: result.sessionId,
+              revokedAt: result.revokedAt,
+              reason: result.reason,
+              analyticsCleaned: result.analyticsCleaned,
+            },
             'Session revoked',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
-      revokeAllUserSessions: async (_: any, { userId, requestingUserId, reason, excludeCurrentSession }: any, context: any) => {
+      revokeAllUserSessions: async (
+        _: any,
+        { userId, requestingUserId, reason, excludeCurrentSession }: any,
+        context: any,
+      ) => {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `revoke-all-sessions-${Date.now()}`;
         try {
-          const result = await revokeAllUserSessionsUseCase.execute({ userId, requestingUserId, reason, excludeCurrentSession });
+          const result = await revokeAllUserSessionsUseCase.execute({
+            userId,
+            requestingUserId,
+            reason,
+            excludeCurrentSession,
+          });
           return ResponseFactory.createSuccessResponse(
-            { userId, sessionsRevoked: result.sessionsRevoked, analyticsCleaned: result.analyticsCleaned, revokedAt: result.revokedAt, reason },
+            {
+              userId,
+              sessionsRevoked: result.sessionsRevoked,
+              analyticsCleaned: result.analyticsCleaned,
+              revokedAt: result.revokedAt,
+              reason,
+            },
             'All sessions revoked',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -797,7 +1118,12 @@ export function createResolvers(deps: UserServiceDeps) {
       impersonateUser: async (_: any, { userId }: any, context: any) => {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `impersonate-${Date.now()}`;
-        return ResponseFactory.createErrorResponse('Impersonation not supported in this environment', RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+        return ResponseFactory.createErrorResponse(
+          'Impersonation not supported in this environment',
+          RESPONSE_CODES.INTERNAL_ERROR,
+          {},
+          { requestId, traceId, duration: 0 },
+        );
       },
 
       createUserSessionAnalytics: async (_: any, { input }: any, context: any) => {
@@ -806,13 +1132,22 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const result = await createUserSessionAnalyticsUseCase.execute(input);
           return ResponseFactory.createSuccessResponse(
-            { entity: result.analytics, id: result.analytics.id, createdAt: (result.analytics.createdAt as any)?.toISOString?.() },
+            {
+              entity: result.analytics,
+              id: result.analytics.id,
+              createdAt: (result.analytics.createdAt as any)?.toISOString?.(),
+            },
             'Session analytics created',
             RESPONSE_CODES.CREATED,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -822,13 +1157,23 @@ export function createResolvers(deps: UserServiceDeps) {
         try {
           const result = await updateUserSessionAnalyticsUseCase.execute(id, input);
           return ResponseFactory.createSuccessResponse(
-            { entity: result.analytics, id: result.analytics.id, updatedAt: (result.analytics as any).updatedAt?.toISOString?.(), changes: result.changes },
+            {
+              entity: result.analytics,
+              id: result.analytics.id,
+              updatedAt: (result.analytics as any).updatedAt?.toISOString?.(),
+              changes: result.changes,
+            },
             'Session analytics updated',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
 
@@ -841,10 +1186,15 @@ export function createResolvers(deps: UserServiceDeps) {
             { id, deletedAt: new Date().toISOString(), softDelete: false },
             'Session analytics deleted',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 }
+            { requestId, traceId, duration: 0 },
           );
         } catch (error: any) {
-          return ResponseFactory.createErrorResponse(`Failed: ${error.message}`, RESPONSE_CODES.INTERNAL_ERROR, {}, { requestId, traceId, duration: 0 });
+          return ResponseFactory.createErrorResponse(
+            `Failed: ${error.message}`,
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
         }
       },
     },

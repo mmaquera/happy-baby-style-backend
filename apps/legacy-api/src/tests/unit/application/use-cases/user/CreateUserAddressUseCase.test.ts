@@ -14,7 +14,7 @@ describe('CreateUserAddressUseCase', () => {
     isActive: true,
     emailVerified: true,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   } as any;
 
   const mockAddress: UserAddress = {
@@ -31,7 +31,7 @@ describe('CreateUserAddressUseCase', () => {
     country: 'US',
     isDefault: true,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   const validRequest: CreateUserAddressRequest = {
@@ -45,11 +45,11 @@ describe('CreateUserAddressUseCase', () => {
     state: 'NY',
     postalCode: '10001',
     country: 'US',
-    isDefault: true
+    isDefault: true,
   };
 
   beforeEach(() => {
-    mockUserRepository = ({
+    mockUserRepository = {
       getUserById: jest.fn(),
       createUserAddress: jest.fn(),
       updateUserAddress: jest.fn(),
@@ -72,8 +72,8 @@ describe('CreateUserAddressUseCase', () => {
       createUserProfile: jest.fn(),
       getUserProfile: jest.fn(),
       updateUserProfile: jest.fn(),
-      deleteUserProfile: jest.fn()
-    } as unknown) as jest.Mocked<IUserRepository>;
+      deleteUserProfile: jest.fn(),
+    } as unknown as jest.Mocked<IUserRepository>;
 
     createUserAddressUseCase = new CreateUserAddressUseCase(mockUserRepository);
   });
@@ -99,7 +99,7 @@ describe('CreateUserAddressUseCase', () => {
       const existingDefaultAddress: UserAddress = {
         ...mockAddress,
         id: 'existing-default-123',
-        isDefault: true
+        isDefault: true,
       };
 
       mockUserRepository.getUserById.mockResolvedValue(mockUser);
@@ -112,10 +112,9 @@ describe('CreateUserAddressUseCase', () => {
 
       // Assert
       expect(result).toEqual(mockAddress);
-      expect(mockUserRepository.updateUserAddress).toHaveBeenCalledWith(
-        'existing-default-123',
-        { isDefault: false }
-      );
+      expect(mockUserRepository.updateUserAddress).toHaveBeenCalledWith('existing-default-123', {
+        isDefault: false,
+      });
     });
 
     it('should throw ValidationError when userId is missing', async () => {
@@ -123,9 +122,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, userId: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw ValidationError when firstName is missing', async () => {
@@ -133,9 +132,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, firstName: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw ValidationError when lastName is missing', async () => {
@@ -143,9 +142,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, lastName: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw ValidationError when addressLine1 is missing', async () => {
@@ -153,9 +152,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, addressLine1: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw ValidationError when city is missing', async () => {
@@ -163,9 +162,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, city: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw ValidationError when state is missing', async () => {
@@ -173,9 +172,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, state: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw ValidationError when postalCode is missing', async () => {
@@ -183,9 +182,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, postalCode: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw ValidationError when country is missing', async () => {
@@ -193,9 +192,9 @@ describe('CreateUserAddressUseCase', () => {
       const invalidRequest = { ...validRequest, country: '' };
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createUserAddressUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
     });
 
     it('should throw NotFoundError when user does not exist', async () => {
@@ -203,9 +202,7 @@ describe('CreateUserAddressUseCase', () => {
       mockUserRepository.getUserById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(validRequest))
-        .rejects
-        .toThrow(NotFoundError);
+      await expect(createUserAddressUseCase.execute(validRequest)).rejects.toThrow(NotFoundError);
     });
 
     it('should handle repository errors gracefully', async () => {
@@ -214,9 +211,9 @@ describe('CreateUserAddressUseCase', () => {
       mockUserRepository.getUserById.mockRejectedValue(repositoryError);
 
       // Act & Assert
-      await expect(createUserAddressUseCase.execute(validRequest))
-        .rejects
-        .toThrow('Failed to create address');
+      await expect(createUserAddressUseCase.execute(validRequest)).rejects.toThrow(
+        'Failed to create address',
+      );
     });
   });
 });

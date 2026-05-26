@@ -1,4 +1,8 @@
-import { SessionService, SessionValidationResult, SessionRefreshResult } from '@application/auth/SessionService';
+import {
+  SessionService,
+  SessionValidationResult,
+  SessionRefreshResult,
+} from '@application/auth/SessionService';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { ILogger } from '@hbs/logging';
 import { ValidationError, UnauthorizedError } from '@domain/errors/DomainError';
@@ -46,7 +50,7 @@ describe('SessionService', () => {
       verifyPassword: jest.fn(),
       updatePassword: jest.fn(),
       getUserById: jest.fn(),
-      getUserByEmail: jest.fn()
+      getUserByEmail: jest.fn(),
     };
 
     mockLogger = {
@@ -56,7 +60,7 @@ describe('SessionService', () => {
       debug: jest.fn(),
       fatal: jest.fn(),
       child: jest.fn(),
-      setTraceId: jest.fn()
+      setTraceId: jest.fn(),
     };
 
     sessionService = new SessionService(mockAuthRepository, mockLogger);
@@ -75,7 +79,7 @@ describe('SessionService', () => {
       provider: 'email' as any,
       isActive: true,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas en el futuro
-      lastLoginAt: new Date()
+      lastLoginAt: new Date(),
     };
 
     it('should validate a valid session successfully', async () => {
@@ -88,17 +92,20 @@ describe('SessionService', () => {
         sessionId: 'user-123',
         userId: 'user-123',
         expiresAt: mockSessionInfo.expiresAt,
-        isActive: true
+        isActive: true,
       });
 
       expect(mockAuthRepository.validateSession).toHaveBeenCalledWith(validSessionToken);
-      expect(mockLogger.info).toHaveBeenCalledWith('Session validation completed', expect.any(Object));
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Session validation completed',
+        expect.any(Object),
+      );
     });
 
     it('should return invalid for expired session', async () => {
       const expiredSessionInfo = {
         ...mockSessionInfo,
-        expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 horas en el pasado
+        expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 horas en el pasado
       };
       mockAuthRepository.validateSession.mockResolvedValue(expiredSessionInfo);
 
@@ -111,7 +118,7 @@ describe('SessionService', () => {
     it('should return invalid for inactive session', async () => {
       const inactiveSessionInfo = {
         ...mockSessionInfo,
-        isActive: false
+        isActive: false,
       };
       mockAuthRepository.validateSession.mockResolvedValue(inactiveSessionInfo);
 
@@ -129,15 +136,23 @@ describe('SessionService', () => {
     it('should throw UnauthorizedError for invalid session token', async () => {
       mockAuthRepository.validateSession.mockResolvedValue(null);
 
-      await expect(sessionService.validateSession(validSessionToken)).rejects.toThrow(UnauthorizedError);
+      await expect(sessionService.validateSession(validSessionToken)).rejects.toThrow(
+        UnauthorizedError,
+      );
     });
 
     it('should handle repository errors gracefully', async () => {
       const repositoryError = new Error('Database connection failed');
       mockAuthRepository.validateSession.mockRejectedValue(repositoryError);
 
-      await expect(sessionService.validateSession(validSessionToken)).rejects.toThrow(repositoryError);
-      expect(mockLogger.error).toHaveBeenCalledWith('Session validation failed', repositoryError, expect.any(Object));
+      await expect(sessionService.validateSession(validSessionToken)).rejects.toThrow(
+        repositoryError,
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Session validation failed',
+        repositoryError,
+        expect.any(Object),
+      );
     });
   });
 
@@ -159,16 +174,16 @@ describe('SessionService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         addresses: [],
-        favoriteProductIds: []
+        favoriteProductIds: [],
       },
       tokens: {
         accessToken: 'new-access-token-456',
         refreshToken: 'new-refresh-token-789',
         expiresIn: 3600,
-        tokenType: 'Bearer'
+        tokenType: 'Bearer',
       },
       isNewUser: false,
-      provider: 'email' as any
+      provider: 'email' as any,
     };
 
     it('should refresh session successfully', async () => {
@@ -181,7 +196,7 @@ describe('SessionService', () => {
         userId: 'user-123',
         newAccessToken: 'new-access-token-456',
         newRefreshToken: 'new-refresh-token-789',
-        expiresAt: expect.any(Date)
+        expiresAt: expect.any(Date),
       });
 
       expect(mockAuthRepository.refreshUserSession).toHaveBeenCalledWith(validRefreshToken);
@@ -196,19 +211,27 @@ describe('SessionService', () => {
     it('should throw UnauthorizedError for failed refresh', async () => {
       const invalidAuthResult = {
         ...mockAuthResult,
-        user: undefined as any
+        user: undefined as any,
       };
       mockAuthRepository.refreshUserSession.mockResolvedValue(invalidAuthResult);
 
-      await expect(sessionService.refreshSession(validRefreshToken)).rejects.toThrow(UnauthorizedError);
+      await expect(sessionService.refreshSession(validRefreshToken)).rejects.toThrow(
+        UnauthorizedError,
+      );
     });
 
     it('should handle repository errors gracefully', async () => {
       const repositoryError = new Error('Token refresh failed');
       mockAuthRepository.refreshUserSession.mockRejectedValue(repositoryError);
 
-      await expect(sessionService.refreshSession(validRefreshToken)).rejects.toThrow(repositoryError);
-      expect(mockLogger.error).toHaveBeenCalledWith('Session refresh failed', repositoryError, expect.any(Object));
+      await expect(sessionService.refreshSession(validRefreshToken)).rejects.toThrow(
+        repositoryError,
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Session refresh failed',
+        repositoryError,
+        expect.any(Object),
+      );
     });
   });
 
@@ -222,15 +245,24 @@ describe('SessionService', () => {
       await sessionService.invalidateSession(sessionId, userId);
 
       expect(mockAuthRepository.logoutUser).toHaveBeenCalledWith(userId, sessionId);
-      expect(mockLogger.info).toHaveBeenCalledWith('Session invalidated successfully', expect.any(Object));
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Session invalidated successfully',
+        expect.any(Object),
+      );
     });
 
     it('should handle repository errors gracefully', async () => {
       const repositoryError = new Error('Logout failed');
       mockAuthRepository.logoutUser.mockRejectedValue(repositoryError);
 
-      await expect(sessionService.invalidateSession(sessionId, userId)).rejects.toThrow(repositoryError);
-      expect(mockLogger.error).toHaveBeenCalledWith('Session invalidation failed', repositoryError, expect.any(Object));
+      await expect(sessionService.invalidateSession(sessionId, userId)).rejects.toThrow(
+        repositoryError,
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Session invalidation failed',
+        repositoryError,
+        expect.any(Object),
+      );
     });
   });
 
@@ -241,15 +273,24 @@ describe('SessionService', () => {
       const result = await sessionService.getSessionInfo(sessionId);
 
       expect(result).toBeNull();
-      expect(mockLogger.warn).toHaveBeenCalledWith('getSessionInfo not fully implemented', expect.any(Object));
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'getSessionInfo not fully implemented',
+        expect.any(Object),
+      );
     });
 
     it('should handle errors gracefully', async () => {
       const error = new Error('Unexpected error');
-      mockLogger.warn.mockImplementation(() => { throw error; });
+      mockLogger.warn.mockImplementation(() => {
+        throw error;
+      });
 
       await expect(sessionService.getSessionInfo(sessionId)).rejects.toThrow(error);
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to get session info', error, expect.any(Object));
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to get session info',
+        error,
+        expect.any(Object),
+      );
     });
   });
 });

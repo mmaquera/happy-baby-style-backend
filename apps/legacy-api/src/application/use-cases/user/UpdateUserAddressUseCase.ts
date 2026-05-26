@@ -2,7 +2,12 @@ import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { UserAddress, UpdateUserAddressRequest } from '../../../domain/entities/User';
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
-import { DomainError, ValidationError, NotFoundError, InfrastructureError } from '../../../domain/errors/DomainError';
+import {
+  DomainError,
+  ValidationError,
+  NotFoundError,
+  InfrastructureError,
+} from '../../../domain/errors/DomainError';
 
 export class UpdateUserAddressUseCase {
   private readonly logger: ILogger;
@@ -13,11 +18,11 @@ export class UpdateUserAddressUseCase {
 
   async execute(id: string, request: UpdateUserAddressRequest): Promise<UserAddress> {
     const traceId = `update-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     this.logger.info('Starting address update', {
       traceId,
       addressId: id,
-      updates: Object.keys(request)
+      updates: Object.keys(request),
     });
 
     try {
@@ -42,23 +47,29 @@ export class UpdateUserAddressUseCase {
         traceId,
         addressId: id,
         userId: updatedAddress.userId,
-        updates: Object.keys(request)
+        updates: Object.keys(request),
       });
 
       return updatedAddress;
-
     } catch (error) {
-      this.logger.error('Error updating address', error instanceof Error ? error : new Error(String(error)), {
-        traceId,
-        addressId: id,
-        request
-      });
+      this.logger.error(
+        'Error updating address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          traceId,
+          addressId: id,
+          request,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
       }
 
-      throw new InfrastructureError('Failed to update address', error instanceof Error ? error : undefined);
+      throw new InfrastructureError(
+        'Failed to update address',
+        error instanceof Error ? error : undefined,
+      );
     }
   }
 
@@ -66,7 +77,9 @@ export class UpdateUserAddressUseCase {
     const errors: string[] = [];
 
     // Check if at least one field is provided
-    const hasUpdates = Object.keys(request).some(key => request[key as keyof UpdateUserAddressRequest] !== undefined);
+    const hasUpdates = Object.keys(request).some(
+      (key) => request[key as keyof UpdateUserAddressRequest] !== undefined,
+    );
     if (!hasUpdates) {
       errors.push('At least one field must be provided for update');
     }
@@ -113,19 +126,23 @@ export class UpdateUserAddressUseCase {
     try {
       // Get current default address
       const currentDefault = await this.userRepository.getDefaultAddress(userId);
-      
+
       if (currentDefault && currentDefault.id !== addressId) {
         // Update current default to false
         await this.userRepository.updateUserAddress(currentDefault.id, { isDefault: false });
-        
+
         this.logger.info('Previous default address updated', {
           addressId: currentDefault.id,
           userId,
-          newDefaultId: addressId
+          newDefaultId: addressId,
         });
       }
     } catch (error) {
-      this.logger.warn('Failed to update previous default address', { userId, addressId, error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn('Failed to update previous default address', {
+        userId,
+        addressId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       // Don't throw error, continue with update
     }
   }

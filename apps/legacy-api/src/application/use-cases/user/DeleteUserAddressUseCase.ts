@@ -1,7 +1,13 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
-import { DomainError, ValidationError, NotFoundError, BusinessLogicError, InfrastructureError } from '../../../domain/errors/DomainError';
+import {
+  DomainError,
+  ValidationError,
+  NotFoundError,
+  BusinessLogicError,
+  InfrastructureError,
+} from '../../../domain/errors/DomainError';
 
 export class DeleteUserAddressUseCase {
   private readonly logger: ILogger;
@@ -12,10 +18,10 @@ export class DeleteUserAddressUseCase {
 
   async execute(id: string): Promise<void> {
     const traceId = `delete-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     this.logger.info('Starting address deletion', {
       traceId,
-      addressId: id
+      addressId: id,
     });
 
     try {
@@ -40,20 +46,26 @@ export class DeleteUserAddressUseCase {
       this.logger.info('Address deleted successfully', {
         traceId,
         addressId: id,
-        userId: existingAddress.userId
+        userId: existingAddress.userId,
       });
-
     } catch (error) {
-      this.logger.error('Error deleting address', error instanceof Error ? error : new Error(String(error)), {
-        traceId,
-        addressId: id
-      });
+      this.logger.error(
+        'Error deleting address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          traceId,
+          addressId: id,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
       }
 
-      throw new InfrastructureError('Failed to delete address', error instanceof Error ? error : undefined);
+      throw new InfrastructureError(
+        'Failed to delete address',
+        error instanceof Error ? error : undefined,
+      );
     }
   }
 
@@ -77,10 +89,13 @@ export class DeleteUserAddressUseCase {
       // - If the address is referenced in any orders
       // - If those orders are still active
       // - If deletion would break referential integrity
-      
+
       this.logger.debug('Address usage check passed', { addressId });
     } catch (error) {
-      this.logger.warn('Failed to check address usage', { addressId, error: error instanceof Error ? error.message : String(error) });
+      this.logger.warn('Failed to check address usage', {
+        addressId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       // Continue with deletion, but log the warning
     }
   }
@@ -88,24 +103,27 @@ export class DeleteUserAddressUseCase {
   private async checkUserAddressCount(userId: string): Promise<void> {
     try {
       const userAddresses = await this.userRepository.getUserAddresses(userId);
-      
+
       if (userAddresses.length <= 1) {
         throw new BusinessLogicError(
           'Cannot delete the only address for a user. Users must have at least one address.',
-          { code: 'CANNOT_DELETE_LAST_ADDRESS' }
+          { code: 'CANNOT_DELETE_LAST_ADDRESS' },
         );
       }
 
       this.logger.debug('User address count check passed', {
         userId,
-        addressCount: userAddresses.length
+        addressCount: userAddresses.length,
       });
     } catch (error) {
       if (error instanceof BusinessLogicError) {
         throw error;
       }
-      
-      this.logger.warn('Failed to check user address count', { userId, error: error instanceof Error ? error.message : String(error) });
+
+      this.logger.warn('Failed to check user address count', {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       // Continue with deletion, but log the warning
     }
   }

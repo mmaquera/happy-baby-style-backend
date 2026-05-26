@@ -51,10 +51,12 @@ export class ProductEntity implements Product {
     public readonly reviewCount: number,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
-    public readonly variants?: ProductVariant[]
+    public readonly variants?: ProductVariant[],
   ) {}
 
-  static create(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount'>): ProductEntity {
+  static create(
+    data: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount'>,
+  ): ProductEntity {
     const now = new Date();
     return new ProductEntity(
       crypto.randomUUID(),
@@ -72,7 +74,7 @@ export class ProductEntity implements Product {
       0,
       0,
       now,
-      now
+      now,
     );
   }
 
@@ -94,7 +96,7 @@ export class ProductEntity implements Product {
       data.reviewCount ?? this.reviewCount,
       this.createdAt,
       new Date(),
-      data.variants ?? this.variants
+      data.variants ?? this.variants,
     );
   }
 
@@ -132,10 +134,12 @@ export class ProductVariantEntity implements ProductVariant {
     public readonly attributes: Record<string, any>,
     public readonly isActive: boolean,
     public readonly createdAt: Date,
-    public readonly updatedAt: Date
+    public readonly updatedAt: Date,
   ) {}
 
-  static create(data: Omit<ProductVariant, 'id' | 'createdAt' | 'updatedAt'>): ProductVariantEntity {
+  static create(
+    data: Omit<ProductVariant, 'id' | 'createdAt' | 'updatedAt'>,
+  ): ProductVariantEntity {
     const now = new Date();
     return new ProductVariantEntity(
       crypto.randomUUID(),
@@ -147,7 +151,7 @@ export class ProductVariantEntity implements ProductVariant {
       data.attributes || {},
       data.isActive,
       now,
-      now
+      now,
     );
   }
 

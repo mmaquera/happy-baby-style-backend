@@ -26,12 +26,6 @@
         "command": "jest --config apps/legacy-api/jest.config.js"
       }
     },
-    "lint": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "eslint apps/legacy-api"
-      }
-    },
     "codegen": {
       "executor": "nx:run-commands",
       "options": {

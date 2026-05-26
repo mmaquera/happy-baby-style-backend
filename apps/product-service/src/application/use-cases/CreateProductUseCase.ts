@@ -4,7 +4,7 @@ import {
   ValidationError,
   DuplicateError,
   BusinessLogicError,
-  DatabaseError
+  DatabaseError,
 } from '../../domain/errors/DomainError';
 
 export interface CreateProductRequest {
@@ -43,13 +43,17 @@ export class CreateProductUseCase {
       attributes: request.attributes || {},
       isActive: request.isActive ?? true,
       stockQuantity: request.stockQuantity || 0,
-      tags: request.tags
+      tags: request.tags,
     });
 
     try {
       return await this.productRepository.create(product);
     } catch (error) {
-      if (error instanceof ValidationError || error instanceof DuplicateError || error instanceof BusinessLogicError) {
+      if (
+        error instanceof ValidationError ||
+        error instanceof DuplicateError ||
+        error instanceof BusinessLogicError
+      ) {
         throw error;
       }
       if (error instanceof Error) {
@@ -69,8 +73,10 @@ export class CreateProductUseCase {
     if (request.price < 0.01) throw new ValidationError("Field 'price' must be at least 0.01");
 
     if (request.salePrice !== undefined) {
-      if (request.salePrice < 0.01) throw new ValidationError("Field 'salePrice' must be at least 0.01");
-      if (request.salePrice >= request.price) throw new ValidationError('Sale price must be less than regular price');
+      if (request.salePrice < 0.01)
+        throw new ValidationError("Field 'salePrice' must be at least 0.01");
+      if (request.salePrice >= request.price)
+        throw new ValidationError('Sale price must be less than regular price');
     }
 
     if (request.stockQuantity !== undefined && request.stockQuantity < 0) {

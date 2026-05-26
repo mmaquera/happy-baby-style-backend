@@ -4,7 +4,7 @@ export enum AuthProvider {
   EMAIL = 'email',
   GOOGLE = 'google',
   FACEBOOK = 'facebook',
-  APPLE = 'apple'
+  APPLE = 'apple',
 }
 
 // OAuth Account Information
@@ -144,7 +144,7 @@ export class UserAccountEntity implements UserAccount {
     public idToken: string | undefined,
     public expiresAt: Date | undefined,
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
   ) {}
 
   static create(data: Omit<UserAccount, 'id' | 'createdAt' | 'updatedAt'>): UserAccountEntity {
@@ -160,7 +160,7 @@ export class UserAccountEntity implements UserAccount {
       data.idToken,
       data.expiresAt,
       new Date(),
-      new Date()
+      new Date(),
     );
   }
 
@@ -181,7 +181,7 @@ export class UserSessionEntity implements UserSession {
     public ipAddress: string | undefined,
     public isActive: boolean,
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
   ) {}
 
   static create(data: Omit<UserSession, 'id' | 'createdAt' | 'updatedAt'>): UserSessionEntity {
@@ -196,7 +196,7 @@ export class UserSessionEntity implements UserSession {
       data.ipAddress,
       data.isActive,
       new Date(),
-      new Date()
+      new Date(),
     );
   }
 
@@ -218,7 +218,7 @@ export class UserPasswordEntity implements UserPassword {
     public resetToken: string | undefined,
     public resetExpiresAt: Date | undefined,
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
   ) {}
 
   static create(data: Omit<UserPassword, 'id' | 'createdAt' | 'updatedAt'>): UserPasswordEntity {
@@ -230,14 +230,12 @@ export class UserPasswordEntity implements UserPassword {
       data.resetToken,
       data.resetExpiresAt,
       new Date(),
-      new Date()
+      new Date(),
     );
   }
 
   isResetTokenValid(): boolean {
-    return this.resetToken && this.resetExpiresAt 
-      ? new Date() < this.resetExpiresAt 
-      : false;
+    return this.resetToken && this.resetExpiresAt ? new Date() < this.resetExpiresAt : false;
   }
 }
 

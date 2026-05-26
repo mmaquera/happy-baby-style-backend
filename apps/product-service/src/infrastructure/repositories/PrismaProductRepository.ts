@@ -18,9 +18,9 @@ export class PrismaProductRepository implements IProductRepository {
         stockQuantity: product.stockQuantity,
         images: product.images,
         attributes: product.attributes,
-        tags: product.tags
+        tags: product.tags,
       },
-      include: { variants: true }
+      include: { variants: true },
     });
     return this.mapToEntity(created);
   }
@@ -28,7 +28,7 @@ export class PrismaProductRepository implements IProductRepository {
   async findById(id: string): Promise<ProductEntity | null> {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { variants: true }
+      include: { variants: true },
     });
     return product ? this.mapToEntity(product) : null;
   }
@@ -47,7 +47,7 @@ export class PrismaProductRepository implements IProductRepository {
     if (filters?.search) {
       where.OR = [
         { name: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } }
+        { description: { contains: filters.search, mode: 'insensitive' } },
       ];
     }
     if (filters?.sku) where.sku = { contains: filters.sku, mode: 'insensitive' };
@@ -57,10 +57,10 @@ export class PrismaProductRepository implements IProductRepository {
       take: filters?.limit,
       skip: filters?.offset,
       include: { variants: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
-    return products.map(p => this.mapToEntity(p));
+    return products.map((p) => this.mapToEntity(p));
   }
 
   async update(id: string, product: Partial<ProductEntity>): Promise<ProductEntity> {
@@ -85,7 +85,7 @@ export class PrismaProductRepository implements IProductRepository {
     const updated = await this.prisma.product.update({
       where: { id },
       data,
-      include: { variants: true }
+      include: { variants: true },
     });
     return this.mapToEntity(updated);
   }
@@ -98,15 +98,15 @@ export class PrismaProductRepository implements IProductRepository {
     const products = await this.prisma.product.findMany({
       where: { categoryId },
       include: { variants: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
-    return products.map(p => this.mapToEntity(p));
+    return products.map((p) => this.mapToEntity(p));
   }
 
   async findBySku(sku: string): Promise<ProductEntity | null> {
     const product = await this.prisma.product.findUnique({
       where: { sku },
-      include: { variants: true }
+      include: { variants: true },
     });
     return product ? this.mapToEntity(product) : null;
   }
@@ -123,14 +123,14 @@ export class PrismaProductRepository implements IProductRepository {
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
           { description: { contains: query, mode: 'insensitive' } },
-          { tags: { hasSome: [query] } }
+          { tags: { hasSome: [query] } },
         ],
-        isActive: true
+        isActive: true,
       },
       include: { variants: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
-    return products.map(p => this.mapToEntity(p));
+    return products.map((p) => this.mapToEntity(p));
   }
 
   async createVariant(variantData: any): Promise<ProductVariantEntity> {
@@ -145,8 +145,8 @@ export class PrismaProductRepository implements IProductRepository {
         stockQuantity: variantData.stockQuantity,
         productId: variantData.productId,
         attributes: variantData.attributes || {},
-        isActive: variantData.isActive ?? true
-      }
+        isActive: variantData.isActive ?? true,
+      },
     });
     return this.mapToVariantEntity(created);
   }
@@ -154,9 +154,9 @@ export class PrismaProductRepository implements IProductRepository {
   async getProductVariants(productId: string): Promise<ProductVariantEntity[]> {
     const variants = await this.prisma.productVariant.findMany({
       where: { productId },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
-    return variants.map(v => this.mapToVariantEntity(v));
+    return variants.map((v) => this.mapToVariantEntity(v));
   }
 
   async updateVariant(id: string, variantData: Partial<any>): Promise<ProductVariantEntity> {
@@ -199,7 +199,7 @@ export class PrismaProductRepository implements IProductRepository {
       product.reviewCount || 0,
       product.createdAt,
       product.updatedAt,
-      product.variants ? product.variants.map((v: any) => this.mapToVariantEntity(v)) : []
+      product.variants ? product.variants.map((v: any) => this.mapToVariantEntity(v)) : [],
     );
   }
 
@@ -214,7 +214,7 @@ export class PrismaProductRepository implements IProductRepository {
       (variant.attributes as Record<string, any>) || {},
       variant.isActive,
       variant.createdAt,
-      variant.updatedAt
+      variant.updatedAt,
     );
   }
 }

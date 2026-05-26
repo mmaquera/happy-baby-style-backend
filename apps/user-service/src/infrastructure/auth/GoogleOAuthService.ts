@@ -1,11 +1,11 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
-import { 
-  GoogleAuthRequest, 
-  GoogleUserInfo, 
+import {
+  GoogleAuthRequest,
+  GoogleUserInfo,
   AuthTokens,
   JWTPayload,
-  AuthProvider
+  AuthProvider,
 } from '@domain/entities/Auth';
 
 export interface GoogleOAuthConfig {
@@ -22,7 +22,7 @@ export class GoogleOAuthService {
     this.config = {
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/auth/google/callback'
+      redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/auth/google/callback',
     };
 
     this.jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
@@ -44,7 +44,7 @@ export class GoogleOAuthService {
       scope: 'openid email profile',
       access_type: 'offline',
       prompt: 'consent',
-      ...(state && { state })
+      ...(state && { state }),
     });
 
     return `${baseUrl}?${params.toString()}`;
@@ -61,17 +61,21 @@ export class GoogleOAuthService {
     id_token?: string;
   }> {
     try {
-      const response = await axios.post('https://oauth2.googleapis.com/token', {
-        client_id: this.config.clientId,
-        client_secret: this.config.clientSecret,
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: this.config.redirectUri,
-      }, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+      const response = await axios.post(
+        'https://oauth2.googleapis.com/token',
+        {
+          client_id: this.config.clientId,
+          client_secret: this.config.clientSecret,
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: this.config.redirectUri,
         },
-      });
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        },
+      );
 
       return response.data;
     } catch (error: any) {
@@ -113,13 +117,13 @@ export class GoogleOAuthService {
   }> {
     // Exchange code for tokens
     const tokens = await this.exchangeCodeForTokens(authRequest.code);
-    
+
     // Get user information
     const googleUser = await this.getUserInfo(tokens.access_token);
 
     return {
       googleUser,
-      tokens
+      tokens,
     };
   }
 
@@ -138,7 +142,7 @@ export class GoogleOAuthService {
       provider: AuthProvider.GOOGLE,
       sessionId,
       iat: now,
-      exp: now + expiresIn
+      exp: now + expiresIn,
     };
 
     const refreshPayload = {
@@ -146,7 +150,7 @@ export class GoogleOAuthService {
       sessionId,
       type: 'refresh',
       iat: now,
-      exp: now + refreshExpiresIn
+      exp: now + refreshExpiresIn,
     };
 
     const accessToken = jwt.sign(payload, this.jwtSecret);
@@ -156,7 +160,7 @@ export class GoogleOAuthService {
       accessToken,
       refreshToken,
       expiresIn,
-      tokenType: 'Bearer'
+      tokenType: 'Bearer',
     };
   }
 
@@ -177,7 +181,7 @@ export class GoogleOAuthService {
   async refreshTokens(refreshToken: string): Promise<AuthTokens> {
     try {
       const decoded = jwt.verify(refreshToken, this.jwtSecret) as any;
-      
+
       if (decoded.type !== 'refresh') {
         throw new Error('Invalid refresh token');
       }
@@ -187,7 +191,7 @@ export class GoogleOAuthService {
         decoded.sub,
         decoded.email || '',
         decoded.role || 'customer',
-        decoded.sessionId
+        decoded.sessionId,
       );
     } catch (error) {
       throw new Error('Invalid or expired refresh token');
@@ -201,8 +205,10 @@ export class GoogleOAuthService {
     try {
       // In production, you should verify the ID token properly
       // This is a simplified version
-      const response = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
-      
+      const response = await axios.get(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
+      );
+
       if (response.data.aud !== this.config.clientId) {
         throw new Error('Invalid audience');
       }
@@ -220,7 +226,7 @@ export class GoogleOAuthService {
     return jwt.sign(
       { timestamp: Date.now() },
       process.env.OAUTH_STATE_SECRET || 'default_state_secret',
-      { expiresIn: '10m' }
+      { expiresIn: '10m' },
     );
   }
 

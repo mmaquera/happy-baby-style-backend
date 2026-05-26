@@ -2,7 +2,7 @@ import { SecurityEvent, CreateSecurityEventRequest } from '@domain/entities/Audi
 
 /**
  * Repositorio de dominio para eventos de seguridad
- * 
+ *
  * Principios aplicados:
  * - Dependency Inversion: Interface en la capa de dominio
  * - Clean Architecture: Define el contrato sin implementación
@@ -33,4 +33,3 @@ export interface ISecurityEventRepository {
    */
   findRecent(limit?: number): Promise<SecurityEvent[]>;
 }
-

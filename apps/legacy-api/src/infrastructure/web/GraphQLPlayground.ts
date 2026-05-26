@@ -16,7 +16,7 @@ export class GraphQLPlayground {
       id: 'health',
       title: '🔍 Health Check',
       description: 'Basic server health verification',
-      query: '{ health }'
+      query: '{ health }',
     },
     {
       id: 'categories',
@@ -52,7 +52,7 @@ export class GraphQLPlayground {
             duration 
           } 
         } 
-      }`
+      }`,
     },
     {
       id: 'categoryById',
@@ -83,7 +83,7 @@ export class GraphQLPlayground {
             duration 
           } 
         } 
-      }`
+      }`,
     },
     {
       id: 'categoryBySlug',
@@ -114,50 +114,53 @@ export class GraphQLPlayground {
             duration 
           } 
         } 
-      }`
+      }`,
     },
     {
       id: 'products',
       title: '📦 Products',
       description: 'Get products with pagination',
-      query: '{ products { products { id name price stockQuantity isActive } total hasMore } }'
+      query: '{ products { products { id name price stockQuantity isActive } total hasMore } }',
     },
     {
       id: 'statistics',
       title: '📊 Statistics',
       description: 'System analytics and metrics',
-      query: '{ productStats orderStats userStats }'
+      query: '{ productStats orderStats userStats }',
     },
     {
       id: 'users',
       title: '👥 Users',
       description: 'User management data',
-      query: '{ users { users { id firstName lastName } total } }'
+      query: '{ users { users { id firstName lastName } total } }',
     },
     {
       id: 'orders',
       title: '🛒 Orders',
       description: 'Order management data',
-      query: '{ orders { orders { id orderNumber status totalAmount } total } }'
+      query: '{ orders { orders { id orderNumber status totalAmount } total } }',
     },
     {
       id: 'createCategory',
       title: '➕ Create Category',
       description: 'Create a new product category',
-      query: 'mutation { createCategory(input: { name: "Test Category" slug: "test-category" isActive: true sortOrder: 1 }) { success message code data { entity { id name slug } id createdAt } metadata { requestId traceId duration } } }'
+      query:
+        'mutation { createCategory(input: { name: "Test Category" slug: "test-category" isActive: true sortOrder: 1 }) { success message code data { entity { id name slug } id createdAt } metadata { requestId traceId duration } } }',
     },
     {
       id: 'updateCategory',
       title: '✏️ Update Category',
       description: 'Update an existing product category',
-      query: 'mutation { updateCategory(id: "category-id", input: { name: "Updated Category" description: "Updated description" isActive: false }) { success message code data { entity { id name description isActive } id updatedAt changes } metadata { requestId traceId duration } } }'
+      query:
+        'mutation { updateCategory(id: "category-id", input: { name: "Updated Category" description: "Updated description" isActive: false }) { success message code data { entity { id name description isActive } id updatedAt changes } metadata { requestId traceId duration } } }',
     },
     {
       id: 'deleteCategory',
       title: '🗑️ Delete Category',
       description: 'Delete a product category (soft delete by default)',
-      query: 'mutation { deleteCategory(id: "category-id") { success message code data { id deletedAt softDelete } metadata { requestId traceId duration } } }'
-    }
+      query:
+        'mutation { deleteCategory(id: "category-id") { success message code data { id deletedAt softDelete } metadata { requestId traceId duration } } }',
+    },
   ];
 
   /**
@@ -295,13 +298,15 @@ export class GraphQLPlayground {
   }
 
   private static generateSidebar(): string {
-    const examplesHtml = this.DEFAULT_QUERIES.map(query => `
+    const examplesHtml = this.DEFAULT_QUERIES.map(
+      (query) => `
       <div class="example" data-query="${this.escapeHtml(query.query)}">
         <h4>${query.title}</h4>
         <p style="font-size: 12px; color: #6c757d; margin-bottom: 8px;">${query.description}</p>
         <pre>${this.truncateQuery(query.query)}</pre>
       </div>
-    `).join('');
+    `,
+    ).join('');
 
     return `
       <div class="sidebar">

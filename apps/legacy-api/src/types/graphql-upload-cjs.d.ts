@@ -4,26 +4,24 @@
  */
 declare module 'graphql-upload-cjs' {
   import { GraphQLUpload, GraphQLUploadExpressOptions } from 'graphql-upload';
-  
+
   /**
    * Express middleware for handling GraphQL file uploads
    */
   export function graphqlUploadExpress(
-    options?: GraphQLUploadExpressOptions
+    options?: GraphQLUploadExpressOptions,
   ): (req: any, res: any, next: any) => void;
-  
+
   /**
    * Koa middleware for handling GraphQL file uploads
    */
-  export function graphqlUploadKoa(
-    options?: GraphQLUploadExpressOptions
-  ): any;
-  
+  export function graphqlUploadKoa(options?: GraphQLUploadExpressOptions): any;
+
   /**
    * GraphQL Upload scalar type
    */
   export { GraphQLUpload, Upload };
-  
+
   /**
    * Upload type (compatible with graphql-upload)
    */
@@ -34,4 +32,3 @@ declare module 'graphql-upload-cjs' {
     createReadStream: () => NodeJS.ReadableStream;
   }
 }
-

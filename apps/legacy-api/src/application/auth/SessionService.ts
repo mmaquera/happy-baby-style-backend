@@ -22,19 +22,19 @@ export interface SessionRefreshResult {
 export class SessionService {
   constructor(
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   @LoggingDecorator.logUseCase({
     includeArgs: false,
     includeResult: true,
     includeDuration: true,
-    context: { service: 'SessionService' }
+    context: { service: 'SessionService' },
   })
   async validateSession(sessionToken: string): Promise<SessionValidationResult> {
     this.logger.info('Validating session', {
       hasSessionToken: !!sessionToken,
-      operation: 'validateSession'
+      operation: 'validateSession',
     });
 
     try {
@@ -43,7 +43,7 @@ export class SessionService {
       }
 
       const sessionInfo = await this.authRepository.validateSession(sessionToken);
-      
+
       if (!sessionInfo) {
         throw new UnauthorizedError('Invalid session token');
       }
@@ -53,7 +53,7 @@ export class SessionService {
         sessionId: sessionInfo.userId, // Usar userId como sessionId temporal
         userId: sessionInfo.userId,
         expiresAt: sessionInfo.expiresAt,
-        isActive: sessionInfo.isActive
+        isActive: sessionInfo.isActive,
       };
 
       this.logger.info('Session validation completed', {
@@ -61,15 +61,14 @@ export class SessionService {
         userId: result.userId,
         isValid: result.isValid,
         expiresAt: result.expiresAt,
-        operation: 'validateSession'
+        operation: 'validateSession',
       });
 
       return result;
-
     } catch (error) {
       this.logger.error('Session validation failed', error as Error, {
         hasSessionToken: !!sessionToken,
-        operation: 'validateSession'
+        operation: 'validateSession',
       });
       throw error;
     }
@@ -79,12 +78,12 @@ export class SessionService {
     includeArgs: false,
     includeResult: true,
     includeDuration: true,
-    context: { service: 'SessionService' }
+    context: { service: 'SessionService' },
   })
   async refreshSession(refreshToken: string): Promise<SessionRefreshResult> {
     this.logger.info('Refreshing session', {
       hasRefreshToken: !!refreshToken,
-      operation: 'refreshSession'
+      operation: 'refreshSession',
     });
 
     try {
@@ -93,7 +92,7 @@ export class SessionService {
       }
 
       const authResult = await this.authRepository.refreshUserSession(refreshToken);
-      
+
       if (!authResult.user || !authResult.tokens) {
         throw new UnauthorizedError('Failed to refresh session');
       }
@@ -103,7 +102,7 @@ export class SessionService {
         userId: authResult.user.id,
         newAccessToken: authResult.tokens.accessToken,
         newRefreshToken: authResult.tokens.refreshToken || '',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
       };
 
       this.logger.info('Session refresh completed', {
@@ -111,15 +110,14 @@ export class SessionService {
         userId: result.userId,
         hasNewTokens: !!(result.newAccessToken && result.newRefreshToken),
         expiresAt: result.expiresAt,
-        operation: 'refreshSession'
+        operation: 'refreshSession',
       });
 
       return result;
-
     } catch (error) {
       this.logger.error('Session refresh failed', error as Error, {
         hasRefreshToken: !!refreshToken,
-        operation: 'refreshSession'
+        operation: 'refreshSession',
       });
       throw error;
     }
@@ -129,29 +127,28 @@ export class SessionService {
     includeArgs: true,
     includeResult: false,
     includeDuration: true,
-    context: { service: 'SessionService' }
+    context: { service: 'SessionService' },
   })
   async invalidateSession(sessionId: string, userId: string): Promise<void> {
     this.logger.info('Invalidating session', {
       sessionId,
       userId,
-      operation: 'invalidateSession'
+      operation: 'invalidateSession',
     });
 
     try {
       await this.authRepository.logoutUser(userId, sessionId);
-      
+
       this.logger.info('Session invalidated successfully', {
         sessionId,
         userId,
-        operation: 'invalidateSession'
+        operation: 'invalidateSession',
       });
-
     } catch (error) {
       this.logger.error('Session invalidation failed', error as Error, {
         sessionId,
         userId,
-        operation: 'invalidateSession'
+        operation: 'invalidateSession',
       });
       throw error;
     }
@@ -161,12 +158,12 @@ export class SessionService {
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { service: 'SessionService' }
+    context: { service: 'SessionService' },
   })
   async getSessionInfo(sessionId: string): Promise<SessionValidationResult | null> {
     this.logger.info('Getting session info', {
       sessionId,
-      operation: 'getSessionInfo'
+      operation: 'getSessionInfo',
     });
 
     try {
@@ -174,15 +171,14 @@ export class SessionService {
       // Por ahora retornamos null ya que no tenemos un método específico
       this.logger.warn('getSessionInfo not fully implemented', {
         sessionId,
-        operation: 'getSessionInfo'
+        operation: 'getSessionInfo',
       });
 
       return null;
-
     } catch (error) {
       this.logger.error('Failed to get session info', error as Error, {
         sessionId,
-        operation: 'getSessionInfo'
+        operation: 'getSessionInfo',
       });
       throw error;
     }

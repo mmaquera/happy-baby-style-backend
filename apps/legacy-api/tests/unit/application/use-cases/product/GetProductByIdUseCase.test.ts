@@ -1,4 +1,7 @@
-import { GetProductByIdUseCase, GetProductByIdRequest } from '@application/use-cases/product/GetProductByIdUseCase';
+import {
+  GetProductByIdUseCase,
+  GetProductByIdRequest,
+} from '@application/use-cases/product/GetProductByIdUseCase';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
 import { ProductEntity } from '@domain/entities/Product';
 
@@ -17,7 +20,7 @@ const mockProductRepository: jest.Mocked<IProductRepository> = {
   getProductVariants: jest.fn(),
   updateVariant: jest.fn(),
   deleteVariant: jest.fn(),
-  getCategories: jest.fn()
+  getCategories: jest.fn(),
 };
 
 describe('GetProductByIdUseCase', () => {
@@ -47,7 +50,7 @@ describe('GetProductByIdUseCase', () => {
         4.5,
         5,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       const request: GetProductByIdRequest = { id: '1' };
@@ -103,4 +106,4 @@ describe('GetProductByIdUseCase', () => {
       expect(mockProductRepository.findById).toHaveBeenCalledWith('1');
     });
   });
-}); 
+});

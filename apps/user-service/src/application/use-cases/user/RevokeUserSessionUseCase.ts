@@ -19,21 +19,21 @@ export interface RevokeUserSessionResponse {
 export class RevokeUserSessionUseCase {
   constructor(
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   @LoggingDecorator.logUseCase({
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'RevokeUserSession' }
+    context: { useCase: 'RevokeUserSession' },
   })
   async execute(request: RevokeUserSessionRequest): Promise<RevokeUserSessionResponse> {
     this.logger.info('Starting user session revocation', {
       sessionId: request.sessionId,
       userId: request.userId,
       reason: request.reason,
-      operation: 'RevokeUserSession'
+      operation: 'RevokeUserSession',
     });
 
     try {
@@ -53,7 +53,7 @@ export class RevokeUserSessionUseCase {
           sessionId: request.sessionId,
           sessionUserId: session.userId,
           requestingUserId: request.userId,
-          operation: 'RevokeUserSession'
+          operation: 'RevokeUserSession',
         });
         throw new UnauthorizedError('You can only revoke your own sessions');
       }
@@ -63,21 +63,21 @@ export class RevokeUserSessionUseCase {
         this.logger.info('Session already inactive, no action needed', {
           sessionId: request.sessionId,
           userId: request.userId,
-          operation: 'RevokeUserSession'
+          operation: 'RevokeUserSession',
         });
-        
+
         return {
           sessionId: request.sessionId,
           revokedAt: new Date().toISOString(),
           reason: request.reason,
-          analyticsCleaned: false // Already inactive, no analytics to clean
+          analyticsCleaned: false, // Already inactive, no analytics to clean
         };
       }
 
       // Revoke the session (set as inactive)
       await this.authRepository.updateSession(request.sessionId, {
         isActive: false,
-        expiresAt: new Date() // Force immediate expiration
+        expiresAt: new Date(), // Force immediate expiration
       });
 
       // Clean up session analytics if they exist
@@ -85,11 +85,11 @@ export class RevokeUserSessionUseCase {
       try {
         await this.authRepository.deleteSessionAnalyticsBySessionId(request.sessionId);
         analyticsCleaned = true;
-        
+
         this.logger.info('Session analytics cleaned successfully', {
           sessionId: request.sessionId,
           userId: request.userId,
-          operation: 'RevokeUserSession'
+          operation: 'RevokeUserSession',
         });
       } catch (analyticsError) {
         // Log error but don't fail the session revocation
@@ -97,7 +97,7 @@ export class RevokeUserSessionUseCase {
           sessionId: request.sessionId,
           userId: request.userId,
           error: analyticsError instanceof Error ? analyticsError.message : 'Unknown error',
-          operation: 'RevokeUserSession'
+          operation: 'RevokeUserSession',
         });
       }
 
@@ -106,21 +106,20 @@ export class RevokeUserSessionUseCase {
         userId: request.userId,
         reason: request.reason,
         analyticsCleaned,
-        operation: 'RevokeUserSession'
+        operation: 'RevokeUserSession',
       });
 
       return {
         sessionId: request.sessionId,
         revokedAt: new Date().toISOString(),
         reason: request.reason,
-        analyticsCleaned
+        analyticsCleaned,
       };
-
     } catch (error) {
       this.logger.error('Failed to revoke user session', error as Error, {
         sessionId: request.sessionId,
         userId: request.userId,
-        operation: 'RevokeUserSession'
+        operation: 'RevokeUserSession',
       });
       throw error;
     }

@@ -52,7 +52,10 @@ export class UpdateCategoryUseCase {
         changes.push('name');
       }
 
-      if (request.description !== undefined && request.description !== existingCategory.description) {
+      if (
+        request.description !== undefined &&
+        request.description !== existingCategory.description
+      ) {
         updateData.description = request.description?.trim();
         changes.push('description');
       }
@@ -82,36 +85,68 @@ export class UpdateCategoryUseCase {
       }
 
       if (changes.length === 0) {
-        return { entity: existingCategory, id: existingCategory.id, updatedAt: existingCategory.updatedAt, changes: [] };
+        return {
+          entity: existingCategory,
+          id: existingCategory.id,
+          updatedAt: existingCategory.updatedAt,
+          changes: [],
+        };
       }
 
       const updatedCategory = await this.categoryRepository.update(request.id, updateData);
-      this.logger.info('Category updated successfully', { categoryId: request.id, changes, traceId });
-      return { entity: updatedCategory, id: updatedCategory.id, updatedAt: updatedCategory.updatedAt, changes };
-
+      this.logger.info('Category updated successfully', {
+        categoryId: request.id,
+        changes,
+        traceId,
+      });
+      return {
+        entity: updatedCategory,
+        id: updatedCategory.id,
+        updatedAt: updatedCategory.updatedAt,
+        changes,
+      };
     } catch (error) {
-      this.logger.error('Failed to update category', error instanceof Error ? error : new Error(String(error)), { categoryId: request.id, traceId });
+      this.logger.error(
+        'Failed to update category',
+        error instanceof Error ? error : new Error(String(error)),
+        { categoryId: request.id, traceId },
+      );
       throw error;
     }
   }
 
   private validateInput(request: UpdateCategoryRequest): void {
-    if (!request.id || request.id.trim().length === 0) throw new ValidationError("Field 'id' is required");
-    if (request.name !== undefined) this.validateStringField('name', request.name, { min: 2, max: 100 });
-    if (request.description !== undefined) this.validateStringField('description', request.description, { max: 500 });
-    if (request.slug !== undefined) this.validateStringField('slug', request.slug, { min: 2, max: 100, pattern: /^[a-z0-9-]+$/ });
+    if (!request.id || request.id.trim().length === 0)
+      throw new ValidationError("Field 'id' is required");
+    if (request.name !== undefined)
+      this.validateStringField('name', request.name, { min: 2, max: 100 });
+    if (request.description !== undefined)
+      this.validateStringField('description', request.description, { max: 500 });
+    if (request.slug !== undefined)
+      this.validateStringField('slug', request.slug, { min: 2, max: 100, pattern: /^[a-z0-9-]+$/ });
     if (request.sortOrder !== undefined) {
-      if (typeof request.sortOrder !== 'number' || isNaN(request.sortOrder) || !Number.isInteger(request.sortOrder))
+      if (
+        typeof request.sortOrder !== 'number' ||
+        isNaN(request.sortOrder) ||
+        !Number.isInteger(request.sortOrder)
+      )
         throw new ValidationError("Field 'sortOrder' must be an integer");
       if (request.sortOrder < 0 || request.sortOrder > 999)
         throw new ValidationError("Field 'sortOrder' must be between 0 and 999");
     }
   }
 
-  private validateStringField(field: string, value: any, opts?: { min?: number; max?: number; pattern?: RegExp }): void {
+  private validateStringField(
+    field: string,
+    value: any,
+    opts?: { min?: number; max?: number; pattern?: RegExp },
+  ): void {
     if (typeof value !== 'string') throw new ValidationError(`Field '${field}' must be a string`);
-    if (opts?.min && value.length < opts.min) throw new ValidationError(`Field '${field}' must be at least ${opts.min} characters`);
-    if (opts?.max && value.length > opts.max) throw new ValidationError(`Field '${field}' must not exceed ${opts.max} characters`);
-    if (opts?.pattern && !opts.pattern.test(value)) throw new ValidationError(`Field '${field}' has an invalid format`);
+    if (opts?.min && value.length < opts.min)
+      throw new ValidationError(`Field '${field}' must be at least ${opts.min} characters`);
+    if (opts?.max && value.length > opts.max)
+      throw new ValidationError(`Field '${field}' must not exceed ${opts.max} characters`);
+    if (opts?.pattern && !opts.pattern.test(value))
+      throw new ValidationError(`Field '${field}' has an invalid format`);
   }
 }

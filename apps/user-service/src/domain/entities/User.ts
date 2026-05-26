@@ -48,7 +48,7 @@ export interface User {
 export enum UserRole {
   ADMIN = 'admin',
   CUSTOMER = 'customer',
-  STAFF = 'staff'
+  STAFF = 'staff',
 }
 
 export interface CreateUserRequest {
@@ -128,14 +128,16 @@ export class UserProfileEntity implements UserProfile {
     public createdAt: Date,
     public updatedAt: Date,
     public addresses: UserAddress[],
-    public favoriteProductIds: string[]
+    public favoriteProductIds: string[],
   ) {}
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`.trim();
   }
 
-  static create(data: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt' | 'addresses' | 'favoriteProductIds'>): UserProfileEntity {
+  static create(
+    data: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt' | 'addresses' | 'favoriteProductIds'>,
+  ): UserProfileEntity {
     return new UserProfileEntity(
       crypto.randomUUID(),
       data.email,
@@ -151,7 +153,7 @@ export class UserProfileEntity implements UserProfile {
       new Date(),
       new Date(),
       [],
-      []
+      [],
     );
   }
 }
@@ -171,7 +173,7 @@ export class UserAddressEntity implements UserAddress {
     public country: string,
     public isDefault: boolean,
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
   ) {}
 
   get fullName(): string {
@@ -185,7 +187,7 @@ export class UserAddressEntity implements UserAddress {
       this.city,
       this.state,
       this.postalCode,
-      this.country
+      this.country,
     ].filter(Boolean);
     return parts.join(', ');
   }
@@ -205,7 +207,7 @@ export class UserAddressEntity implements UserAddress {
       data.country,
       data.isDefault,
       new Date(),
-      new Date()
+      new Date(),
     );
   }
 }
@@ -220,7 +222,7 @@ export class UserEntity implements User {
     public profile: UserProfileEntity | undefined,
     public addresses: UserAddressEntity[],
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
   ) {}
 
   get fullName(): string {
@@ -242,7 +244,9 @@ export class UserEntity implements User {
     return this.role === UserRole.STAFF || this.role === UserRole.ADMIN;
   }
 
-  static create(data: Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'profile' | 'addresses'>): UserEntity {
+  static create(
+    data: Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'profile' | 'addresses'>,
+  ): UserEntity {
     return new UserEntity(
       crypto.randomUUID(),
       data.email,
@@ -252,7 +256,7 @@ export class UserEntity implements User {
       undefined,
       [],
       new Date(),
-      new Date()
+      new Date(),
     );
   }
 }

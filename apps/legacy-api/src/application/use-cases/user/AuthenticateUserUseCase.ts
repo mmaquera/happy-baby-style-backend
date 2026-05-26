@@ -4,7 +4,11 @@ import { ILogger } from '@hbs/logging';
 import { User } from '../../../domain/entities/User';
 import { UserSession } from '../../../domain/entities/Auth';
 import { LoggingDecorator } from '@hbs/logging';
-import { ValidationError, NotFoundError, UnauthorizedError } from '../../../domain/errors/DomainError';
+import {
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+} from '../../../domain/errors/DomainError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -30,7 +34,7 @@ export class AuthenticateUserUseCase {
   constructor(
     private userRepository: IUserRepository,
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   // @LoggingDecorator.logUseCase({
@@ -43,13 +47,13 @@ export class AuthenticateUserUseCase {
     this.logger.info('Starting user authentication process', {
       email: data.email,
       hasUserAgent: !!data.userAgent,
-      hasIpAddress: !!data.ipAddress
+      hasIpAddress: !!data.ipAddress,
     });
 
     try {
       // Validate email format
       this.validateEmail(data.email);
-      
+
       // Validate password
       this.validatePassword(data.password);
 
@@ -78,23 +82,23 @@ export class AuthenticateUserUseCase {
       // Generate JWT tokens
       const jwtSecret = process.env.JWT_SECRET || 'default-secret-key';
       const accessToken = jwt.sign(
-        { 
-          userId: user.id, 
-          email: user.email, 
-          role: user.role 
+        {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
         },
         jwtSecret,
-        { expiresIn: '1h' }
+        { expiresIn: '1h' },
       );
 
       const refreshToken = jwt.sign(
-        { 
-          userId: user.id, 
+        {
+          userId: user.id,
           email: user.email,
-          type: 'refresh'
+          type: 'refresh',
         },
         jwtSecret,
-        { expiresIn: '7d' }
+        { expiresIn: '7d' },
       );
 
       // Create user session
@@ -107,7 +111,7 @@ export class AuthenticateUserUseCase {
         expiresAt: sessionExpiresAt,
         userAgent: data.userAgent,
         ipAddress: data.ipAddress,
-        isActive: true
+        isActive: true,
       });
 
       // Create session analytics automatically
@@ -123,16 +127,16 @@ export class AuthenticateUserUseCase {
           browser: this.extractBrowser(data.userAgent),
           os: this.extractOS(data.userAgent),
           country: data.ipAddress ? await this.getCountryFromIP(data.ipAddress) : undefined,
-          city: data.ipAddress ? await this.getCityFromIP(data.ipAddress) : undefined
+          city: data.ipAddress ? await this.getCityFromIP(data.ipAddress) : undefined,
         });
       } catch (analyticsError) {
-              // Log error but don't fail authentication
-      this.logger.warn('Failed to create session analytics', {
-        userId: user.id,
-        sessionId: session.sessionToken,
-        operation: 'AuthenticateUser',
-        error: analyticsError instanceof Error ? analyticsError.message : 'Unknown error'
-      });
+        // Log error but don't fail authentication
+        this.logger.warn('Failed to create session analytics', {
+          userId: user.id,
+          sessionId: session.sessionToken,
+          operation: 'AuthenticateUser',
+          error: analyticsError instanceof Error ? analyticsError.message : 'Unknown error',
+        });
       }
 
       // Update last login time
@@ -142,7 +146,7 @@ export class AuthenticateUserUseCase {
         userId: user.id,
         userRole: user.role,
         sessionId: session.id,
-        sessionExpiresAt: sessionExpiresAt.toISOString()
+        sessionExpiresAt: sessionExpiresAt.toISOString(),
       });
 
       return {
@@ -151,15 +155,14 @@ export class AuthenticateUserUseCase {
         refreshToken,
         session: {
           id: session.id,
-          expiresAt: sessionExpiresAt.toISOString()
-        }
+          expiresAt: sessionExpiresAt.toISOString(),
+        },
       };
-
     } catch (error) {
       this.logger.error('User authentication failed', error as Error, {
         email: data.email,
         hasUserAgent: !!data.userAgent,
-        hasIpAddress: !!data.ipAddress
+        hasIpAddress: !!data.ipAddress,
       });
       throw error;
     }
@@ -180,7 +183,7 @@ export class AuthenticateUserUseCase {
 
   private extractDeviceType(userAgent?: string): string | undefined {
     if (!userAgent) return undefined;
-    
+
     const ua = userAgent.toLowerCase();
     if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
       return 'mobile';
@@ -193,7 +196,7 @@ export class AuthenticateUserUseCase {
 
   private extractBrowser(userAgent?: string): string | undefined {
     if (!userAgent) return undefined;
-    
+
     const ua = userAgent.toLowerCase();
     if (ua.includes('chrome')) return 'chrome';
     if (ua.includes('firefox')) return 'firefox';
@@ -205,7 +208,7 @@ export class AuthenticateUserUseCase {
 
   private extractOS(userAgent?: string): string | undefined {
     if (!userAgent) return undefined;
-    
+
     const ua = userAgent.toLowerCase();
     if (ua.includes('windows')) return 'windows';
     if (ua.includes('mac os')) return 'macos';

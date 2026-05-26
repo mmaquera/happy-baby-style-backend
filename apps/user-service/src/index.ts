@@ -29,7 +29,10 @@ import { UpdateUserAddressUseCase } from './application/use-cases/user/UpdateUse
 import { DeleteUserAddressUseCase } from './application/use-cases/user/DeleteUserAddressUseCase';
 import { GetUserAddressByIdUseCase } from './application/use-cases/user/GetUserAddressByIdUseCase';
 import { SetDefaultAddressUseCase } from './application/use-cases/user/SetDefaultAddressUseCase';
-import { GetUserOrderHistoryUseCase, IUserOrderRepository } from './application/use-cases/user/GetUserOrderHistoryUseCase';
+import {
+  GetUserOrderHistoryUseCase,
+  IUserOrderRepository,
+} from './application/use-cases/user/GetUserOrderHistoryUseCase';
 import { CreateUserSessionAnalyticsUseCase } from './application/use-cases/user/CreateUserSessionAnalyticsUseCase';
 import { UpdateUserSessionAnalyticsUseCase } from './application/use-cases/user/UpdateUserSessionAnalyticsUseCase';
 import { GetUserSessionAnalyticsUseCase } from './application/use-cases/user/GetUserSessionAnalyticsUseCase';
@@ -43,7 +46,9 @@ const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').spl
 
 // Stub: order history queries route to order-service via federation in production
 class StubUserOrderRepository implements IUserOrderRepository {
-  async getUserOrders(_params: any) { return { orders: [], total: 0 }; }
+  async getUserOrders(_params: any) {
+    return { orders: [], total: 0 };
+  }
   async getUserOrderStats(_userId: string) {
     return { totalOrders: 0, totalSpent: 0, averageOrderValue: 0 };
   }
@@ -54,12 +59,14 @@ async function start() {
   const app = express();
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
-  app.use(cors({
-    origin: FRONTEND_URLS,
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }));
+  app.use(
+    cors({
+      origin: FRONTEND_URLS,
+      credentials: true,
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }),
+  );
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'User Service', port: PORT });
@@ -97,9 +104,24 @@ async function start() {
   const getUserByIdUseCase = new GetUserByIdUseCase(userRepository);
   const updateUserUseCase = new UpdateUserUseCase(userRepository);
   const getUserStatsUseCase = new GetUserStatsUseCase(userRepository);
-  const authenticateUserUseCase = new AuthenticateUserUseCase(userRepository, authRepository, useCaseLogger);
-  const updateUserPasswordUseCase = new UpdateUserPasswordUseCase(authRepository, auditRepository, securityEventRepository, emailService, useCaseLogger);
-  const setUserPasswordUseCase = new SetUserPasswordUseCase(authRepository, auditRepository, securityEventRepository, useCaseLogger);
+  const authenticateUserUseCase = new AuthenticateUserUseCase(
+    userRepository,
+    authRepository,
+    useCaseLogger,
+  );
+  const updateUserPasswordUseCase = new UpdateUserPasswordUseCase(
+    authRepository,
+    auditRepository,
+    securityEventRepository,
+    emailService,
+    useCaseLogger,
+  );
+  const setUserPasswordUseCase = new SetUserPasswordUseCase(
+    authRepository,
+    auditRepository,
+    securityEventRepository,
+    useCaseLogger,
+  );
   const logoutUserUseCase = new LogoutUserUseCase(authRepository, useCaseLogger);
   const refreshTokenUseCase = new RefreshTokenUseCase(authRepository, useCaseLogger);
   const createUserAddressUseCase = new CreateUserAddressUseCase(userRepository);
@@ -108,11 +130,23 @@ async function start() {
   const getUserAddressByIdUseCase = new GetUserAddressByIdUseCase(userRepository);
   const setDefaultAddressUseCase = new SetDefaultAddressUseCase(userRepository);
   const getUserOrderHistoryUseCase = new GetUserOrderHistoryUseCase(new StubUserOrderRepository());
-  const createUserSessionAnalyticsUseCase = new CreateUserSessionAnalyticsUseCase(authRepository, useCaseLogger);
-  const updateUserSessionAnalyticsUseCase = new UpdateUserSessionAnalyticsUseCase(authRepository, useCaseLogger);
-  const getUserSessionAnalyticsUseCase = new GetUserSessionAnalyticsUseCase(authRepository, useCaseLogger);
+  const createUserSessionAnalyticsUseCase = new CreateUserSessionAnalyticsUseCase(
+    authRepository,
+    useCaseLogger,
+  );
+  const updateUserSessionAnalyticsUseCase = new UpdateUserSessionAnalyticsUseCase(
+    authRepository,
+    useCaseLogger,
+  );
+  const getUserSessionAnalyticsUseCase = new GetUserSessionAnalyticsUseCase(
+    authRepository,
+    useCaseLogger,
+  );
   const revokeUserSessionUseCase = new RevokeUserSessionUseCase(authRepository, useCaseLogger);
-  const revokeAllUserSessionsUseCase = new RevokeAllUserSessionsUseCase(authRepository, useCaseLogger);
+  const revokeAllUserSessionsUseCase = new RevokeAllUserSessionsUseCase(
+    authRepository,
+    useCaseLogger,
+  );
 
   const resolvers = createResolvers({
     userRepository,

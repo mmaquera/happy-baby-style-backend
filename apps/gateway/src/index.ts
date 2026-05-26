@@ -33,7 +33,7 @@ async function start() {
     helmet({
       contentSecurityPolicy: false, // Apollo Sandbox needs this
       crossOriginEmbedderPolicy: false,
-    })
+    }),
   );
 
   app.use(
@@ -42,7 +42,7 @@ async function start() {
       credentials: true,
       methods: ['GET', 'POST', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
-    })
+    }),
   );
 
   app.get('/health', (_req, res) => {
@@ -77,12 +77,14 @@ async function start() {
     express.json({ limit: '10mb' }),
     expressMiddleware(server, {
       context: async ({ req }) => ({ req }),
-    })
+    }),
   );
 
   app.listen(PORT, () => {
     console.log(`🚀 Gateway running at http://localhost:${PORT}/graphql`);
-    console.log(`📡 Composing subgraphs: legacy → ${LEGACY_API_URL} | category → ${CATEGORY_SERVICE_URL} | product → ${PRODUCT_SERVICE_URL} | media → ${MEDIA_SERVICE_URL} | order → ${ORDER_SERVICE_URL} | user → ${USER_SERVICE_URL}`);
+    console.log(
+      `📡 Composing subgraphs: legacy → ${LEGACY_API_URL} | category → ${CATEGORY_SERVICE_URL} | product → ${PRODUCT_SERVICE_URL} | media → ${MEDIA_SERVICE_URL} | order → ${ORDER_SERVICE_URL} | user → ${USER_SERVICE_URL}`,
+    );
   });
 }
 

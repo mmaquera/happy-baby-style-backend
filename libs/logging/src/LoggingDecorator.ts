@@ -48,7 +48,7 @@ export class LoggingDecorator {
           operation: operationName,
           method: propertyName,
           className: target.constructor.name,
-          ...options.context
+          ...options.context,
         };
 
         if (options.includeArgs && args.length > 0) {
@@ -66,7 +66,7 @@ export class LoggingDecorator {
           const successContext: any = {
             ...entryContext,
             duration,
-            success: true
+            success: true,
           };
 
           if (options.includeResult && result !== undefined) {
@@ -74,7 +74,11 @@ export class LoggingDecorator {
           }
 
           if (options.includeDuration && duration > 1000) {
-            LoggingDecorator.logger.warn(`Slow operation: ${operationName} took ${duration}ms`, successContext, traceId);
+            LoggingDecorator.logger.warn(
+              `Slow operation: ${operationName} took ${duration}ms`,
+              successContext,
+              traceId,
+            );
           } else {
             LoggingDecorator.logger.debug(`Completed ${operationName}`, successContext, traceId);
           }
@@ -86,11 +90,16 @@ export class LoggingDecorator {
             ...entryContext,
             duration,
             success: false,
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           };
 
           if (options.includeError) {
-            LoggingDecorator.logger.error(`Error in ${operationName}`, error as Error, errorContext, traceId);
+            LoggingDecorator.logger.error(
+              `Error in ${operationName}`,
+              error as Error,
+              errorContext,
+              traceId,
+            );
           } else {
             LoggingDecorator.logger.warn(`Failed ${operationName}`, errorContext, traceId);
           }
@@ -118,16 +127,20 @@ export class LoggingDecorator {
         // Start performance measurement
         const operationId = LoggingDecorator.performanceLogger.startTimer(operationName, {
           useCase: operationName,
-          args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined
+          args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined,
         });
 
         try {
           // Log use case start
-          useCaseLogger.info(`Starting use case: ${operationName}`, {
-            operation: operationName,
-            args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined,
-            ...options.context
-          }, traceId);
+          useCaseLogger.info(
+            `Starting use case: ${operationName}`,
+            {
+              operation: operationName,
+              args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined,
+              ...options.context,
+            },
+            traceId,
+          );
 
           // Execute use case
           const result = await method.apply(this, args);
@@ -135,32 +148,41 @@ export class LoggingDecorator {
           // End performance measurement
           const measurement = LoggingDecorator.performanceLogger.endTimer(operationId, {
             success: true,
-            result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined
+            result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined,
           });
 
           // Log successful completion
-          useCaseLogger.info(`Use case completed: ${operationName}`, {
-            operation: operationName,
-            duration: measurement?.duration,
-            success: true,
-            result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined,
-            ...options.context
-          }, traceId);
+          useCaseLogger.info(
+            `Use case completed: ${operationName}`,
+            {
+              operation: operationName,
+              duration: measurement?.duration,
+              success: true,
+              result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined,
+              ...options.context,
+            },
+            traceId,
+          );
 
           return result;
         } catch (error) {
           // End performance measurement with error
           LoggingDecorator.performanceLogger.endTimer(operationId, {
             success: false,
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           });
 
           // Log error
-          useCaseLogger.error(`Use case failed: ${operationName}`, error as Error, {
-            operation: operationName,
-            success: false,
-            ...options.context
-          }, traceId);
+          useCaseLogger.error(
+            `Use case failed: ${operationName}`,
+            error as Error,
+            {
+              operation: operationName,
+              success: false,
+              ...options.context,
+            },
+            traceId,
+          );
 
           throw error;
         }
@@ -186,38 +208,51 @@ export class LoggingDecorator {
 
         try {
           // Log repository operation start
-          repositoryLogger.debug(`Repository operation: ${operationName}`, {
-            operation: operationName,
-            method: propertyName,
-            repository: target.constructor.name,
-            args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined,
-            ...options.context
-          }, traceId);
+          repositoryLogger.debug(
+            `Repository operation: ${operationName}`,
+            {
+              operation: operationName,
+              method: propertyName,
+              repository: target.constructor.name,
+              args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined,
+              ...options.context,
+            },
+            traceId,
+          );
 
           // Execute repository operation
           const result = await method.apply(this, args);
           const duration = Date.now() - startTime;
 
           // Log successful completion
-          repositoryLogger.debug(`Repository operation completed: ${operationName}`, {
-            operation: operationName,
-            duration,
-            success: true,
-            result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined,
-            ...options.context
-          }, traceId);
+          repositoryLogger.debug(
+            `Repository operation completed: ${operationName}`,
+            {
+              operation: operationName,
+              duration,
+              success: true,
+              result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined,
+              ...options.context,
+            },
+            traceId,
+          );
 
           return result;
         } catch (error) {
           const duration = Date.now() - startTime;
 
           // Log error
-          repositoryLogger.error(`Repository operation failed: ${operationName}`, error as Error, {
-            operation: operationName,
-            duration,
-            success: false,
-            ...options.context
-          }, traceId);
+          repositoryLogger.error(
+            `Repository operation failed: ${operationName}`,
+            error as Error,
+            {
+              operation: operationName,
+              duration,
+              success: false,
+              ...options.context,
+            },
+            traceId,
+          );
 
           throw error;
         }
@@ -243,38 +278,51 @@ export class LoggingDecorator {
 
         try {
           // Log service operation start
-          serviceLogger.debug(`Service operation: ${operationName}`, {
-            operation: operationName,
-            method: propertyName,
-            service: target.constructor.name,
-            args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined,
-            ...options.context
-          }, traceId);
+          serviceLogger.debug(
+            `Service operation: ${operationName}`,
+            {
+              operation: operationName,
+              method: propertyName,
+              service: target.constructor.name,
+              args: options.includeArgs ? LoggingDecorator.sanitizeArgs(args) : undefined,
+              ...options.context,
+            },
+            traceId,
+          );
 
           // Execute service operation
           const result = await method.apply(this, args);
           const duration = Date.now() - startTime;
 
           // Log successful completion
-          serviceLogger.debug(`Service operation completed: ${operationName}`, {
-            operation: operationName,
-            duration,
-            success: true,
-            result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined,
-            ...options.context
-          }, traceId);
+          serviceLogger.debug(
+            `Service operation completed: ${operationName}`,
+            {
+              operation: operationName,
+              duration,
+              success: true,
+              result: options.includeResult ? LoggingDecorator.sanitizeResult(result) : undefined,
+              ...options.context,
+            },
+            traceId,
+          );
 
           return result;
         } catch (error) {
           const duration = Date.now() - startTime;
 
           // Log error
-          serviceLogger.error(`Service operation failed: ${operationName}`, error as Error, {
-            operation: operationName,
-            duration,
-            success: false,
-            ...options.context
-          }, traceId);
+          serviceLogger.error(
+            `Service operation failed: ${operationName}`,
+            error as Error,
+            {
+              operation: operationName,
+              duration,
+              success: false,
+              ...options.context,
+            },
+            traceId,
+          );
 
           throw error;
         }
@@ -288,12 +336,12 @@ export class LoggingDecorator {
    * Sanitize arguments for logging
    */
   private static sanitizeArgs(args: any[]): any[] {
-    return args.map(arg => {
+    return args.map((arg) => {
       if (typeof arg === 'object' && arg !== null) {
         const sanitized = { ...arg };
         const sensitiveFields = ['password', 'token', 'secret', 'key', 'authorization'];
 
-        sensitiveFields.forEach(field => {
+        sensitiveFields.forEach((field) => {
           if (sanitized[field]) {
             sanitized[field] = '[REDACTED]';
           }
@@ -313,7 +361,7 @@ export class LoggingDecorator {
       const sanitized = { ...result };
       const sensitiveFields = ['password', 'token', 'secret', 'key', 'authorization'];
 
-      sensitiveFields.forEach(field => {
+      sensitiveFields.forEach((field) => {
         if (sanitized[field]) {
           sanitized[field] = '[REDACTED]';
         }
@@ -323,4 +371,4 @@ export class LoggingDecorator {
     }
     return result;
   }
-} 
+}

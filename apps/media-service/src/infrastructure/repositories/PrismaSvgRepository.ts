@@ -27,14 +27,17 @@ export class PrismaSvgRepository implements ISvgRepository {
           createdAt: svg.createdAt,
           dimensions: svg.dimensions ? JSON.stringify(svg.dimensions) : null,
           viewBox: svg.viewBox,
-          optimized: svg.optimized
-        }
+          optimized: svg.optimized,
+        },
       });
 
       this.logger.info('SVG created', { svgId: created.id });
       return this.mapToEntity(created);
     } catch (error) {
-      this.logger.error('Error creating SVG', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error creating SVG',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -45,7 +48,10 @@ export class PrismaSvgRepository implements ISvgRepository {
       if (!image) return null;
       return this.mapToEntity(image);
     } catch (error) {
-      this.logger.error('Error finding SVG by id', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding SVG by id',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -56,14 +62,17 @@ export class PrismaSvgRepository implements ISvgRepository {
         where: {
           entityType,
           entityId,
-          mimeType: { in: ['image/svg+xml', 'application/svg+xml'] }
+          mimeType: { in: ['image/svg+xml', 'application/svg+xml'] },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      return images.map(img => this.mapToEntity(img));
+      return images.map((img) => this.mapToEntity(img));
     } catch (error) {
-      this.logger.error('Error finding SVGs by entity', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding SVGs by entity',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -73,14 +82,17 @@ export class PrismaSvgRepository implements ISvgRepository {
       const image = await this.prisma.image.findFirst({
         where: {
           fileName,
-          mimeType: { in: ['image/svg+xml', 'application/svg+xml'] }
-        }
+          mimeType: { in: ['image/svg+xml', 'application/svg+xml'] },
+        },
       });
 
       if (!image) return null;
       return this.mapToEntity(image);
     } catch (error) {
-      this.logger.error('Error finding SVG by filename', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding SVG by filename',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -104,7 +116,10 @@ export class PrismaSvgRepository implements ISvgRepository {
       const updated = await this.prisma.image.update({ where: { id }, data: updateData });
       return this.mapToEntity(updated);
     } catch (error) {
-      this.logger.error('Error updating SVG', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error updating SVG',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -115,7 +130,10 @@ export class PrismaSvgRepository implements ISvgRepository {
       this.logger.info('SVG deleted', { svgId: id });
       return true;
     } catch (error) {
-      this.logger.error('Error deleting SVG', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error deleting SVG',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -126,12 +144,15 @@ export class PrismaSvgRepository implements ISvgRepository {
         where: { mimeType: { in: ['image/svg+xml', 'application/svg+xml'] } },
         take: limit,
         skip: offset,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      return images.map(img => this.mapToEntity(img));
+      return images.map((img) => this.mapToEntity(img));
     } catch (error) {
-      this.logger.error('Error finding SVGs', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding SVGs',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -139,29 +160,39 @@ export class PrismaSvgRepository implements ISvgRepository {
   async count(): Promise<number> {
     try {
       return await this.prisma.image.count({
-        where: { mimeType: { in: ['image/svg+xml', 'application/svg+xml'] } }
+        where: { mimeType: { in: ['image/svg+xml', 'application/svg+xml'] } },
       });
     } catch (error) {
-      this.logger.error('Error counting SVGs', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error counting SVGs',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
 
-  async findByEntityType(entityType: SvgEntityType, limit?: number, offset?: number): Promise<SvgEntity[]> {
+  async findByEntityType(
+    entityType: SvgEntityType,
+    limit?: number,
+    offset?: number,
+  ): Promise<SvgEntity[]> {
     try {
       const images = await this.prisma.image.findMany({
         where: {
           entityType,
-          mimeType: { in: ['image/svg+xml', 'application/svg+xml'] }
+          mimeType: { in: ['image/svg+xml', 'application/svg+xml'] },
         },
         take: limit,
         skip: offset,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      return images.map(img => this.mapToEntity(img));
+      return images.map((img) => this.mapToEntity(img));
     } catch (error) {
-      this.logger.error('Error finding SVGs by entity type', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding SVGs by entity type',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -181,7 +212,7 @@ export class PrismaSvgRepository implements ISvgRepository {
       image.createdAt,
       image.dimensions ? JSON.parse(image.dimensions) : undefined,
       image.viewBox,
-      image.optimized || false
+      image.optimized || false,
     );
   }
 }

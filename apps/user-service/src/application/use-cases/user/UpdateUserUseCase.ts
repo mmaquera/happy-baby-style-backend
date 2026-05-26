@@ -54,7 +54,7 @@ export class UpdateUserUseCase {
         const birthDate = new Date(data.profile.birthDate);
         const today = new Date();
         const age = today.getFullYear() - birthDate.getFullYear();
-        
+
         if (age < 13 || age > 120) {
           throw new Error('Birth date must be for a person between 13 and 120 years old');
         }
@@ -63,7 +63,7 @@ export class UpdateUserUseCase {
 
     // Update user
     const updatedUser = await this.userRepository.updateUser(id, data);
-    
+
     return updatedUser;
   }
-} 
+}

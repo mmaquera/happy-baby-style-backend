@@ -33,7 +33,10 @@ export class ManageUserFavoritesUseCase {
     }
 
     // Check if already in favorites
-    const isAlreadyFavorite = await this.favoritesRepository.isFavorite(data.userId, data.productId);
+    const isAlreadyFavorite = await this.favoritesRepository.isFavorite(
+      data.userId,
+      data.productId,
+    );
     if (isAlreadyFavorite) {
       throw new Error('Product is already in favorites');
     }
@@ -67,7 +70,10 @@ export class ManageUserFavoritesUseCase {
     return await this.favoritesRepository.getUserFavorites(userId);
   }
 
-  async toggleFavorite(userId: string, productId: string): Promise<{ action: 'added' | 'removed'; favorite?: UserFavorite }> {
+  async toggleFavorite(
+    userId: string,
+    productId: string,
+  ): Promise<{ action: 'added' | 'removed'; favorite?: UserFavorite }> {
     // Validate inputs
     if (!userId || !productId) {
       throw new Error('User ID and Product ID are required');

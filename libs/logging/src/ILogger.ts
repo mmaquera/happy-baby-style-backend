@@ -69,7 +69,7 @@ export enum LogLevel {
   INFO = 'info',
   WARN = 'warn',
   ERROR = 'error',
-  FATAL = 'fatal'
+  FATAL = 'fatal',
 }
 
 /**
@@ -101,4 +101,4 @@ export interface LogEntry {
     code?: string;
     statusCode?: number;
   };
-} 
+}

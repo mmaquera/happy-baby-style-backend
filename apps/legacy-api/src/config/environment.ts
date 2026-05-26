@@ -31,7 +31,7 @@ export interface EnvironmentConfig {
   frontendUrl: string;
   frontendUrls: string[];
   resetPasswordUrl: string;
-  
+
   // Database Configuration
   databaseUrl: string;
   databaseHost: string;
@@ -40,23 +40,23 @@ export interface EnvironmentConfig {
   databaseUser: string;
   databasePassword: string;
   databaseSsl: boolean;
-  
+
   // JWT Configuration
   jwtSecret: string;
   jwtExpiresIn: string;
   jwtRefreshExpiresIn: string;
-  
+
   // OAuth Configuration
   googleClientId: string;
   googleClientSecret: string;
   googleRedirectUri: string;
   oauthStateSecret: string;
   sessionSecret: string;
-  
+
   // File Upload Configuration
   maxFileSize: number;
   uploadPath: string;
-  
+
   // Logging Configuration
   logLevel: string;
   logEnableConsole: boolean;
@@ -72,7 +72,7 @@ export interface EnvironmentConfig {
   logIncludeUserId: boolean;
   logEnableErrorStack: boolean;
   logEnablePerformance: boolean;
-  
+
   // Email Configuration
   smtpHost: string;
   smtpPort: number;
@@ -80,7 +80,7 @@ export interface EnvironmentConfig {
   smtpUser: string;
   smtpPass: string;
   smtpFromEmail: string;
-  
+
   // Feature Flags
   enableGraphQLPlayground: boolean;
   enableCors: boolean;
@@ -125,7 +125,8 @@ class EnvironmentService {
         // pathname like "/db_name"
         const name = (parsed.pathname || '').replace(/^\//, '') || '';
         const sslMode = parsed.searchParams.get('sslmode');
-        const ssl = sslMode === 'require' || sslMode === 'prefer' || sslMode === 'verify-full' || dbSslVar;
+        const ssl =
+          sslMode === 'require' || sslMode === 'prefer' || sslMode === 'verify-full' || dbSslVar;
         return { host, port, name, ssl };
       } catch {
         return { host: '', port: dbPortVar, name: '', ssl: dbSslVar };
@@ -140,7 +141,7 @@ class EnvironmentService {
     if (!hasDatabaseUrl && !hasDbPieces) {
       // Throwing here makes misconfiguration obvious at startup
       throw new Error(
-        'Database configuration missing. Provide DATABASE_URL or DB_HOST/DB_NAME/DB_USER/DB_PASSWORD.'
+        'Database configuration missing. Provide DATABASE_URL or DB_HOST/DB_NAME/DB_USER/DB_PASSWORD.',
       );
     }
 
@@ -149,9 +150,12 @@ class EnvironmentService {
       port: parseInt(process.env.PORT || '3001'),
       nodeEnv: process.env.NODE_ENV || 'development',
       frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      frontendUrls: process.env.FRONTEND_URLS?.split(',').map(url => url.trim()) || ['http://localhost:3000'],
-      resetPasswordUrl: process.env.RESET_PASSWORD_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
-      
+      frontendUrls: process.env.FRONTEND_URLS?.split(',').map((url) => url.trim()) || [
+        'http://localhost:3000',
+      ],
+      resetPasswordUrl:
+        process.env.RESET_PASSWORD_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
+
       // Database Configuration
       databaseUrl: rawDatabaseUrl,
       databaseHost: urlDerived?.host || dbHostVar,
@@ -160,23 +164,24 @@ class EnvironmentService {
       databaseUser: dbUserVar,
       databasePassword: dbPasswordVar,
       databaseSsl: urlDerived?.ssl ?? dbSslVar,
-      
+
       // JWT Configuration
       jwtSecret: process.env.JWT_SECRET || 'change-me-in-production',
       jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
       jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-      
+
       // OAuth Configuration
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
       googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/auth/google/callback',
+      googleRedirectUri:
+        process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/auth/google/callback',
       oauthStateSecret: process.env.OAUTH_STATE_SECRET || 'your-oauth-state-secret-here',
       sessionSecret: process.env.SESSION_SECRET || 'your-session-secret-here',
-      
+
       // File Upload Configuration
       maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760'),
       uploadPath: process.env.UPLOAD_PATH || './uploads',
-      
+
       // Logging Configuration
       logLevel: process.env.LOG_LEVEL || 'info',
       logEnableConsole: process.env.LOG_ENABLE_CONSOLE !== 'false',
@@ -192,15 +197,16 @@ class EnvironmentService {
       logIncludeUserId: process.env.LOG_INCLUDE_USER_ID !== 'false',
       logEnableErrorStack: process.env.LOG_ENABLE_ERROR_STACK !== 'false',
       logEnablePerformance: process.env.LOG_ENABLE_PERFORMANCE !== 'false',
-      
+
       // Email Configuration
       smtpHost: process.env.SMTP_HOST || 'localhost',
       smtpPort: parseInt(process.env.SMTP_PORT || '587'),
       smtpSecure: process.env.SMTP_SECURE === 'true',
       smtpUser: process.env.SMTP_USER || '',
       smtpPass: process.env.SMTP_PASS || '',
-      smtpFromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'noreply@happybabystyle.com',
-      
+      smtpFromEmail:
+        process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'noreply@happybabystyle.com',
+
       // Feature Flags
       enableGraphQLPlayground: !isProduction,
       enableCors: true,
@@ -215,8 +221,16 @@ class EnvironmentService {
   }
 
   public getDatabaseConfig() {
-    const { databaseUrl, databaseHost, databasePort, databaseName, databaseUser, databasePassword, databaseSsl } = this.config;
-    
+    const {
+      databaseUrl,
+      databaseHost,
+      databasePort,
+      databaseName,
+      databaseUser,
+      databasePassword,
+      databaseSsl,
+    } = this.config;
+
     return {
       url: databaseUrl,
       host: databaseHost,
@@ -229,19 +243,28 @@ class EnvironmentService {
   }
 
   public getEmailConfig() {
-    const { smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass, smtpFromEmail, frontendUrl, resetPasswordUrl } = this.config;
-    
+    const {
+      smtpHost,
+      smtpPort,
+      smtpSecure,
+      smtpUser,
+      smtpPass,
+      smtpFromEmail,
+      frontendUrl,
+      resetPasswordUrl,
+    } = this.config;
+
     return {
       host: smtpHost,
       port: smtpPort,
       secure: smtpSecure,
       auth: {
         user: smtpUser,
-        pass: smtpPass
+        pass: smtpPass,
       },
       fromEmail: smtpFromEmail,
       frontendUrl: frontendUrl,
-      resetPasswordUrl: resetPasswordUrl
+      resetPasswordUrl: resetPasswordUrl,
     };
   }
 
@@ -279,4 +302,4 @@ class EnvironmentService {
 }
 
 export const environment = EnvironmentService.getInstance();
-export default EnvironmentService; 
+export default EnvironmentService;

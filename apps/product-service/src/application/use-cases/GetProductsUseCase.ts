@@ -40,7 +40,7 @@ export class GetProductsUseCase {
       search: request.filters?.search?.trim(),
       sku: request.filters?.sku,
       limit,
-      offset
+      offset,
     };
 
     const products = await this.productRepository.findAll(filters);

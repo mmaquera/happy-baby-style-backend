@@ -1,9 +1,19 @@
-import { RefreshTokenUseCase, RefreshTokenRequest, RefreshTokenResponse } from '@application/use-cases/user/RefreshTokenUseCase';
+import {
+  RefreshTokenUseCase,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+} from '@application/use-cases/user/RefreshTokenUseCase';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { ILogger } from '@hbs/logging';
 import { AuthResult, AuthProvider } from '@domain/entities/Auth';
 import { UserRole } from '@domain/entities/User';
-import { ValidationError, NotFoundError, UnauthorizedError, InfrastructureError, BusinessLogicError } from '@domain/errors/DomainError';
+import {
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  InfrastructureError,
+  BusinessLogicError,
+} from '@domain/errors/DomainError';
 
 // Mock del repositorio
 const mockAuthRepository: jest.Mocked<IAuthRepository> = {
@@ -28,14 +38,14 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   registerWithEmail: jest.fn(),
   findOrCreateUserFromGoogle: jest.fn(),
   updateUserLastLogin: jest.fn(),
-      createSessionAnalytics: jest.fn(),
-      findSessionAnalyticsById: jest.fn(),
-      findSessionAnalyticsBySessionId: jest.fn(),
-      findSessionAnalyticsByUserId: jest.fn(),
-      updateSessionAnalytics: jest.fn(),
-      deleteSessionAnalytics: jest.fn(),
-      deleteSessionAnalyticsByUserId: jest.fn(),
-      deleteSessionAnalyticsBySessionId: jest.fn(),
+  createSessionAnalytics: jest.fn(),
+  findSessionAnalyticsById: jest.fn(),
+  findSessionAnalyticsBySessionId: jest.fn(),
+  findSessionAnalyticsByUserId: jest.fn(),
+  updateSessionAnalytics: jest.fn(),
+  deleteSessionAnalytics: jest.fn(),
+  deleteSessionAnalyticsByUserId: jest.fn(),
+  deleteSessionAnalyticsBySessionId: jest.fn(),
   validateSession: jest.fn(),
   refreshUserSession: jest.fn(),
   logoutUser: jest.fn(),
@@ -43,7 +53,7 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   verifyPassword: jest.fn(),
   updatePassword: jest.fn(),
   getUserById: jest.fn(),
-  getUserByEmail: jest.fn()
+  getUserByEmail: jest.fn(),
 };
 
 // Mock del logger
@@ -54,7 +64,7 @@ const mockLogger: jest.Mocked<ILogger> = {
   debug: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(),
-  setTraceId: jest.fn()
+  setTraceId: jest.fn(),
 };
 
 describe('RefreshTokenUseCase', () => {
@@ -66,7 +76,7 @@ describe('RefreshTokenUseCase', () => {
     mockAuthRepo = { ...mockAuthRepository };
     mockLoggerInstance = { ...mockLogger };
     refreshTokenUseCase = new RefreshTokenUseCase(mockAuthRepo, mockLoggerInstance);
-    
+
     // Limpiar todos los mocks
     jest.clearAllMocks();
   });
@@ -75,7 +85,7 @@ describe('RefreshTokenUseCase', () => {
     const validRequest: RefreshTokenRequest = {
       refreshToken: 'valid-refresh-token-123',
       userAgent: 'Mozilla/5.0 (Test Browser)',
-      ipAddress: '192.168.1.1'
+      ipAddress: '192.168.1.1',
     };
 
     const mockAuthResult: AuthResult = {
@@ -90,16 +100,16 @@ describe('RefreshTokenUseCase', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         addresses: [],
-        favoriteProductIds: []
+        favoriteProductIds: [],
       },
       tokens: {
         accessToken: 'new-access-token-456',
         refreshToken: 'new-refresh-token-789',
         expiresIn: 3600,
-        tokenType: 'Bearer'
+        tokenType: 'Bearer',
       },
       isNewUser: false,
-      provider: AuthProvider.EMAIL
+      provider: AuthProvider.EMAIL,
     };
 
     it('should successfully refresh a valid token', async () => {
@@ -114,10 +124,10 @@ describe('RefreshTokenUseCase', () => {
         user: mockAuthResult.user,
         tokens: {
           accessToken: mockAuthResult.tokens.accessToken,
-          refreshToken: mockAuthResult.tokens.refreshToken
+          refreshToken: mockAuthResult.tokens.refreshToken,
         },
         isNewUser: mockAuthResult.isNewUser,
-        provider: mockAuthResult.provider
+        provider: mockAuthResult.provider,
       });
 
       expect(mockAuthRepo.refreshUserSession).toHaveBeenCalledWith(validRequest.refreshToken);
@@ -126,16 +136,16 @@ describe('RefreshTokenUseCase', () => {
         expect.objectContaining({
           refreshToken: '[REDACTED]',
           userAgent: validRequest.userAgent,
-          ipAddress: validRequest.ipAddress
-        })
+          ipAddress: validRequest.ipAddress,
+        }),
       );
       expect(mockLoggerInstance.info).toHaveBeenCalledWith(
         'Token refresh completed successfully',
         expect.objectContaining({
           userId: mockAuthResult.user.id,
           provider: mockAuthResult.provider,
-          isNewUser: mockAuthResult.isNewUser
-        })
+          isNewUser: mockAuthResult.isNewUser,
+        }),
       );
     });
 
@@ -144,13 +154,11 @@ describe('RefreshTokenUseCase', () => {
       const invalidRequest: RefreshTokenRequest = {
         refreshToken: '',
         userAgent: 'Test Browser',
-        ipAddress: '192.168.1.1'
+        ipAddress: '192.168.1.1',
       };
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(invalidRequest)).rejects.toThrow(
-        ValidationError
-      );
+      await expect(refreshTokenUseCase.execute(invalidRequest)).rejects.toThrow(ValidationError);
 
       expect(mockAuthRepo.refreshUserSession).not.toHaveBeenCalled();
       expect(mockLoggerInstance.error).toHaveBeenCalledWith(
@@ -160,8 +168,8 @@ describe('RefreshTokenUseCase', () => {
           refreshToken: '[REDACTED]',
           userAgent: invalidRequest.userAgent,
           ipAddress: invalidRequest.ipAddress,
-          errorType: 'ValidationError'
-        })
+          errorType: 'ValidationError',
+        }),
       );
     });
 
@@ -170,13 +178,11 @@ describe('RefreshTokenUseCase', () => {
       const invalidRequest: RefreshTokenRequest = {
         refreshToken: '   ',
         userAgent: 'Test Browser',
-        ipAddress: '192.168.1.1'
+        ipAddress: '192.168.1.1',
       };
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(invalidRequest)).rejects.toThrow(
-        ValidationError
-      );
+      await expect(refreshTokenUseCase.execute(invalidRequest)).rejects.toThrow(ValidationError);
 
       expect(mockAuthRepo.refreshUserSession).not.toHaveBeenCalled();
     });
@@ -186,13 +192,11 @@ describe('RefreshTokenUseCase', () => {
       const invalidRequest: RefreshTokenRequest = {
         refreshToken: null as any,
         userAgent: 'Test Browser',
-        ipAddress: '192.168.1.1'
+        ipAddress: '192.168.1.1',
       };
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(invalidRequest)).rejects.toThrow(
-        ValidationError
-      );
+      await expect(refreshTokenUseCase.execute(invalidRequest)).rejects.toThrow(ValidationError);
 
       expect(mockAuthRepo.refreshUserSession).not.toHaveBeenCalled();
     });
@@ -203,9 +207,7 @@ describe('RefreshTokenUseCase', () => {
       mockAuthRepo.refreshUserSession.mockRejectedValue(notFoundError);
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(
-        NotFoundError
-      );
+      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(NotFoundError);
 
       expect(mockAuthRepo.refreshUserSession).toHaveBeenCalledWith(validRequest.refreshToken);
       expect(mockLoggerInstance.error).toHaveBeenCalledWith(
@@ -215,8 +217,8 @@ describe('RefreshTokenUseCase', () => {
           refreshToken: '[REDACTED]',
           userAgent: validRequest.userAgent,
           ipAddress: validRequest.ipAddress,
-          errorType: 'NotFoundError'
-        })
+          errorType: 'NotFoundError',
+        }),
       );
     });
 
@@ -226,9 +228,7 @@ describe('RefreshTokenUseCase', () => {
       mockAuthRepo.refreshUserSession.mockRejectedValue(repositoryError);
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(
-        UnauthorizedError
-      );
+      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(UnauthorizedError);
 
       expect(mockAuthRepo.refreshUserSession).toHaveBeenCalledWith(validRequest.refreshToken);
       expect(mockLoggerInstance.error).toHaveBeenCalledWith(
@@ -238,8 +238,8 @@ describe('RefreshTokenUseCase', () => {
           refreshToken: '[REDACTED]',
           userAgent: validRequest.userAgent,
           ipAddress: validRequest.ipAddress,
-          errorType: 'Error'
-        })
+          errorType: 'Error',
+        }),
       );
     });
 
@@ -249,9 +249,7 @@ describe('RefreshTokenUseCase', () => {
       mockAuthRepo.refreshUserSession.mockRejectedValue(repositoryError);
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(
-        NotFoundError
-      );
+      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(NotFoundError);
 
       expect(mockAuthRepo.refreshUserSession).toHaveBeenCalledWith(validRequest.refreshToken);
     });
@@ -262,9 +260,7 @@ describe('RefreshTokenUseCase', () => {
       mockAuthRepo.refreshUserSession.mockRejectedValue(repositoryError);
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(
-        InfrastructureError
-      );
+      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(InfrastructureError);
 
       expect(mockAuthRepo.refreshUserSession).toHaveBeenCalledWith(validRequest.refreshToken);
       expect(mockLoggerInstance.error).toHaveBeenCalledWith(
@@ -274,8 +270,8 @@ describe('RefreshTokenUseCase', () => {
           refreshToken: '[REDACTED]',
           userAgent: validRequest.userAgent,
           ipAddress: validRequest.ipAddress,
-          errorType: 'Error'
-        })
+          errorType: 'Error',
+        }),
       );
     });
 
@@ -285,9 +281,7 @@ describe('RefreshTokenUseCase', () => {
       mockAuthRepo.refreshUserSession.mockRejectedValue(domainError);
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(
-        InfrastructureError
-      );
+      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(InfrastructureError);
 
       expect(mockAuthRepo.refreshUserSession).toHaveBeenCalledWith(validRequest.refreshToken);
       expect(mockLoggerInstance.error).toHaveBeenCalledWith(
@@ -297,15 +291,15 @@ describe('RefreshTokenUseCase', () => {
           refreshToken: '[REDACTED]',
           userAgent: validRequest.userAgent,
           ipAddress: validRequest.ipAddress,
-          errorType: 'BusinessLogicError'
-        })
+          errorType: 'BusinessLogicError',
+        }),
       );
     });
 
     it('should handle request without optional fields', async () => {
       // Arrange
       const minimalRequest: RefreshTokenRequest = {
-        refreshToken: 'minimal-token'
+        refreshToken: 'minimal-token',
       };
       mockAuthRepo.refreshUserSession.mockResolvedValue(mockAuthResult);
 
@@ -320,8 +314,8 @@ describe('RefreshTokenUseCase', () => {
         expect.objectContaining({
           refreshToken: '[REDACTED]',
           userAgent: undefined,
-          ipAddress: undefined
-        })
+          ipAddress: undefined,
+        }),
       );
     });
 
@@ -331,9 +325,7 @@ describe('RefreshTokenUseCase', () => {
       mockAuthRepo.refreshUserSession.mockRejectedValue(unknownError);
 
       // Act & Assert
-      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(
-        InfrastructureError
-      );
+      await expect(refreshTokenUseCase.execute(validRequest)).rejects.toThrow(InfrastructureError);
 
       expect(mockAuthRepo.refreshUserSession).toHaveBeenCalledWith(validRequest.refreshToken);
       expect(mockLoggerInstance.error).toHaveBeenCalledWith(
@@ -343,8 +335,8 @@ describe('RefreshTokenUseCase', () => {
           refreshToken: '[REDACTED]',
           userAgent: validRequest.userAgent,
           ipAddress: validRequest.ipAddress,
-          errorType: 'Unknown'
-        })
+          errorType: 'Unknown',
+        }),
       );
     });
   });

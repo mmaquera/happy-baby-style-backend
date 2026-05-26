@@ -12,7 +12,7 @@ import { RESPONSE_CODES } from '@hbs/shared-kernel';
 export class RateLimitMiddleware {
   constructor(
     private rateLimitService: IRateLimitService,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   /**
@@ -22,19 +22,19 @@ export class RateLimitMiddleware {
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
         const key = this.generateKey(req, endpoint);
-        
+
         // Check if request is allowed
         const isAllowed = await this.rateLimitService.isRequestAllowed(key, endpoint);
-        
+
         if (!isAllowed) {
           const config = this.rateLimitService.getEndpointConfig(endpoint);
-          
+
           this.logger.warn('Rate limit exceeded', {
             endpoint,
             key: this.sanitizeKey(key),
             ipAddress: req.ip,
             userAgent: req.get('User-Agent'),
-            operation: 'RateLimitMiddleware'
+            operation: 'RateLimitMiddleware',
           });
 
           // Return rate limit exceeded response
@@ -45,13 +45,13 @@ export class RateLimitMiddleware {
               endpoint,
               retryAfter: this.calculateRetryAfter(req, endpoint),
               limit: config.maxRequests,
-              window: config.windowMs
+              window: config.windowMs,
             },
             {
               requestId: req.headers['x-request-id'] as string,
               traceId: `rate-limit-${Date.now()}`,
-              duration: 0
-            }
+              duration: 0,
+            },
           );
 
           res.status(429).json(response);
@@ -66,19 +66,19 @@ export class RateLimitMiddleware {
           try {
             const success = res.statusCode < 400;
             await this.rateLimitService.recordRequest(key, endpoint, success);
-            
+
             // Add rate limit headers
             const status = await this.rateLimitService.getRateLimitStatus(key, endpoint);
             res.set({
               'X-RateLimit-Limit': this.rateLimitService.getEndpointConfig(endpoint).maxRequests,
               'X-RateLimit-Remaining': status.remaining,
-              'X-RateLimit-Reset': Math.floor(status.resetTime.getTime() / 1000)
+              'X-RateLimit-Reset': Math.floor(status.resetTime.getTime() / 1000),
             });
           } catch (error) {
             this.logger.error('Error updating rate limit after response', error as Error, {
               endpoint,
               key: this.sanitizeKey(key),
-              operation: 'RateLimitMiddleware'
+              operation: 'RateLimitMiddleware',
             });
           }
         });
@@ -88,9 +88,9 @@ export class RateLimitMiddleware {
         this.logger.error('Error in rate limiting middleware', error as Error, {
           endpoint,
           ipAddress: req.ip,
-          operation: 'RateLimitMiddleware'
+          operation: 'RateLimitMiddleware',
         });
-        
+
         // In case of error, allow the request (fail open for security)
         next();
       }
@@ -106,19 +106,19 @@ export class RateLimitMiddleware {
         // Determine the specific auth endpoint
         const endpoint = this.determineAuthEndpoint(req);
         const key = this.generateKey(req, endpoint);
-        
+
         // Check if request is allowed
         const isAllowed = await this.rateLimitService.isRequestAllowed(key, endpoint);
-        
+
         if (!isAllowed) {
           const config = this.rateLimitService.getEndpointConfig(endpoint);
-          
+
           this.logger.warn('Authentication rate limit exceeded', {
             endpoint,
             key: this.sanitizeKey(key),
             ipAddress: req.ip,
             userAgent: req.get('User-Agent'),
-            operation: 'RateLimitMiddleware'
+            operation: 'RateLimitMiddleware',
           });
 
           // Return authentication rate limit exceeded response
@@ -130,13 +130,13 @@ export class RateLimitMiddleware {
               retryAfter: this.calculateRetryAfter(req, endpoint),
               limit: config.maxRequests,
               window: config.windowMs,
-              securityNote: 'This endpoint is protected against brute force attacks'
+              securityNote: 'This endpoint is protected against brute force attacks',
             },
             {
               requestId: req.headers['x-request-id'] as string,
               traceId: `auth-rate-limit-${Date.now()}`,
-              duration: 0
-            }
+              duration: 0,
+            },
           );
 
           res.status(429).json(response);
@@ -151,20 +151,20 @@ export class RateLimitMiddleware {
           try {
             const success = res.statusCode < 400;
             await this.rateLimitService.recordRequest(key, endpoint, success);
-            
+
             // Add rate limit headers
             const status = await this.rateLimitService.getRateLimitStatus(key, endpoint);
             res.set({
               'X-RateLimit-Limit': this.rateLimitService.getEndpointConfig(endpoint).maxRequests,
               'X-RateLimit-Remaining': status.remaining,
               'X-RateLimit-Reset': Math.floor(status.resetTime.getTime() / 1000),
-              'X-RateLimit-Endpoint': endpoint
+              'X-RateLimit-Endpoint': endpoint,
             });
           } catch (error) {
             this.logger.error('Error updating auth rate limit after response', error as Error, {
               endpoint,
               key: this.sanitizeKey(key),
-              operation: 'RateLimitMiddleware'
+              operation: 'RateLimitMiddleware',
             });
           }
         });
@@ -173,9 +173,9 @@ export class RateLimitMiddleware {
       } catch (error) {
         this.logger.error('Error in auth rate limiting middleware', error as Error, {
           ipAddress: req.ip,
-          operation: 'RateLimitMiddleware'
+          operation: 'RateLimitMiddleware',
         });
-        
+
         // In case of error, allow the request (fail open for security)
         next();
       }
@@ -190,19 +190,19 @@ export class RateLimitMiddleware {
       try {
         const endpoint = 'default'; // Use default configuration
         const key = this.generateKey(req, endpoint);
-        
+
         // Check if request is allowed
         const isAllowed = await this.rateLimitService.isRequestAllowed(key, endpoint);
-        
+
         if (!isAllowed) {
           const config = this.rateLimitService.getEndpointConfig(endpoint);
-          
+
           this.logger.warn('General API rate limit exceeded', {
             endpoint,
             key: this.sanitizeKey(key),
             ipAddress: req.ip,
             userAgent: req.get('User-Agent'),
-            operation: 'RateLimitMiddleware'
+            operation: 'RateLimitMiddleware',
           });
 
           // Return general rate limit exceeded response
@@ -213,13 +213,13 @@ export class RateLimitMiddleware {
               endpoint,
               retryAfter: this.calculateRetryAfter(req, endpoint),
               limit: config.maxRequests,
-              window: config.windowMs
+              window: config.windowMs,
             },
             {
               requestId: req.headers['x-request-id'] as string,
               traceId: `general-rate-limit-${Date.now()}`,
-              duration: 0
-            }
+              duration: 0,
+            },
           );
 
           res.status(429).json(response);
@@ -234,20 +234,24 @@ export class RateLimitMiddleware {
           try {
             const success = res.statusCode < 400;
             await this.rateLimitService.recordRequest(key, endpoint, success);
-            
+
             // Add rate limit headers
             const status = await this.rateLimitService.getRateLimitStatus(key, endpoint);
             res.set({
               'X-RateLimit-Limit': this.rateLimitService.getEndpointConfig(endpoint).maxRequests,
               'X-RateLimit-Remaining': status.remaining,
-              'X-RateLimit-Reset': Math.floor(status.resetTime.getTime() / 1000)
+              'X-RateLimit-Reset': Math.floor(status.resetTime.getTime() / 1000),
             });
           } catch (error) {
-            this.logger.error('Error updating general API rate limit after response', error as Error, {
-              endpoint,
-              key: this.sanitizeKey(key),
-              operation: 'RateLimitMiddleware'
-            });
+            this.logger.error(
+              'Error updating general API rate limit after response',
+              error as Error,
+              {
+                endpoint,
+                key: this.sanitizeKey(key),
+                operation: 'RateLimitMiddleware',
+              },
+            );
           }
         });
 
@@ -255,9 +259,9 @@ export class RateLimitMiddleware {
       } catch (error) {
         this.logger.error('Error in general API rate limiting middleware', error as Error, {
           ipAddress: req.ip,
-          operation: 'RateLimitMiddleware'
+          operation: 'RateLimitMiddleware',
         });
-        
+
         // In case of error, allow the request (fail open for security)
         next();
       }
@@ -269,24 +273,24 @@ export class RateLimitMiddleware {
     // Generate key based on IP address and user ID if available
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     const userId = (req as any).user?.id || 'anonymous';
-    
+
     // For authentication endpoints, use IP + endpoint
     if (this.isAuthEndpoint(endpoint)) {
       return `${ip}-${endpoint}`;
     }
-    
+
     // For general endpoints, use IP + userId if available
     if (userId !== 'anonymous') {
       return `${ip}-${userId}-${endpoint}`;
     }
-    
+
     return `${ip}-${endpoint}`;
   }
 
   private determineAuthEndpoint(req: Request): string {
     // Determine the specific auth endpoint based on request
     const body = req.body || {};
-    
+
     if (body.query) {
       // GraphQL request
       if (body.query.includes('loginUser')) return 'loginUser';
@@ -296,15 +300,19 @@ export class RateLimitMiddleware {
       if (body.query.includes('requestPasswordReset')) return 'requestPasswordReset';
       if (body.query.includes('resetPassword')) return 'resetPassword';
     }
-    
+
     // Default to loginUser for unknown auth requests
     return 'loginUser';
   }
 
   private isAuthEndpoint(endpoint: string): boolean {
     const authEndpoints = [
-      'loginUser', 'registerUser', 'refreshToken', 'logoutUser',
-      'requestPasswordReset', 'resetPassword'
+      'loginUser',
+      'registerUser',
+      'refreshToken',
+      'logoutUser',
+      'requestPasswordReset',
+      'resetPassword',
     ];
     return authEndpoints.includes(endpoint);
   }

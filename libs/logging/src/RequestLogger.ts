@@ -43,7 +43,7 @@ export class RequestLogger {
     return (req: Request, res: Response, next: NextFunction) => {
       const startTime = Date.now();
       const requestId = this.generateRequestId();
-      const traceId = req.headers['x-trace-id'] as string || this.generateTraceId();
+      const traceId = (req.headers['x-trace-id'] as string) || this.generateTraceId();
 
       // Add request ID and trace ID to request object
       (req as any).requestId = requestId;
@@ -55,7 +55,7 @@ export class RequestLogger {
       // Override res.end to log response
       const originalEnd = res.end;
       const self = this;
-      (res as any).end = function(chunk?: any, encoding?: any) {
+      (res as any).end = function (chunk?: any, encoding?: any) {
         const endTime = Date.now();
         const responseTime = endTime - startTime;
 
@@ -84,7 +84,7 @@ export class RequestLogger {
       query: req.query,
       body: this.sanitizeBody(req.body),
       params: req.params,
-      headers: this.sanitizeHeaders(req.headers)
+      headers: this.sanitizeHeaders(req.headers),
     };
 
     // Add user ID if available
@@ -99,11 +99,11 @@ export class RequestLogger {
    * Log response
    */
   private logResponse(
-    req: Request, 
-    res: Response, 
-    responseTime: number, 
-    requestId: string, 
-    traceId: string
+    req: Request,
+    res: Response,
+    responseTime: number,
+    requestId: string,
+    traceId: string,
   ): void {
     const context: RequestLogContext = {
       method: req.method,
@@ -112,7 +112,7 @@ export class RequestLogger {
       traceId,
       responseTime,
       statusCode: res.statusCode,
-      contentLength: parseInt(res.get('Content-Length') || '0')
+      contentLength: parseInt(res.get('Content-Length') || '0'),
     };
 
     // Add user ID if available
@@ -122,13 +122,22 @@ export class RequestLogger {
 
     // Determine log level based on status code
     if (res.statusCode >= 500) {
-      this.logger.error(`HTTP ${req.method} ${req.url} - ${res.statusCode}`, undefined, context, traceId);
+      this.logger.error(
+        `HTTP ${req.method} ${req.url} - ${res.statusCode}`,
+        undefined,
+        context,
+        traceId,
+      );
     } else if (res.statusCode >= 400) {
       this.logger.warn(`HTTP ${req.method} ${req.url} - ${res.statusCode}`, context, traceId);
     } else if (responseTime > 1000) {
       this.logger.warn(`Slow HTTP ${req.method} ${req.url} - ${responseTime}ms`, context, traceId);
     } else {
-      this.logger.info(`HTTP ${req.method} ${req.url} - ${res.statusCode} (${responseTime}ms)`, context, traceId);
+      this.logger.info(
+        `HTTP ${req.method} ${req.url} - ${res.statusCode} (${responseTime}ms)`,
+        context,
+        traceId,
+      );
     }
   }
 
@@ -140,7 +149,7 @@ export class RequestLogger {
     query: string,
     variables?: Record<string, any>,
     userId?: string,
-    traceId?: string
+    traceId?: string,
   ): void {
     const context = {
       operation: 'GraphQL',
@@ -148,7 +157,7 @@ export class RequestLogger {
       query: this.truncateQuery(query),
       variables: this.sanitizeVariables(variables),
       userId,
-      traceId
+      traceId,
     };
 
     this.logger.info(`GraphQL Request: ${operationName}`, context, traceId);
@@ -163,24 +172,29 @@ export class RequestLogger {
     success: boolean,
     errors?: any[],
     userId?: string,
-    traceId?: string
+    traceId?: string,
   ): void {
     const context = {
       operation: 'GraphQL',
       operationName,
       duration,
       success,
-      errors: errors?.map(error => ({
+      errors: errors?.map((error) => ({
         message: error.message,
         path: error.path,
-        extensions: error.extensions
+        extensions: error.extensions,
       })),
       userId,
-      traceId
+      traceId,
     };
 
     if (!success && errors?.length) {
-      this.logger.error(`GraphQL Error: ${operationName}`, new Error(errors[0].message), context, traceId);
+      this.logger.error(
+        `GraphQL Error: ${operationName}`,
+        new Error(errors[0].message),
+        context,
+        traceId,
+      );
     } else if (duration > 1000) {
       this.logger.warn(`Slow GraphQL: ${operationName} - ${duration}ms`, context, traceId);
     } else {
@@ -197,7 +211,7 @@ export class RequestLogger {
     duration: number,
     success: boolean,
     error?: Error,
-    traceId?: string
+    traceId?: string,
   ): void {
     const context = {
       operation: 'Database',
@@ -205,7 +219,7 @@ export class RequestLogger {
       params: this.sanitizeParams(params),
       duration,
       success,
-      traceId
+      traceId,
     };
 
     if (!success && error) {
@@ -225,20 +239,24 @@ export class RequestLogger {
     userId: string | undefined,
     success: boolean,
     error?: Error,
-    traceId?: string
+    traceId?: string,
   ): void {
     const context = {
       operation: 'Authentication',
       event,
       userId,
       success,
-      traceId
+      traceId,
     };
 
     if (!success && error) {
       this.logger.error(`Authentication ${event} failed`, error, context, traceId);
     } else {
-      this.logger.info(`Authentication ${event} ${success ? 'successful' : 'failed'}`, context, traceId);
+      this.logger.info(
+        `Authentication ${event} ${success ? 'successful' : 'failed'}`,
+        context,
+        traceId,
+      );
     }
   }
 
@@ -251,7 +269,7 @@ export class RequestLogger {
     const sanitized = { ...body };
     const sensitiveFields = ['password', 'token', 'secret', 'key', 'authorization'];
 
-    sensitiveFields.forEach(field => {
+    sensitiveFields.forEach((field) => {
       if (sanitized[field]) {
         sanitized[field] = '[REDACTED]';
       }
@@ -269,7 +287,7 @@ export class RequestLogger {
     const sanitized = { ...headers };
     const sensitiveHeaders = ['authorization', 'cookie', 'x-api-key'];
 
-    sensitiveHeaders.forEach(header => {
+    sensitiveHeaders.forEach((header) => {
       if (sanitized[header]) {
         sanitized[header] = '[REDACTED]';
       }
@@ -287,7 +305,7 @@ export class RequestLogger {
     const sanitized = { ...variables };
     const sensitiveFields = ['password', 'token', 'secret', 'key'];
 
-    sensitiveFields.forEach(field => {
+    sensitiveFields.forEach((field) => {
       if (sanitized[field]) {
         sanitized[field] = '[REDACTED]';
       }
@@ -302,7 +320,7 @@ export class RequestLogger {
   private sanitizeParams(params: any[]): any[] {
     if (!params || !Array.isArray(params)) return params;
 
-    return params.map(param => {
+    return params.map((param) => {
       if (typeof param === 'string' && param.toLowerCase().includes('password')) {
         return '[REDACTED]';
       }
@@ -331,4 +349,4 @@ export class RequestLogger {
   private generateTraceId(): string {
     return `trace_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   }
-} 
+}

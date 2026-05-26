@@ -2,12 +2,20 @@
   "name": "order-service",
   "projectType": "application",
   "sourceRoot": "apps/order-service/src",
-  "implicitDependencies": ["logging", "prisma", "shared-kernel"],
+  "implicitDependencies": [
+    "logging",
+    "prisma",
+    "shared-kernel"
+  ],
   "targets": {
     "build": {
       "executor": "nx:run-commands",
-      "outputs": ["{projectRoot}/dist"],
-      "dependsOn": ["^build"],
+      "outputs": [
+        "{projectRoot}/dist"
+      ],
+      "dependsOn": [
+        "^build"
+      ],
       "options": {
         "command": "rm -rf apps/order-service/dist && tsc -p apps/order-service/tsconfig.json"
       }
@@ -26,6 +34,7 @@
           "TS_NODE_PROJECT": "apps/order-service/tsconfig.json"
         }
       }
-    }
+    },
+    "lint": {}
   }
 }

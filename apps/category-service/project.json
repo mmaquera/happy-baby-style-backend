@@ -3,12 +3,20 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "apps/category-service/src",
-  "implicitDependencies": ["logging", "prisma", "shared-kernel"],
+  "implicitDependencies": [
+    "logging",
+    "prisma",
+    "shared-kernel"
+  ],
   "targets": {
     "build": {
       "executor": "nx:run-commands",
-      "outputs": ["{projectRoot}/dist"],
-      "dependsOn": ["^build"],
+      "outputs": [
+        "{projectRoot}/dist"
+      ],
+      "dependsOn": [
+        "^build"
+      ],
       "options": {
         "command": "rm -rf apps/category-service/dist && tsc -p apps/category-service/tsconfig.json"
       }
@@ -27,6 +35,7 @@
           "TS_NODE_PROJECT": "apps/category-service/tsconfig.json"
         }
       }
-    }
+    },
+    "lint": {}
   }
 }

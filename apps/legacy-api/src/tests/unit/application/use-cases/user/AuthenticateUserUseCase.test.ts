@@ -1,4 +1,8 @@
-import { AuthenticateUserUseCase, AuthenticateUserRequest, AuthenticateUserResponse } from '@application/use-cases/user/AuthenticateUserUseCase';
+import {
+  AuthenticateUserUseCase,
+  AuthenticateUserRequest,
+  AuthenticateUserResponse,
+} from '@application/use-cases/user/AuthenticateUserUseCase';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { ILogger } from '@hbs/logging';
@@ -34,10 +38,10 @@ describe('AuthenticateUserUseCase', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       addresses: [],
-      favoriteProductIds: []
+      favoriteProductIds: [],
     },
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   const mockSession: UserSession = {
@@ -51,7 +55,7 @@ describe('AuthenticateUserUseCase', () => {
     ipAddress: '192.168.1.1',
     isActive: true,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   beforeEach(() => {
@@ -76,7 +80,7 @@ describe('AuthenticateUserUseCase', () => {
       createUserAddress: jest.fn(),
       updateUserAddress: jest.fn(),
       deleteUserAddress: jest.fn(),
-      getDefaultAddress: jest.fn()
+      getDefaultAddress: jest.fn(),
     } as any;
 
     mockAuthRepository = {
@@ -103,20 +107,20 @@ describe('AuthenticateUserUseCase', () => {
       updateUserLastLogin: jest.fn(),
       validateSession: jest.fn(),
       logoutUser: jest.fn(),
-      refreshUserSession: jest.fn()
+      refreshUserSession: jest.fn(),
     } as any;
 
     mockLogger = {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
     } as any;
 
     authenticateUserUseCase = new AuthenticateUserUseCase(
       mockUserRepository,
       mockAuthRepository,
-      mockLogger
+      mockLogger,
     );
 
     // Mock bcrypt.compare to return true by default
@@ -132,7 +136,7 @@ describe('AuthenticateUserUseCase', () => {
       email: 'test@example.com',
       password: 'password123',
       userAgent: 'Mozilla/5.0...',
-      ipAddress: '192.168.1.1'
+      ipAddress: '192.168.1.1',
     };
 
     it('should successfully authenticate user and create session', async () => {
@@ -164,7 +168,7 @@ describe('AuthenticateUserUseCase', () => {
         expiresAt: expect.any(Date),
         userAgent: 'Mozilla/5.0...',
         ipAddress: '192.168.1.1',
-        isActive: true
+        isActive: true,
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -172,8 +176,8 @@ describe('AuthenticateUserUseCase', () => {
         expect.objectContaining({
           email: 'test@example.com',
           hasUserAgent: true,
-          hasIpAddress: true
-        })
+          hasIpAddress: true,
+        }),
       );
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -181,8 +185,8 @@ describe('AuthenticateUserUseCase', () => {
         expect.objectContaining({
           userId: 'user-123',
           userRole: 'customer',
-          sessionId: 'session-123'
-        })
+          sessionId: 'session-123',
+        }),
       );
     });
 
@@ -190,20 +194,20 @@ describe('AuthenticateUserUseCase', () => {
       // Arrange
       const invalidRequest: AuthenticateUserRequest = {
         ...validRequest,
-        email: 'invalid-email'
+        email: 'invalid-email',
       };
 
       // Act & Assert
-      await expect(authenticateUserUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(authenticateUserUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'User authentication failed',
         expect.any(ValidationError),
         expect.objectContaining({
-          email: 'invalid-email'
-        })
+          email: 'invalid-email',
+        }),
       );
     });
 
@@ -211,20 +215,20 @@ describe('AuthenticateUserUseCase', () => {
       // Arrange
       const invalidRequest: AuthenticateUserRequest = {
         ...validRequest,
-        password: '123'
+        password: '123',
       };
 
       // Act & Assert
-      await expect(authenticateUserUseCase.execute(invalidRequest))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(authenticateUserUseCase.execute(invalidRequest)).rejects.toThrow(
+        ValidationError,
+      );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'User authentication failed',
         expect.any(ValidationError),
         expect.objectContaining({
-          email: 'test@example.com'
-        })
+          email: 'test@example.com',
+        }),
       );
     });
 
@@ -233,16 +237,14 @@ describe('AuthenticateUserUseCase', () => {
       mockUserRepository.getUserByEmail.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(authenticateUserUseCase.execute(validRequest))
-        .rejects
-        .toThrow(NotFoundError);
+      await expect(authenticateUserUseCase.execute(validRequest)).rejects.toThrow(NotFoundError);
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'User authentication failed',
         expect.any(NotFoundError),
         expect.objectContaining({
-          email: 'test@example.com'
-        })
+          email: 'test@example.com',
+        }),
       );
     });
 
@@ -252,16 +254,16 @@ describe('AuthenticateUserUseCase', () => {
       mockUserRepository.getUserByEmail.mockResolvedValue(deactivatedUser);
 
       // Act & Assert
-      await expect(authenticateUserUseCase.execute(validRequest))
-        .rejects
-        .toThrow(UnauthorizedError);
+      await expect(authenticateUserUseCase.execute(validRequest)).rejects.toThrow(
+        UnauthorizedError,
+      );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'User authentication failed',
         expect.any(UnauthorizedError),
         expect.objectContaining({
-          email: 'test@example.com'
-        })
+          email: 'test@example.com',
+        }),
       );
     });
 
@@ -272,16 +274,16 @@ describe('AuthenticateUserUseCase', () => {
       (mockBcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       // Act & Assert
-      await expect(authenticateUserUseCase.execute(validRequest))
-        .rejects
-        .toThrow(UnauthorizedError);
+      await expect(authenticateUserUseCase.execute(validRequest)).rejects.toThrow(
+        UnauthorizedError,
+      );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'User authentication failed',
         expect.any(UnauthorizedError),
         expect.objectContaining({
-          email: 'test@example.com'
-        })
+          email: 'test@example.com',
+        }),
       );
     });
 
@@ -291,16 +293,16 @@ describe('AuthenticateUserUseCase', () => {
       mockUserRepository.getUserPasswordHash.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(authenticateUserUseCase.execute(validRequest))
-        .rejects
-        .toThrow(UnauthorizedError);
+      await expect(authenticateUserUseCase.execute(validRequest)).rejects.toThrow(
+        UnauthorizedError,
+      );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'User authentication failed',
         expect.any(UnauthorizedError),
         expect.objectContaining({
-          email: 'test@example.com'
-        })
+          email: 'test@example.com',
+        }),
       );
     });
 
@@ -308,7 +310,7 @@ describe('AuthenticateUserUseCase', () => {
       // Arrange
       const requestWithoutContext: AuthenticateUserRequest = {
         email: 'test@example.com',
-        password: 'password123'
+        password: 'password123',
       };
 
       mockUserRepository.getUserByEmail.mockResolvedValue(mockUser);
@@ -324,8 +326,8 @@ describe('AuthenticateUserUseCase', () => {
       expect(mockAuthRepository.createSession).toHaveBeenCalledWith(
         expect.objectContaining({
           userAgent: undefined,
-          ipAddress: undefined
-        })
+          ipAddress: undefined,
+        }),
       );
     });
 
@@ -337,16 +339,14 @@ describe('AuthenticateUserUseCase', () => {
       mockAuthRepository.createSession.mockRejectedValue(new Error('Database error'));
 
       // Act & Assert
-      await expect(authenticateUserUseCase.execute(validRequest))
-        .rejects
-        .toThrow('Database error');
+      await expect(authenticateUserUseCase.execute(validRequest)).rejects.toThrow('Database error');
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'User authentication failed',
         expect.any(Error),
         expect.objectContaining({
-          email: 'test@example.com'
-        })
+          email: 'test@example.com',
+        }),
       );
     });
 
@@ -364,13 +364,15 @@ describe('AuthenticateUserUseCase', () => {
       expect(mockAuthRepository.createSession).toHaveBeenCalledWith(
         expect.objectContaining({
           sessionToken: expect.any(String),
-          expiresAt: expect.any(Date)
-        })
+          expiresAt: expect.any(Date),
+        }),
       );
 
       const callArgs = mockAuthRepository.createSession.mock.calls[0][0];
-      expect(callArgs.sessionToken).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-      
+      expect(callArgs.sessionToken).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      );
+
       const now = new Date();
       const expiresAt = callArgs.expiresAt;
       expect(expiresAt.getTime()).toBeGreaterThan(now.getTime());

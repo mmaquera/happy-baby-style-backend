@@ -1,4 +1,8 @@
-import { LogoutUserUseCase, LogoutUserRequest, LogoutUserResponse } from '@application/use-cases/user/LogoutUserUseCase';
+import {
+  LogoutUserUseCase,
+  LogoutUserRequest,
+  LogoutUserResponse,
+} from '@application/use-cases/user/LogoutUserUseCase';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { ILogger } from '@hbs/logging';
 import { UserSession } from '@domain/entities/Auth';
@@ -26,14 +30,14 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   registerWithEmail: jest.fn(),
   findOrCreateUserFromGoogle: jest.fn(),
   updateUserLastLogin: jest.fn(),
-      createSessionAnalytics: jest.fn(),
-      findSessionAnalyticsById: jest.fn(),
-      findSessionAnalyticsBySessionId: jest.fn(),
-      findSessionAnalyticsByUserId: jest.fn(),
-      updateSessionAnalytics: jest.fn(),
-      deleteSessionAnalytics: jest.fn(),
-      deleteSessionAnalyticsByUserId: jest.fn(),
-      deleteSessionAnalyticsBySessionId: jest.fn(),
+  createSessionAnalytics: jest.fn(),
+  findSessionAnalyticsById: jest.fn(),
+  findSessionAnalyticsBySessionId: jest.fn(),
+  findSessionAnalyticsByUserId: jest.fn(),
+  updateSessionAnalytics: jest.fn(),
+  deleteSessionAnalytics: jest.fn(),
+  deleteSessionAnalyticsByUserId: jest.fn(),
+  deleteSessionAnalyticsBySessionId: jest.fn(),
   validateSession: jest.fn(),
   refreshUserSession: jest.fn(),
   logoutUser: jest.fn(),
@@ -41,7 +45,7 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   verifyPassword: jest.fn(),
   updatePassword: jest.fn(),
   getUserById: jest.fn(),
-  getUserByEmail: jest.fn()
+  getUserByEmail: jest.fn(),
 };
 
 // Mock del logger
@@ -52,7 +56,7 @@ const mockLogger: jest.Mocked<ILogger> = {
   debug: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(),
-  setTraceId: jest.fn()
+  setTraceId: jest.fn(),
 };
 
 describe('LogoutUserUseCase', () => {
@@ -61,9 +65,9 @@ describe('LogoutUserUseCase', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     logoutUserUseCase = new LogoutUserUseCase(mockAuthRepository, mockLogger);
-    
+
     // Mock de sesiones de usuario
     mockSessions = [
       {
@@ -77,7 +81,7 @@ describe('LogoutUserUseCase', () => {
         ipAddress: '192.168.1.1',
         isActive: true,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       {
         id: 'session-2',
@@ -90,15 +94,15 @@ describe('LogoutUserUseCase', () => {
         ipAddress: '192.168.1.2',
         isActive: true,
         createdAt: new Date(),
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     ];
   });
 
   describe('execute', () => {
     const validRequest: LogoutUserRequest = {
       userId: 'user-123',
-      reason: 'user_request'
+      reason: 'user_request',
     };
 
     it('should successfully logout user and invalidate all sessions', async () => {
@@ -115,12 +119,12 @@ describe('LogoutUserUseCase', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('Starting user logout process', {
         userId: 'user-123',
         sessionId: undefined,
-        reason: 'user_request'
+        reason: 'user_request',
       });
       expect(mockLogger.info).toHaveBeenCalledWith('User logout completed successfully', {
         userId: 'user-123',
         sessionsInvalidated: 2,
-        reason: 'user_request'
+        reason: 'user_request',
       });
 
       expect(result).toEqual({
@@ -128,7 +132,7 @@ describe('LogoutUserUseCase', () => {
         sessionId: undefined,
         loggedOutAt: expect.any(String),
         reason: 'user_request',
-        sessionsInvalidated: 2
+        sessionsInvalidated: 2,
       });
     });
 
@@ -137,9 +141,9 @@ describe('LogoutUserUseCase', () => {
       const requestWithSession: LogoutUserRequest = {
         userId: 'user-123',
         sessionId: 'session-1',
-        reason: 'admin_force'
+        reason: 'admin_force',
       };
-      
+
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
       mockAuthRepository.deleteSession.mockResolvedValue();
       mockAuthRepository.findSessionsByUserId.mockResolvedValue(mockSessions);
@@ -157,9 +161,9 @@ describe('LogoutUserUseCase', () => {
     it('should use default reason when none provided', async () => {
       // Arrange
       const requestWithoutReason: LogoutUserRequest = {
-        userId: 'user-123'
+        userId: 'user-123',
       };
-      
+
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
       mockAuthRepository.findSessionsByUserId.mockResolvedValue(mockSessions);
 
@@ -183,13 +187,13 @@ describe('LogoutUserUseCase', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('User logout completed successfully', {
         userId: 'user-123',
         sessionsInvalidated: 0,
-        reason: 'user_request'
+        reason: 'user_request',
       });
     });
 
     it('should handle case when user has only inactive sessions', async () => {
       // Arrange
-      const inactiveSessions = mockSessions.map(session => ({ ...session, isActive: false }));
+      const inactiveSessions = mockSessions.map((session) => ({ ...session, isActive: false }));
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
       mockAuthRepository.findSessionsByUserId.mockResolvedValue(inactiveSessions);
 
@@ -206,7 +210,7 @@ describe('LogoutUserUseCase', () => {
         'user_request',
         'timeout',
         'admin_force',
-        'security_breach'
+        'security_breach',
       ];
 
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
@@ -226,12 +230,14 @@ describe('LogoutUserUseCase', () => {
       mockAuthRepository.invalidateUserSessions.mockRejectedValue(error);
 
       // Act & Assert
-      await expect(logoutUserUseCase.execute(validRequest)).rejects.toThrow('Database connection failed');
-      
+      await expect(logoutUserUseCase.execute(validRequest)).rejects.toThrow(
+        'Database connection failed',
+      );
+
       expect(mockLogger.error).toHaveBeenCalledWith('User logout failed', error, {
         userId: 'user-123',
         sessionId: undefined,
-        reason: 'user_request'
+        reason: 'user_request',
       });
     });
 
@@ -240,20 +246,22 @@ describe('LogoutUserUseCase', () => {
       const requestWithSession: LogoutUserRequest = {
         userId: 'user-123',
         sessionId: 'session-1',
-        reason: 'user_request'
+        reason: 'user_request',
       };
-      
+
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
       const error = new Error('Session not found');
       mockAuthRepository.deleteSession.mockRejectedValue(error);
 
       // Act & Assert
-      await expect(logoutUserUseCase.execute(requestWithSession)).rejects.toThrow('Session not found');
-      
+      await expect(logoutUserUseCase.execute(requestWithSession)).rejects.toThrow(
+        'Session not found',
+      );
+
       expect(mockLogger.error).toHaveBeenCalledWith('User logout failed', error, {
         userId: 'user-123',
         sessionId: 'session-1',
-        reason: 'user_request'
+        reason: 'user_request',
       });
     });
 
@@ -264,12 +272,14 @@ describe('LogoutUserUseCase', () => {
       mockAuthRepository.findSessionsByUserId.mockRejectedValue(error);
 
       // Act & Assert
-      await expect(logoutUserUseCase.execute(validRequest)).rejects.toThrow('Database query failed');
-      
+      await expect(logoutUserUseCase.execute(validRequest)).rejects.toThrow(
+        'Database query failed',
+      );
+
       expect(mockLogger.error).toHaveBeenCalledWith('User logout failed', error, {
         userId: 'user-123',
         sessionId: undefined,
-        reason: 'user_request'
+        reason: 'user_request',
       });
     });
 
@@ -277,9 +287,9 @@ describe('LogoutUserUseCase', () => {
       // Arrange
       const requestWithEmptyUserId: LogoutUserRequest = {
         userId: '',
-        reason: 'user_request'
+        reason: 'user_request',
       };
-      
+
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
       mockAuthRepository.findSessionsByUserId.mockResolvedValue([]);
 
@@ -311,9 +321,9 @@ describe('LogoutUserUseCase', () => {
       const longUserId = 'a'.repeat(1000);
       const request: LogoutUserRequest = {
         userId: longUserId,
-        reason: 'user_request'
+        reason: 'user_request',
       };
-      
+
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
       mockAuthRepository.findSessionsByUserId.mockResolvedValue([]);
 
@@ -330,9 +340,9 @@ describe('LogoutUserUseCase', () => {
       const specialUserId = 'user-123!@#$%^&*()_+-=[]{}|;:,.<>?';
       const request: LogoutUserRequest = {
         userId: specialUserId,
-        reason: 'user_request'
+        reason: 'user_request',
       };
-      
+
       mockAuthRepository.invalidateUserSessions.mockResolvedValue();
       mockAuthRepository.findSessionsByUserId.mockResolvedValue([]);
 

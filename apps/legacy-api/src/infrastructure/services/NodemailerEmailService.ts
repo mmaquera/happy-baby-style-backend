@@ -1,5 +1,9 @@
 import nodemailer, { Transporter } from 'nodemailer';
-import { IEmailService, EmailServiceConfig, EmailSendResult } from '@domain/interfaces/IEmailService';
+import {
+  IEmailService,
+  EmailServiceConfig,
+  EmailSendResult,
+} from '@domain/interfaces/IEmailService';
 import { ILogger } from '@hbs/logging';
 import { EmailTemplates } from './EmailTemplates';
 import { DomainError } from '@domain/errors/DomainError';
@@ -30,7 +34,7 @@ export class NodemailerEmailService implements IEmailService {
         secure: this.config.secure,
         auth: {
           user: this.config.auth.user,
-          pass: this.config.auth.pass
+          pass: this.config.auth.pass,
         },
         // Configuraciones adicionales para mejor deliverability
         pool: true,
@@ -41,21 +45,21 @@ export class NodemailerEmailService implements IEmailService {
         // Timeouts
         connectionTimeout: 60000,
         greetingTimeout: 30000,
-        socketTimeout: 60000
+        socketTimeout: 60000,
       });
 
       this.logger.info('Nodemailer transporter created successfully', {
         host: this.config.host,
         port: this.config.port,
         secure: this.config.secure,
-        fromEmail: this.config.fromEmail
+        fromEmail: this.config.fromEmail,
       });
 
       return transporter;
     } catch (error) {
       this.logger.error('Failed to create Nodemailer transporter', error as Error, {
         host: this.config.host,
-        port: this.config.port
+        port: this.config.port,
       });
       throw new Error('Failed to initialize email service');
     }
@@ -65,19 +69,20 @@ export class NodemailerEmailService implements IEmailService {
    * Envía email de reseteo de contraseña
    */
   async sendPasswordResetEmail(
-    email: string, 
-    token: string, 
-    userName: string, 
-    resetUrl?: string
+    email: string,
+    token: string,
+    userName: string,
+    resetUrl?: string,
   ): Promise<void> {
     const startTime = Date.now();
-    
+
     try {
       // Validar parámetros
       this.validateEmailParameters(email, userName, token);
 
       // Construir URL de reseteo
-      const fullResetUrl = resetUrl || `${this.config.resetPasswordUrl}/reset-password.html?token=${token}`;
+      const fullResetUrl =
+        resetUrl || `${this.config.resetPasswordUrl}/reset-password.html?token=${token}`;
 
       // Generar contenido del email
       const htmlContent = EmailTemplates.getPasswordResetTemplate(userName, fullResetUrl);
@@ -94,8 +99,8 @@ export class NodemailerEmailService implements IEmailService {
         headers: {
           'X-Mailer': 'Happy Baby Style Backend',
           'X-Priority': '3',
-          'X-MSMail-Priority': 'Normal'
-        }
+          'X-MSMail-Priority': 'Normal',
+        },
       };
 
       // Enviar email
@@ -107,17 +112,16 @@ export class NodemailerEmailService implements IEmailService {
         userName,
         messageId: result.messageId,
         duration,
-        resetUrl: fullResetUrl
+        resetUrl: fullResetUrl,
       });
-
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       this.logger.error('Failed to send password reset email', error as Error, {
         email,
         userName,
         duration,
-        errorCode: 'PASSWORD_RESET_EMAIL_FAILED'
+        errorCode: 'PASSWORD_RESET_EMAIL_FAILED',
       });
 
       throw new Error('Failed to send password reset email');
@@ -129,7 +133,7 @@ export class NodemailerEmailService implements IEmailService {
    */
   async sendWelcomeEmail(email: string, userName: string): Promise<void> {
     const startTime = Date.now();
-    
+
     try {
       this.validateEmailParameters(email, userName);
 
@@ -145,8 +149,8 @@ export class NodemailerEmailService implements IEmailService {
         html: htmlContent,
         headers: {
           'X-Mailer': 'Happy Baby Style Backend',
-          'X-Priority': '3'
-        }
+          'X-Priority': '3',
+        },
       };
 
       const result = await this.transporter.sendMail(mailOptions);
@@ -156,16 +160,15 @@ export class NodemailerEmailService implements IEmailService {
         email,
         userName,
         messageId: result.messageId,
-        duration
+        duration,
       });
-
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       this.logger.error('Failed to send welcome email', error as Error, {
         email,
         userName,
-        duration
+        duration,
       });
 
       throw new Error('Failed to send welcome email');
@@ -177,13 +180,13 @@ export class NodemailerEmailService implements IEmailService {
    */
   async sendOrderConfirmationEmail(email: string, orderData: any): Promise<void> {
     const startTime = Date.now();
-    
+
     try {
       this.validateEmailParameters(email, orderData.userName || 'Cliente');
 
       const htmlContent = EmailTemplates.getOrderConfirmationTemplate(
-        orderData.userName || 'Cliente', 
-        orderData
+        orderData.userName || 'Cliente',
+        orderData,
       );
       const textContent = EmailTemplates.getPlainTextFromHtml(htmlContent);
 
@@ -195,8 +198,8 @@ export class NodemailerEmailService implements IEmailService {
         html: htmlContent,
         headers: {
           'X-Mailer': 'Happy Baby Style Backend',
-          'X-Priority': '3'
-        }
+          'X-Priority': '3',
+        },
       };
 
       const result = await this.transporter.sendMail(mailOptions);
@@ -206,16 +209,15 @@ export class NodemailerEmailService implements IEmailService {
         email,
         orderNumber: orderData.orderNumber,
         messageId: result.messageId,
-        duration
+        duration,
       });
-
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       this.logger.error('Failed to send order confirmation email', error as Error, {
         email,
         orderData,
-        duration
+        duration,
       });
 
       throw new Error('Failed to send order confirmation email');
@@ -228,11 +230,11 @@ export class NodemailerEmailService implements IEmailService {
   async verifyConfiguration(): Promise<boolean> {
     try {
       await this.transporter.verify();
-      
+
       this.logger.info('Email service configuration verified successfully', {
         host: this.config.host,
         port: this.config.port,
-        fromEmail: this.config.fromEmail
+        fromEmail: this.config.fromEmail,
       });
 
       return true;
@@ -240,7 +242,7 @@ export class NodemailerEmailService implements IEmailService {
       this.logger.error('Email service configuration verification failed', error as Error, {
         host: this.config.host,
         port: this.config.port,
-        fromEmail: this.config.fromEmail
+        fromEmail: this.config.fromEmail,
       });
 
       return false;
@@ -291,8 +293,8 @@ export class NodemailerEmailService implements IEmailService {
       config: {
         host: this.config.host,
         port: this.config.port,
-        fromEmail: this.config.fromEmail
-      }
+        fromEmail: this.config.fromEmail,
+      },
     };
   }
 }

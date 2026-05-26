@@ -1,11 +1,7 @@
 import { CreateCategoryUseCase } from '@application/use-cases/category/CreateCategoryUseCase';
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '@domain/entities/Product';
-import { 
-  ValidationError, 
-  DuplicateError, 
-  DatabaseError 
-} from '@domain/errors/DomainError';
+import { ValidationError, DuplicateError, DatabaseError } from '@domain/errors/DomainError';
 
 // Mock del repositorio
 const mockCategoryRepository: jest.Mocked<ICategoryRepository> = {
@@ -35,7 +31,7 @@ describe('CreateCategoryUseCase', () => {
       slug: 'baby-clothing',
       imageUrl: 'https://example.com/baby-clothing.jpg',
       isActive: true,
-      sortOrder: 1
+      sortOrder: 1,
     };
 
     it('should create a category successfully when valid data is provided', async () => {
@@ -49,7 +45,7 @@ describe('CreateCategoryUseCase', () => {
         validCategoryData.isActive,
         validCategoryData.sortOrder,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockCategoryRepository.findByName.mockResolvedValue(null);
@@ -72,7 +68,7 @@ describe('CreateCategoryUseCase', () => {
         name: 'Baby Accessories',
         description: 'Essential accessories for your little one',
         isActive: true,
-        sortOrder: 2
+        sortOrder: 2,
       };
 
       const expectedCategory = new CategoryEntity(
@@ -84,7 +80,7 @@ describe('CreateCategoryUseCase', () => {
         categoryDataWithoutSlug.isActive,
         categoryDataWithoutSlug.sortOrder,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockCategoryRepository.findByName.mockResolvedValue(null);
@@ -102,7 +98,7 @@ describe('CreateCategoryUseCase', () => {
     it('should set default values when optional fields are not provided', async () => {
       // Arrange
       const minimalCategoryData = {
-        name: 'Feeding & Nursing'
+        name: 'Feeding & Nursing',
       };
 
       const expectedCategory = new CategoryEntity(
@@ -114,7 +110,7 @@ describe('CreateCategoryUseCase', () => {
         true, // Default isActive
         0, // Default sortOrder
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockCategoryRepository.findByName.mockResolvedValue(null);
@@ -142,15 +138,15 @@ describe('CreateCategoryUseCase', () => {
         true,
         0,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockCategoryRepository.findByName.mockResolvedValue(existingCategory);
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(validCategoryData))
-        .rejects
-        .toThrow(DuplicateError);
+      await expect(createCategoryUseCase.execute(validCategoryData)).rejects.toThrow(
+        DuplicateError,
+      );
 
       expect(mockCategoryRepository.findByName).toHaveBeenCalledWith(validCategoryData.name);
       expect(mockCategoryRepository.create).not.toHaveBeenCalled();
@@ -167,16 +163,16 @@ describe('CreateCategoryUseCase', () => {
         true,
         0,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockCategoryRepository.findByName.mockResolvedValue(null);
       mockCategoryRepository.findBySlug.mockResolvedValue(existingCategory);
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(validCategoryData))
-        .rejects
-        .toThrow(DuplicateError);
+      await expect(createCategoryUseCase.execute(validCategoryData)).rejects.toThrow(
+        DuplicateError,
+      );
 
       expect(mockCategoryRepository.findBySlug).toHaveBeenCalledWith(validCategoryData.slug);
       expect(mockCategoryRepository.create).not.toHaveBeenCalled();
@@ -186,13 +182,13 @@ describe('CreateCategoryUseCase', () => {
       // Arrange
       const invalidCategoryData = {
         name: 'A', // Too short
-        description: 'Valid description'
+        description: 'Valid description',
       };
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(invalidCategoryData))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createCategoryUseCase.execute(invalidCategoryData)).rejects.toThrow(
+        ValidationError,
+      );
 
       expect(mockCategoryRepository.create).not.toHaveBeenCalled();
     });
@@ -201,13 +197,13 @@ describe('CreateCategoryUseCase', () => {
       // Arrange
       const invalidCategoryData = {
         name: 'A'.repeat(101), // Too long
-        description: 'Valid description'
+        description: 'Valid description',
       };
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(invalidCategoryData))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createCategoryUseCase.execute(invalidCategoryData)).rejects.toThrow(
+        ValidationError,
+      );
 
       expect(mockCategoryRepository.create).not.toHaveBeenCalled();
     });
@@ -216,13 +212,13 @@ describe('CreateCategoryUseCase', () => {
       // Arrange
       const invalidCategoryData = {
         name: 'Valid Name',
-        description: 'A'.repeat(501) // Too long
+        description: 'A'.repeat(501), // Too long
       };
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(invalidCategoryData))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createCategoryUseCase.execute(invalidCategoryData)).rejects.toThrow(
+        ValidationError,
+      );
 
       expect(mockCategoryRepository.create).not.toHaveBeenCalled();
     });
@@ -231,13 +227,13 @@ describe('CreateCategoryUseCase', () => {
       // Arrange
       const invalidCategoryData = {
         name: 'Valid Name',
-        sortOrder: -1
+        sortOrder: -1,
       };
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(invalidCategoryData))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createCategoryUseCase.execute(invalidCategoryData)).rejects.toThrow(
+        ValidationError,
+      );
 
       expect(mockCategoryRepository.create).not.toHaveBeenCalled();
     });
@@ -246,13 +242,13 @@ describe('CreateCategoryUseCase', () => {
       // Arrange
       const invalidCategoryData = {
         name: 'Valid Name',
-        sortOrder: 1000
+        sortOrder: 1000,
       };
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(invalidCategoryData))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(createCategoryUseCase.execute(invalidCategoryData)).rejects.toThrow(
+        ValidationError,
+      );
 
       expect(mockCategoryRepository.create).not.toHaveBeenCalled();
     });
@@ -264,9 +260,7 @@ describe('CreateCategoryUseCase', () => {
       mockCategoryRepository.create.mockRejectedValue(new Error('Database connection failed'));
 
       // Act & Assert
-      await expect(createCategoryUseCase.execute(validCategoryData))
-        .rejects
-        .toThrow(DatabaseError);
+      await expect(createCategoryUseCase.execute(validCategoryData)).rejects.toThrow(DatabaseError);
 
       expect(mockCategoryRepository.create).toHaveBeenCalledTimes(1);
     });
@@ -275,7 +269,7 @@ describe('CreateCategoryUseCase', () => {
       // Arrange
       const categoryDataWithSpecialChars = {
         name: 'Baby & Kids Clothing!',
-        description: 'Clothing with special characters'
+        description: 'Clothing with special characters',
       };
 
       const expectedCategory = new CategoryEntity(
@@ -287,7 +281,7 @@ describe('CreateCategoryUseCase', () => {
         true,
         0,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockCategoryRepository.findByName.mockResolvedValue(null);
@@ -306,7 +300,7 @@ describe('CreateCategoryUseCase', () => {
       // Arrange
       const categoryDataWithWhitespace = {
         name: '  Baby Clothing  ',
-        description: '  Description with spaces  '
+        description: '  Description with spaces  ',
       };
 
       const expectedCategory = new CategoryEntity(
@@ -318,7 +312,7 @@ describe('CreateCategoryUseCase', () => {
         true,
         0,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockCategoryRepository.findByName.mockResolvedValue(null);
@@ -334,8 +328,8 @@ describe('CreateCategoryUseCase', () => {
       expect(mockCategoryRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'Baby Clothing',
-          description: 'Description with spaces'
-        })
+          description: 'Description with spaces',
+        }),
       );
     });
   });

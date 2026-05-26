@@ -1,7 +1,7 @@
-import { 
-  UserAccount, 
-  UserSession, 
-  UserPassword, 
+import {
+  UserAccount,
+  UserSession,
+  UserPassword,
   AuthProvider,
   GoogleUserInfo,
   EmailLoginRequest,
@@ -10,14 +10,19 @@ import {
   SessionInfo,
   UserSessionAnalytics,
   CreateUserSessionAnalyticsRequest,
-  UpdateUserSessionAnalyticsRequest
+  UpdateUserSessionAnalyticsRequest,
 } from '@domain/entities/Auth';
 import { UserProfile } from '@domain/entities/User';
 
 export interface IAuthRepository {
   // OAuth Account Management
-  createUserAccount(account: Omit<UserAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserAccount>;
-  findUserAccountByProvider(provider: AuthProvider, providerAccountId: string): Promise<UserAccount | null>;
+  createUserAccount(
+    account: Omit<UserAccount, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UserAccount>;
+  findUserAccountByProvider(
+    provider: AuthProvider,
+    providerAccountId: string,
+  ): Promise<UserAccount | null>;
   findUserAccountsByUserId(userId: string): Promise<UserAccount[]>;
   updateUserAccount(id: string, data: Partial<UserAccount>): Promise<UserAccount>;
   deleteUserAccount(id: string): Promise<void>;
@@ -32,11 +37,13 @@ export interface IAuthRepository {
   invalidateUserSessions(userId: string): Promise<void>;
 
   // Password Management
-  createUserPassword(password: Omit<UserPassword, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserPassword>;
+  createUserPassword(
+    password: Omit<UserPassword, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UserPassword>;
   findUserPasswordByUserId(userId: string): Promise<UserPassword | null>;
   updateUserPassword(userId: string, data: Partial<UserPassword>): Promise<UserPassword>;
   deleteUserPassword(userId: string): Promise<void>;
-  
+
   // Additional methods for UpdateUserPasswordUseCase
   verifyPassword(userId: string, password: string): Promise<boolean>;
   updatePassword(userId: string, newPassword: string): Promise<void>;
@@ -51,20 +58,23 @@ export interface IAuthRepository {
   // User Utilities
   findOrCreateUserFromGoogle(googleUser: GoogleUserInfo): Promise<UserProfile>;
   updateUserLastLogin(userId: string): Promise<void>;
-  
+
   // Session Validation
   validateSession(sessionToken: string): Promise<SessionInfo | null>;
   refreshUserSession(refreshToken: string): Promise<AuthResult>;
-  
+
   // Logout Management
   logoutUser(userId: string, sessionId?: string): Promise<void>;
-  
+
   // Session Analytics Management
   createSessionAnalytics(data: CreateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics>;
   findSessionAnalyticsById(id: string): Promise<UserSessionAnalytics | null>;
   findSessionAnalyticsBySessionId(sessionId: string): Promise<UserSessionAnalytics | null>;
   findSessionAnalyticsByUserId(userId: string): Promise<UserSessionAnalytics[]>;
-  updateSessionAnalytics(id: string, data: UpdateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics>;
+  updateSessionAnalytics(
+    id: string,
+    data: UpdateUserSessionAnalyticsRequest,
+  ): Promise<UserSessionAnalytics>;
   deleteSessionAnalytics(id: string): Promise<void>;
   deleteSessionAnalyticsBySessionId(sessionId: string): Promise<void>;
   deleteSessionAnalyticsByUserId(userId: string): Promise<void>;

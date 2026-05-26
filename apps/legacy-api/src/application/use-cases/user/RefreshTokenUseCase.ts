@@ -28,24 +28,24 @@ export interface RefreshTokenResponse {
 export class RefreshTokenUseCase {
   constructor(
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   @LoggingDecorator.logUseCase({
     includeArgs: false, // No incluir refreshToken por seguridad
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'RefreshToken' }
+    context: { useCase: 'RefreshToken' },
   })
   async execute(request: RefreshTokenRequest): Promise<RefreshTokenResponse> {
     const startTime = Date.now();
-    
+
     this.logger.info('Starting token refresh process', {
       hasRefreshToken: !!request.refreshToken,
       userAgent: request.userAgent || 'unknown',
       ipAddress: request.ipAddress || 'unknown',
       sessionId: request.sessionId,
-      operation: 'refreshToken'
+      operation: 'refreshToken',
     });
 
     try {
@@ -74,28 +74,27 @@ export class RefreshTokenUseCase {
         context: {
           userAgent: request.userAgent,
           ipAddress: request.ipAddress,
-          sessionId: request.sessionId
-        }
+          sessionId: request.sessionId,
+        },
       });
 
       return {
         user: authResult.user,
         tokens: {
           accessToken: authResult.tokens.accessToken,
-          refreshToken: authResult.tokens.refreshToken || ''
+          refreshToken: authResult.tokens.refreshToken || '',
         },
         isNewUser: authResult.isNewUser,
         provider: authResult.provider,
         session: {
           id: request.sessionId || 'unknown',
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas por defecto
-          isActive: true
-        }
+          isActive: true,
+        },
       };
-
     } catch (error: unknown) {
       const duration = Date.now() - startTime;
-      
+
       this.logger.error('Token refresh failed', error as Error, {
         hasRefreshToken: !!request.refreshToken,
         userAgent: request.userAgent || 'unknown',
@@ -104,7 +103,7 @@ export class RefreshTokenUseCase {
         duration,
         operation: 'refreshToken',
         errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-        errorMessage: error instanceof Error ? error.message : String(error)
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
 
       throw error;

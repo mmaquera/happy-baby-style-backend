@@ -2,7 +2,6 @@ import { UserRole } from '@domain/entities/User';
 import { RESPONSE_CODES } from '@hbs/shared-kernel';
 
 describe('loginUser Mutation - Standards Compliance', () => {
-  
   describe('Response Structure Compliance', () => {
     it('should have correct AuthResponse structure matching BaseResponse pattern', () => {
       // Verificar que AuthResponse sigue el patrón BaseResponse
@@ -12,7 +11,7 @@ describe('loginUser Mutation - Standards Compliance', () => {
         code: 'string',
         timestamp: 'string',
         data: 'object',
-        metadata: 'object'
+        metadata: 'object',
       };
 
       // En el schema GraphQL, AuthResponse debe tener esta estructura
@@ -22,7 +21,7 @@ describe('loginUser Mutation - Standards Compliance', () => {
         code: 'string',
         timestamp: 'string',
         data: 'object',
-        metadata: 'object'
+        metadata: 'object',
       });
     });
 
@@ -31,13 +30,13 @@ describe('loginUser Mutation - Standards Compliance', () => {
       const expectedAuthDataStructure = {
         user: 'User',
         accessToken: 'string',
-        refreshToken: 'string'
+        refreshToken: 'string',
       };
 
       expect(expectedAuthDataStructure).toMatchObject({
         user: 'User',
         accessToken: 'string',
-        refreshToken: 'string'
+        refreshToken: 'string',
       });
     });
   });
@@ -56,10 +55,10 @@ describe('loginUser Mutation - Standards Compliance', () => {
         'SUCCESS',
         'VALIDATION_ERROR',
         'MISSING_REQUIRED_FIELD',
-        'INTERNAL_ERROR'
+        'INTERNAL_ERROR',
       ];
 
-      requiredCodes.forEach(code => {
+      requiredCodes.forEach((code) => {
         expect(RESPONSE_CODES).toHaveProperty(code);
       });
     });
@@ -83,32 +82,21 @@ describe('loginUser Mutation - Standards Compliance', () => {
   describe('Security and Privacy Standards', () => {
     it('should not expose sensitive information in response structure', () => {
       // Verificar que la estructura de respuesta no expone datos sensibles
-      const authResponseFields = [
-        'success',
-        'message', 
-        'code',
-        'timestamp',
-        'data',
-        'metadata'
-      ];
+      const authResponseFields = ['success', 'message', 'code', 'timestamp', 'data', 'metadata'];
 
       // No debe haber campos como 'password', 'token', etc.
       const sensitiveFields = ['password', 'token', 'secret', 'key'];
-      
-      sensitiveFields.forEach(field => {
+
+      sensitiveFields.forEach((field) => {
         expect(authResponseFields).not.toContain(field);
       });
     });
 
     it('should include metadata for tracing and monitoring', () => {
-      const expectedMetadataFields = [
-        'requestId',
-        'traceId', 
-        'duration'
-      ];
+      const expectedMetadataFields = ['requestId', 'traceId', 'duration'];
 
       // Metadata debe incluir campos para trazabilidad
-      expectedMetadataFields.forEach(field => {
+      expectedMetadataFields.forEach((field) => {
         expect(['requestId', 'traceId', 'duration']).toContain(field);
       });
     });
@@ -130,16 +118,16 @@ describe('loginUser Mutation - Standards Compliance', () => {
             isActive: true,
             emailVerified: false,
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
           },
           accessToken: 'mock-token',
-          refreshToken: 'mock-refresh-token'
+          refreshToken: 'mock-refresh-token',
         },
         metadata: {
           requestId: 'test-request',
           traceId: 'test-trace',
-          duration: 100
-        }
+          duration: 100,
+        },
       };
 
       // Verificar estructura básica
@@ -169,11 +157,11 @@ describe('loginUser Mutation - Standards Compliance', () => {
         'Container',
         'AuthenticateUserUseCase',
         'LoggerFactory',
-        'ResponseFactory'
+        'ResponseFactory',
       ];
 
       // Estas dependencias deben estar disponibles
-      expectedDependencies.forEach(dependency => {
+      expectedDependencies.forEach((dependency) => {
         expect(typeof dependency).toBe('string');
       });
     });
@@ -184,7 +172,7 @@ describe('loginUser Mutation - Standards Compliance', () => {
         authentication: 'AuthenticateUserUseCase',
         logging: 'LoggerFactory',
         responseFormatting: 'ResponseFactory',
-        errorHandling: 'GraphQLErrorHandler'
+        errorHandling: 'GraphQLErrorHandler',
       };
 
       Object.entries(concerns).forEach(([concern, component]) => {
@@ -195,14 +183,9 @@ describe('loginUser Mutation - Standards Compliance', () => {
 
   describe('Logging Standards Compliance', () => {
     it('should include required logging context fields', () => {
-      const requiredLogContextFields = [
-        'operation',
-        'requestId',
-        'traceId',
-        'timestamp'
-      ];
+      const requiredLogContextFields = ['operation', 'requestId', 'traceId', 'timestamp'];
 
-      requiredLogContextFields.forEach(field => {
+      requiredLogContextFields.forEach((field) => {
         expect(['operation', 'requestId', 'traceId', 'timestamp']).toContain(field);
       });
     });
@@ -212,7 +195,7 @@ describe('loginUser Mutation - Standards Compliance', () => {
       const logContextFields = ['operation', 'requestId', 'traceId', 'duration'];
 
       // Los campos de logging no deben incluir información sensible
-      sensitiveFields.forEach(field => {
+      sensitiveFields.forEach((field) => {
         expect(logContextFields).not.toContain(field);
       });
     });
@@ -222,13 +205,13 @@ describe('loginUser Mutation - Standards Compliance', () => {
     it('should handle different types of errors appropriately', () => {
       const errorTypes = [
         'ValidationError',
-        'AuthenticationError', 
+        'AuthenticationError',
         'DatabaseError',
-        'GenericError'
+        'GenericError',
       ];
 
       // Verificar que se pueden manejar diferentes tipos de errores
-      errorTypes.forEach(errorType => {
+      errorTypes.forEach((errorType) => {
         expect(typeof errorType).toBe('string');
       });
     });
@@ -238,10 +221,10 @@ describe('loginUser Mutation - Standards Compliance', () => {
         'Email and password are required',
         'Invalid email or password',
         'User account is deactivated',
-        'Database connection failed'
+        'Database connection failed',
       ];
 
-      errorMessages.forEach(message => {
+      errorMessages.forEach((message) => {
         expect(typeof message).toBe('string');
         expect(message.length).toBeGreaterThan(0);
       });

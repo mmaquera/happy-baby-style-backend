@@ -12,22 +12,22 @@ export interface UpdateUserSessionAnalyticsResponse {
 export class UpdateUserSessionAnalyticsUseCase {
   constructor(
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   @LoggingDecorator.logUseCase({
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'UpdateUserSessionAnalytics' }
+    context: { useCase: 'UpdateUserSessionAnalytics' },
   })
   async execute(
-    id: string, 
-    request: UpdateUserSessionAnalyticsRequest
+    id: string,
+    request: UpdateUserSessionAnalyticsRequest,
   ): Promise<UpdateUserSessionAnalyticsResponse> {
     this.logger.info('Starting user session analytics update', {
       analyticsId: id,
-      operation: 'UpdateUserSessionAnalytics'
+      operation: 'UpdateUserSessionAnalytics',
     });
 
     try {
@@ -51,18 +51,17 @@ export class UpdateUserSessionAnalyticsUseCase {
         sessionId: updatedAnalytics.sessionId,
         userId: updatedAnalytics.userId,
         changes,
-        operation: 'UpdateUserSessionAnalytics'
+        operation: 'UpdateUserSessionAnalytics',
       });
 
       return {
         analytics: updatedAnalytics,
-        changes
+        changes,
       };
-
     } catch (error) {
       this.logger.error('Failed to update user session analytics', error as Error, {
         analyticsId: id,
-        operation: 'UpdateUserSessionAnalytics'
+        operation: 'UpdateUserSessionAnalytics',
       });
       throw error;
     }
@@ -73,26 +72,40 @@ export class UpdateUserSessionAnalyticsUseCase {
       throw new ValidationError('Analytics ID is required and must be a string');
     }
 
-    if (request.pageViews !== undefined && (typeof request.pageViews !== 'number' || request.pageViews < 0)) {
+    if (
+      request.pageViews !== undefined &&
+      (typeof request.pageViews !== 'number' || request.pageViews < 0)
+    ) {
       throw new ValidationError('Page views must be a non-negative number');
     }
 
-    if (request.timeSpent !== undefined && (typeof request.timeSpent !== 'number' || request.timeSpent < 0)) {
+    if (
+      request.timeSpent !== undefined &&
+      (typeof request.timeSpent !== 'number' || request.timeSpent < 0)
+    ) {
       throw new ValidationError('Time spent must be a non-negative number');
     }
 
-    if (request.bounceRate !== undefined && (typeof request.bounceRate !== 'number' || request.bounceRate < 0 || request.bounceRate > 1)) {
+    if (
+      request.bounceRate !== undefined &&
+      (typeof request.bounceRate !== 'number' || request.bounceRate < 0 || request.bounceRate > 1)
+    ) {
       throw new ValidationError('Bounce rate must be a number between 0 and 1');
     }
 
-    if (request.conversionRate !== undefined && (typeof request.conversionRate !== 'number' || request.conversionRate < 0 || request.conversionRate > 1)) {
+    if (
+      request.conversionRate !== undefined &&
+      (typeof request.conversionRate !== 'number' ||
+        request.conversionRate < 0 ||
+        request.conversionRate > 1)
+    ) {
       throw new ValidationError('Conversion rate must be a number between 0 and 1');
     }
   }
 
   private trackChanges(
-    existing: UserSessionAnalytics, 
-    updates: UpdateUserSessionAnalyticsRequest
+    existing: UserSessionAnalytics,
+    updates: UpdateUserSessionAnalyticsRequest,
   ): string[] {
     const changes: string[] = [];
 
@@ -108,7 +121,10 @@ export class UpdateUserSessionAnalyticsUseCase {
       changes.push(`bounceRate: ${existing.bounceRate} → ${updates.bounceRate}`);
     }
 
-    if (updates.conversionRate !== undefined && updates.conversionRate !== existing.conversionRate) {
+    if (
+      updates.conversionRate !== undefined &&
+      updates.conversionRate !== existing.conversionRate
+    ) {
       changes.push(`conversionRate: ${existing.conversionRate} → ${updates.conversionRate}`);
     }
 

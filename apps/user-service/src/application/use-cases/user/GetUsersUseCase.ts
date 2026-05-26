@@ -33,4 +33,4 @@ export class GetUsersUseCase {
     const result = await this.userRepository.getUsers(limit, offset, role, isActive);
     return result.users;
   }
-} 
+}

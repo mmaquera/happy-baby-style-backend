@@ -22,7 +22,7 @@ export class CategoryEntity implements Category {
     public readonly isActive: boolean,
     public readonly sortOrder: number,
     public readonly createdAt: Date,
-    public readonly updatedAt: Date
+    public readonly updatedAt: Date,
   ) {}
 
   static create(data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): CategoryEntity {
@@ -36,7 +36,7 @@ export class CategoryEntity implements Category {
       data.isActive,
       data.sortOrder,
       now,
-      now
+      now,
     );
   }
 
@@ -50,7 +50,7 @@ export class CategoryEntity implements Category {
       data.isActive ?? this.isActive,
       data.sortOrder ?? this.sortOrder,
       this.createdAt,
-      new Date()
+      new Date(),
     );
   }
 
@@ -83,7 +83,7 @@ export class CategoryEntity implements Category {
       isActive: this.isActive,
       sortOrder: this.sortOrder,
       createdAt: this.createdAt,
-      updatedAt: this.updatedAt
+      updatedAt: this.updatedAt,
     };
   }
 }

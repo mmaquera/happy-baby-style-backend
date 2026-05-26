@@ -26,7 +26,7 @@ export enum SvgEntityType {
   USER = 'user',
   CATEGORY = 'category',
   ICON = 'icon',
-  LOGO = 'logo'
+  LOGO = 'logo',
 }
 
 export class SvgEntity implements Svg {
@@ -44,7 +44,7 @@ export class SvgEntity implements Svg {
     public readonly createdAt: Date,
     public readonly dimensions?: { width?: number; height?: number },
     public readonly viewBox?: string,
-    public readonly optimized: boolean = false
+    public readonly optimized: boolean = false,
   ) {}
 
   static create(data: Omit<Svg, 'id' | 'createdAt'>): SvgEntity {
@@ -62,7 +62,7 @@ export class SvgEntity implements Svg {
       new Date(),
       data.dimensions,
       data.viewBox,
-      data.optimized
+      data.optimized,
     );
   }
 
@@ -97,29 +97,30 @@ export class SvgEntity implements Svg {
   // SVG specific validation methods
   static validateSvgContent(svgContent: string): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
-    
+
     // Check for basic SVG structure
     if (!svgContent.includes('<svg')) {
       errors.push('SVG content must contain <svg> tag');
     }
-    
+
     // Check for potential security issues
     if (svgContent.includes('<script')) {
       errors.push('SVG content cannot contain <script> tags for security reasons');
     }
-    
+
     if (svgContent.includes('javascript:')) {
       errors.push('SVG content cannot contain javascript: URLs for security reasons');
     }
-    
+
     // Check for reasonable size (SVG should be text-based and relatively small)
-    if (svgContent.length > 1000000) { // 1MB
+    if (svgContent.length > 1000000) {
+      // 1MB
       errors.push('SVG content is too large (max 1MB)');
     }
-    
+
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -131,24 +132,24 @@ export class SvgEntity implements Svg {
       dimensions?: { width?: number; height?: number };
       viewBox?: string;
     } = {};
-    
+
     // Extract width and height
     const widthMatch = svgContent.match(/width\s*=\s*["']?(\d+(?:\.\d+)?)["']?/i);
     const heightMatch = svgContent.match(/height\s*=\s*["']?(\d+(?:\.\d+)?)["']?/i);
-    
+
     if (widthMatch && heightMatch) {
       metadata.dimensions = {
         width: parseFloat(widthMatch[1]),
-        height: parseFloat(heightMatch[1])
+        height: parseFloat(heightMatch[1]),
       };
     }
-    
+
     // Extract viewBox
     const viewBoxMatch = svgContent.match(/viewBox\s*=\s*["']([^"']+)["']/i);
     if (viewBoxMatch) {
       metadata.viewBox = viewBoxMatch[1];
     }
-    
+
     return metadata;
   }
 }

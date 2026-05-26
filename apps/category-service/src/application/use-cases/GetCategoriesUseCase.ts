@@ -28,7 +28,10 @@ export class GetCategoriesUseCase {
 
   async execute(request: GetCategoriesRequest = {}): Promise<GetCategoriesResult> {
     try {
-      this.logger.info('Starting GetCategories use case execution', { filters: request.filters, pagination: request.pagination });
+      this.logger.info('Starting GetCategories use case execution', {
+        filters: request.filters,
+        pagination: request.pagination,
+      });
 
       const limit = request.pagination?.limit || 50;
       const offset = request.pagination?.offset || 0;
@@ -37,16 +40,19 @@ export class GetCategoriesUseCase {
         isActive: request.filters?.isActive,
         search: request.filters?.search?.trim(),
         limit,
-        offset
+        offset,
       };
 
       const categories = await this.categoryRepository.findAll(filters);
       const hasMore = categories.length === limit;
       const total = offset + categories.length + (hasMore ? 1 : 0);
 
-      this.logger.info('GetCategories use case completed', { categoriesCount: categories.length, total, hasMore });
+      this.logger.info('GetCategories use case completed', {
+        categoriesCount: categories.length,
+        total,
+        hasMore,
+      });
       return { categories, total, hasMore };
-
     } catch (error: any) {
       this.logger.error('GetCategories use case failed', error, { filters: request.filters });
       throw error;

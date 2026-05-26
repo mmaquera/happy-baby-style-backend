@@ -1,6 +1,9 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { CreateUserRequest, User } from '../../../domain/entities/User';
-import { UserValidationService, UserRegistrationData } from '../../validation/UserValidationService';
+import {
+  UserValidationService,
+  UserRegistrationData,
+} from '../../validation/UserValidationService';
 import { LoggerFactory } from '@hbs/logging';
 
 export class CreateUserUseCase {
@@ -11,10 +14,10 @@ export class CreateUserUseCase {
 
   async execute(data: CreateUserRequest): Promise<User> {
     const traceId = `create-user-${Date.now()}`;
-    
+
     this.logger.info('Starting user creation process', {
       email: data.email,
-      traceId
+      traceId,
     });
 
     try {
@@ -25,7 +28,7 @@ export class CreateUserUseCase {
         firstName: data.profile?.firstName || '',
         lastName: data.profile?.lastName || '',
         phone: data.profile?.phone,
-        birthDate: data.profile?.birthDate
+        birthDate: data.profile?.birthDate,
       };
 
       const validation = this.validationService.validateRegistration(validationData);
@@ -33,7 +36,7 @@ export class CreateUserUseCase {
         this.logger.warn('User creation failed: validation errors', {
           email: data.email,
           errors: validation.errors,
-          traceId
+          traceId,
         });
         throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
       }
@@ -41,7 +44,7 @@ export class CreateUserUseCase {
       // Check if user already exists
       this.logger.debug('Checking if user already exists', {
         email: data.email,
-        traceId
+        traceId,
       });
 
       const existingUser = await this.userRepository.getUserByEmail(data.email);
@@ -49,7 +52,7 @@ export class CreateUserUseCase {
         this.logger.warn('User creation failed: email already exists', {
           email: data.email,
           existingUserId: existingUser.id,
-          traceId
+          traceId,
         });
         throw new Error('User with this email already exists');
       }
@@ -59,7 +62,7 @@ export class CreateUserUseCase {
         email: data.email,
         role: data.role,
         hasProfile: !!data.profile,
-        traceId
+        traceId,
       });
 
       const user = await this.userRepository.createUser(data);
@@ -68,17 +71,20 @@ export class CreateUserUseCase {
         userId: user.id,
         email: user.email,
         role: user.role,
-        traceId
+        traceId,
       });
 
       return user;
-
     } catch (error) {
-      this.logger.error('User creation failed', error instanceof Error ? error : new Error(String(error)), {
-        email: data.email,
-        traceId
-      });
+      this.logger.error(
+        'User creation failed',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          email: data.email,
+          traceId,
+        },
+      );
       throw error;
     }
   }
-} 
+}

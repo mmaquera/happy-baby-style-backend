@@ -6,15 +6,15 @@ import { ILogger } from '@hbs/logging';
 
 export interface GetProductsRequest {
   filters?: {
-    categoryId?: string;  // Cambiado de 'category' a 'categoryId' para consistencia con GraphQL
+    categoryId?: string; // Cambiado de 'category' a 'categoryId' para consistencia con GraphQL
     isActive?: boolean;
     minPrice?: number;
     maxPrice?: number;
     inStock?: boolean;
     search?: string;
     sku?: string;
-    tags?: string[];  // Agregado para soporte completo de filtros GraphQL
-    rating?: number;  // Agregado para soporte completo de filtros GraphQL
+    tags?: string[]; // Agregado para soporte completo de filtros GraphQL
+    rating?: number; // Agregado para soporte completo de filtros GraphQL
   };
   pagination?: {
     limit?: number;
@@ -31,9 +31,7 @@ export interface GetProductsResponse {
 export class GetProductsUseCase {
   private readonly logger: ILogger;
 
-  constructor(
-    private readonly productRepository: IProductRepository
-  ) {
+  constructor(private readonly productRepository: IProductRepository) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('GetProductsUseCase');
   }
 
@@ -41,22 +39,22 @@ export class GetProductsUseCase {
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'GetProducts' }
+    context: { useCase: 'GetProducts' },
   })
   async execute(request: GetProductsRequest = {}): Promise<GetProductsResponse> {
     try {
       this.logger.info('Starting GetProducts use case execution', {
         filters: request.filters,
-        pagination: request.pagination
+        pagination: request.pagination,
       });
 
       const pagination = request.pagination || {};
       const limit = pagination.limit || 50;
       const offset = pagination.offset || 0;
-      
+
       // Mapeo correcto de filtros GraphQL a ProductFilters
       const filters: ProductFilters = {
-        categoryId: request.filters?.categoryId,  // Corregido: ahora usa categoryId directamente
+        categoryId: request.filters?.categoryId, // Corregido: ahora usa categoryId directamente
         isActive: request.filters?.isActive,
         minPrice: request.filters?.minPrice,
         maxPrice: request.filters?.maxPrice,
@@ -64,24 +62,24 @@ export class GetProductsUseCase {
         search: request.filters?.search?.trim(),
         sku: request.filters?.sku,
         limit,
-        offset
+        offset,
       };
 
-      this.logger.debug('Filters mapping completed', { 
+      this.logger.debug('Filters mapping completed', {
         originalFilters: request.filters,
         mappedFilters: filters,
         categoryIdMapping: {
           from: request.filters?.categoryId,
           to: filters.categoryId,
-          isCorrect: request.filters?.categoryId === filters.categoryId
-        }
+          isCorrect: request.filters?.categoryId === filters.categoryId,
+        },
       });
 
       this.logger.debug('Applying filters to product query', { filters });
 
       const products = await this.productRepository.findAll(filters);
-      
-      // Note: This is a simplified implementation. 
+
+      // Note: This is a simplified implementation.
       // For production, you'd want to get the actual total count from the database
       const hasMore = products.length === limit;
       const total = offset + products.length + (hasMore ? 1 : 0);
@@ -89,7 +87,7 @@ export class GetProductsUseCase {
       const result = {
         products,
         total,
-        hasMore
+        hasMore,
       };
 
       this.logger.info('GetProducts use case completed successfully', {
@@ -100,7 +98,7 @@ export class GetProductsUseCase {
         appliedFilters: filters,
         categoryFilterApplied: Boolean(filters.categoryId),
         stockFilterApplied: Boolean(filters.inStock),
-        activeFilterApplied: Boolean(filters.isActive !== undefined)
+        activeFilterApplied: Boolean(filters.isActive !== undefined),
       });
 
       return result;
@@ -111,8 +109,8 @@ export class GetProductsUseCase {
         errorDetails: {
           name: error.name,
           message: error.message,
-          stack: error.stack
-        }
+          stack: error.stack,
+        },
       });
       throw error;
     }

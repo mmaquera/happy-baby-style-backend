@@ -13,10 +13,10 @@ export interface IEmailService {
    * @param resetUrl - URL completa de reseteo
    */
   sendPasswordResetEmail(
-    email: string, 
-    token: string, 
-    userName: string, 
-    resetUrl: string
+    email: string,
+    token: string,
+    userName: string,
+    resetUrl: string,
   ): Promise<void>;
 
   /**

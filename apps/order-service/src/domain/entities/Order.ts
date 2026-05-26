@@ -1,12 +1,18 @@
 function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
 
 export interface ShippingAddress {
   id: string;
@@ -95,7 +101,7 @@ export class OrderEntity implements Order {
     public readonly notes?: string,
     public readonly deliveredAt?: Date,
     public readonly items: OrderItem[] = [],
-    public readonly shippingAddress?: ShippingAddress
+    public readonly shippingAddress?: ShippingAddress,
   ) {}
 
   canBeCancelled(): boolean {
@@ -117,7 +123,7 @@ export class OrderEntity implements Order {
       processing: 'En Proceso',
       shipped: 'Enviado',
       delivered: 'Entregado',
-      cancelled: 'Cancelado'
+      cancelled: 'Cancelado',
     };
     return statusLabels[this.status];
   }

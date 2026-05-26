@@ -6,7 +6,7 @@ import { User, UserRole } from '@domain/entities/User';
 import { UserSession } from '@domain/entities/Auth';
 
 const mockAuthenticateUserUseCase: jest.Mocked<AuthenticateUserUseCase> = {
-  execute: jest.fn()
+  execute: jest.fn(),
 } as any;
 
 describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
@@ -26,7 +26,7 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
           default:
             return undefined;
         }
-      })
+      }),
     } as any;
 
     // Mock logger
@@ -35,7 +35,7 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
       warn: jest.fn(),
       error: jest.fn(),
       debug: jest.fn(),
-      createChildLogger: jest.fn()
+      createChildLogger: jest.fn(),
     } as any;
 
     // Mock auth repository
@@ -63,7 +63,7 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
       updateUserLastLogin: jest.fn(),
       validateSession: jest.fn(),
       logoutUser: jest.fn(),
-      refreshUserSession: jest.fn()
+      refreshUserSession: jest.fn(),
     } as any;
   });
 
@@ -73,10 +73,10 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
       req: {
         headers: {
           'x-request-id': 'req-123',
-          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
-        ip: '192.168.1.100'
-      }
+        ip: '192.168.1.100',
+      },
     };
 
     const mockUser: User = {
@@ -96,10 +96,10 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         addresses: [],
-        favoriteProductIds: []
+        favoriteProductIds: [],
       },
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     const mockSession: UserSession = {
@@ -113,7 +113,7 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
       ipAddress: '192.168.1.100',
       isActive: true,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     const mockLoginResult = {
@@ -122,8 +122,8 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
       refreshToken: 'refresh-token-123',
       session: {
         id: 'session-123',
-        expiresAt: mockSession.expiresAt.toISOString()
-      }
+        expiresAt: mockSession.expiresAt.toISOString(),
+      },
     };
 
     it('should successfully login user and create session with context information', async () => {
@@ -131,11 +131,15 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
       mockAuthenticateUserUseCase.execute.mockResolvedValue(mockLoginResult);
 
       // Simular la mutación GraphQL
-      const loginUserMutation = async (_: any, { email, password }: { email: string; password: string }, context: any) => {
+      const loginUserMutation = async (
+        _: any,
+        { email, password }: { email: string; password: string },
+        context: any,
+      ) => {
         const startTime = Date.now();
         const traceId = `login-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           // Validación básica de input
           if (!email || !password) {
@@ -149,22 +153,23 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
               metadata: {
                 requestId,
                 traceId,
-                duration
-              }
+                duration,
+              },
             };
           }
 
           // Ejecutar caso de uso con información del contexto
-          const authenticateUserUseCase = container.get<AuthenticateUserUseCase>('authenticateUserUseCase');
+          const authenticateUserUseCase =
+            container.get<AuthenticateUserUseCase>('authenticateUserUseCase');
           const result = await authenticateUserUseCase.execute({
             email,
             password,
             userAgent: context?.req?.headers?.['user-agent'],
-            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress
+            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress,
           });
 
           const duration = Date.now() - startTime;
-          
+
           // Crear respuesta exitosa con estructura de sesión
           return {
             success: true,
@@ -175,14 +180,14 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
                 firstName: result.user.profile?.firstName,
                 lastName: result.user.profile?.lastName,
                 role: result.user.role,
-                isActive: result.user.isActive
+                isActive: result.user.isActive,
               },
               accessToken: result.accessToken,
               refreshToken: result.refreshToken,
               session: {
                 id: result.session.id,
-                expiresAt: result.session.expiresAt
-              }
+                expiresAt: result.session.expiresAt,
+              },
             },
             message: 'Login successful',
             code: 'SUCCESS',
@@ -190,13 +195,12 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
-
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           return {
             success: false,
             message: error.message || 'Internal server error',
@@ -206,14 +210,18 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
 
       // Act
-      const result = await loginUserMutation(null, { email: 'test@example.com', password: 'password123' }, mockContext);
+      const result = await loginUserMutation(
+        null,
+        { email: 'test@example.com', password: 'password123' },
+        mockContext,
+      );
 
       // Assert
       expect(result.success).toBe(true);
@@ -226,14 +234,14 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
           firstName: 'John',
           lastName: 'Doe',
           role: UserRole.CUSTOMER,
-          isActive: true
+          isActive: true,
         },
         accessToken: 'access-token-123',
         refreshToken: 'refresh-token-123',
         session: {
           id: 'session-123',
-          expiresAt: mockSession.expiresAt.toISOString()
-        }
+          expiresAt: mockSession.expiresAt.toISOString(),
+        },
       });
       expect(result.metadata).toHaveProperty('requestId');
       expect(result.metadata).toHaveProperty('traceId');
@@ -245,7 +253,7 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
         email: 'test@example.com',
         password: 'password123',
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        ipAddress: '192.168.1.100'
+        ipAddress: '192.168.1.100',
       });
     });
 
@@ -255,38 +263,43 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
         user: null,
         req: {
           headers: {
-            'x-request-id': 'req-123'
-          }
-        }
+            'x-request-id': 'req-123',
+          },
+        },
       };
 
       mockAuthenticateUserUseCase.execute.mockResolvedValue(mockLoginResult);
 
       // Simular la mutación GraphQL
-      const loginUserMutation = async (_: any, { email, password }: { email: string; password: string }, context: any) => {
+      const loginUserMutation = async (
+        _: any,
+        { email, password }: { email: string; password: string },
+        context: any,
+      ) => {
         const startTime = Date.now();
         const traceId = `login-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           // Ejecutar caso de uso
-          const authenticateUserUseCase = container.get<AuthenticateUserUseCase>('authenticateUserUseCase');
+          const authenticateUserUseCase =
+            container.get<AuthenticateUserUseCase>('authenticateUserUseCase');
           const result = await authenticateUserUseCase.execute({
             email,
             password,
             userAgent: context?.req?.headers?.['user-agent'],
-            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress
+            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress,
           });
 
           const duration = Date.now() - startTime;
-          
+
           return {
             success: true,
             data: {
               user: result.user,
               accessToken: result.accessToken,
               refreshToken: result.refreshToken,
-              session: result.session
+              session: result.session,
             },
             message: 'Login successful',
             code: 'SUCCESS',
@@ -294,10 +307,9 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
-
         } catch (error: any) {
           const duration = Date.now() - startTime;
           return {
@@ -309,14 +321,18 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
 
       // Act
-      const result = await loginUserMutation(null, { email: 'test@example.com', password: 'password123' }, contextWithoutIp);
+      const result = await loginUserMutation(
+        null,
+        { email: 'test@example.com', password: 'password123' },
+        contextWithoutIp,
+      );
 
       // Assert
       expect(result.success).toBe(true);
@@ -324,17 +340,21 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
         email: 'test@example.com',
         password: 'password123',
         userAgent: undefined,
-        ipAddress: undefined
+        ipAddress: undefined,
       });
     });
 
     it('should return error response for missing credentials', async () => {
       // Arrange
-      const loginUserMutation = async (_: any, { email, password }: { email: string; password: string }, context: any) => {
+      const loginUserMutation = async (
+        _: any,
+        { email, password }: { email: string; password: string },
+        context: any,
+      ) => {
         const startTime = Date.now();
         const traceId = `login-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         // Validación básica de input
         if (!email || !password) {
           const duration = Date.now() - startTime;
@@ -347,8 +367,8 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
 
@@ -374,27 +394,31 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
       const authError = new Error('Invalid credentials');
       mockAuthenticateUserUseCase.execute.mockRejectedValue(authError);
 
-      const loginUserMutation = async (_: any, { email, password }: { email: string; password: string }, context: any) => {
+      const loginUserMutation = async (
+        _: any,
+        { email, password }: { email: string; password: string },
+        context: any,
+      ) => {
         const startTime = Date.now();
         const traceId = `login-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           // Ejecutar caso de uso
-          const authenticateUserUseCase = container.get<AuthenticateUserUseCase>('authenticateUserUseCase');
+          const authenticateUserUseCase =
+            container.get<AuthenticateUserUseCase>('authenticateUserUseCase');
           await authenticateUserUseCase.execute({
             email,
             password,
             userAgent: context?.req?.headers?.['user-agent'],
-            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress
+            ipAddress: context?.req?.ip || context?.req?.connection?.remoteAddress,
           });
 
           // Este código no debería ejecutarse
           return { success: false };
-
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           return {
             success: false,
             message: error.message || 'Internal server error',
@@ -404,14 +428,18 @@ describe('GraphQL loginUser Mutation Integration - Session Creation', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
 
       // Act
-      const result = await loginUserMutation(null, { email: 'test@example.com', password: 'wrongpassword' }, mockContext);
+      const result = await loginUserMutation(
+        null,
+        { email: 'test@example.com', password: 'wrongpassword' },
+        mockContext,
+      );
 
       // Assert
       expect(result.success).toBe(false);

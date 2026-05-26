@@ -13,12 +13,12 @@ export class PrismaCategoryRepository implements ICategoryRepository {
 
   async create(category: CategoryEntity): Promise<CategoryEntity> {
     const traceId = `create-category-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Creating category', {
         name: category.name,
         slug: category.slug,
-        traceId
+        traceId,
       });
 
       const createdCategory = await this.prisma.category.create({
@@ -28,25 +28,29 @@ export class PrismaCategoryRepository implements ICategoryRepository {
           slug: category.slug,
           image: category.imageUrl,
           isActive: category.isActive,
-          sortOrder: category.sortOrder
-        }
+          sortOrder: category.sortOrder,
+        },
       });
 
       const result = this.mapToCategoryEntity(createdCategory);
-      
+
       this.logger.info('Category created successfully', {
         categoryId: result.id,
         name: result.name,
-        traceId
+        traceId,
       });
 
       return result;
     } catch (error) {
-      this.logger.error('Failed to create category', error instanceof Error ? error : new Error(String(error)), {
-        name: category.name,
-        slug: category.slug,
-        traceId
-      });
+      this.logger.error(
+        'Failed to create category',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          name: category.name,
+          slug: category.slug,
+          traceId,
+        },
+      );
       throw error;
     }
   }
@@ -54,14 +58,18 @@ export class PrismaCategoryRepository implements ICategoryRepository {
   async findById(id: string): Promise<CategoryEntity | null> {
     try {
       const category = await this.prisma.category.findUnique({
-        where: { id }
+        where: { id },
       });
 
       return category ? this.mapToCategoryEntity(category) : null;
     } catch (error) {
-      this.logger.error('Failed to find category by ID', error instanceof Error ? error : new Error(String(error)), {
-        categoryId: id
-      });
+      this.logger.error(
+        'Failed to find category by ID',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          categoryId: id,
+        },
+      );
       throw error;
     }
   }
@@ -69,16 +77,16 @@ export class PrismaCategoryRepository implements ICategoryRepository {
   async findAll(filters?: CategoryFilters): Promise<CategoryEntity[]> {
     try {
       const where: any = {};
-      
+
       // Aplicar filtros
       if (filters?.isActive !== undefined) {
         where.isActive = filters.isActive;
       }
-      
+
       if (filters?.search) {
         where.OR = [
           { name: { contains: filters.search, mode: 'insensitive' } },
-          { description: { contains: filters.search, mode: 'insensitive' } }
+          { description: { contains: filters.search, mode: 'insensitive' } },
         ];
       }
 
@@ -86,14 +94,18 @@ export class PrismaCategoryRepository implements ICategoryRepository {
         where,
         orderBy: { sortOrder: 'asc' },
         take: filters?.limit,
-        skip: filters?.offset
+        skip: filters?.offset,
       });
 
-      return categories.map(category => this.mapToCategoryEntity(category));
+      return categories.map((category) => this.mapToCategoryEntity(category));
     } catch (error) {
-      this.logger.error('Failed to find all categories', error instanceof Error ? error : new Error(String(error)), {
-        filters
-      });
+      this.logger.error(
+        'Failed to find all categories',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          filters,
+        },
+      );
       throw error;
     }
   }
@@ -101,14 +113,18 @@ export class PrismaCategoryRepository implements ICategoryRepository {
   async findByName(name: string): Promise<CategoryEntity | null> {
     try {
       const category = await this.prisma.category.findUnique({
-        where: { name }
+        where: { name },
       });
 
       return category ? this.mapToCategoryEntity(category) : null;
     } catch (error) {
-      this.logger.error('Failed to find category by name', error instanceof Error ? error : new Error(String(error)), {
-        name
-      });
+      this.logger.error(
+        'Failed to find category by name',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          name,
+        },
+      );
       throw error;
     }
   }
@@ -116,26 +132,30 @@ export class PrismaCategoryRepository implements ICategoryRepository {
   async findBySlug(slug: string): Promise<CategoryEntity | null> {
     try {
       const category = await this.prisma.category.findUnique({
-        where: { slug }
+        where: { slug },
       });
 
       return category ? this.mapToCategoryEntity(category) : null;
     } catch (error) {
-      this.logger.error('Failed to find category by slug', error instanceof Error ? error : new Error(String(error)), {
-        slug
-      });
+      this.logger.error(
+        'Failed to find category by slug',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          slug,
+        },
+      );
       throw error;
     }
   }
 
   async update(id: string, categoryData: Partial<CategoryEntity>): Promise<CategoryEntity> {
     const traceId = `update-category-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Updating category', {
         categoryId: id,
         changes: Object.keys(categoryData),
-        traceId
+        traceId,
       });
 
       const updatedCategory = await this.prisma.category.update({
@@ -146,50 +166,58 @@ export class PrismaCategoryRepository implements ICategoryRepository {
           slug: categoryData.slug,
           image: categoryData.imageUrl,
           isActive: categoryData.isActive,
-          sortOrder: categoryData.sortOrder
-        }
+          sortOrder: categoryData.sortOrder,
+        },
       });
 
       const result = this.mapToCategoryEntity(updatedCategory);
-      
+
       this.logger.info('Category updated successfully', {
         categoryId: id,
         name: result.name,
-        traceId
+        traceId,
       });
 
       return result;
     } catch (error) {
-      this.logger.error('Failed to update category', error instanceof Error ? error : new Error(String(error)), {
-        categoryId: id,
-        traceId
-      });
+      this.logger.error(
+        'Failed to update category',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          categoryId: id,
+          traceId,
+        },
+      );
       throw error;
     }
   }
 
   async delete(id: string): Promise<void> {
     const traceId = `delete-category-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Deleting category', {
         categoryId: id,
-        traceId
+        traceId,
       });
 
       await this.prisma.category.delete({
-        where: { id }
+        where: { id },
       });
 
       this.logger.info('Category deleted successfully', {
         categoryId: id,
-        traceId
+        traceId,
       });
     } catch (error) {
-      this.logger.error('Failed to delete category', error instanceof Error ? error : new Error(String(error)), {
-        categoryId: id,
-        traceId
-      });
+      this.logger.error(
+        'Failed to delete category',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          categoryId: id,
+          traceId,
+        },
+      );
       throw error;
     }
   }
@@ -198,12 +226,15 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     try {
       const categories = await this.prisma.category.findMany({
         where: { isActive: true },
-        orderBy: { sortOrder: 'asc' }
+        orderBy: { sortOrder: 'asc' },
       });
 
-      return categories.map(category => this.mapToCategoryEntity(category));
+      return categories.map((category) => this.mapToCategoryEntity(category));
     } catch (error) {
-      this.logger.error('Failed to find active categories', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Failed to find active categories',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -212,18 +243,22 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     try {
       await this.prisma.category.update({
         where: { id },
-        data: { sortOrder }
+        data: { sortOrder },
       });
 
       this.logger.debug('Category sort order updated', {
         categoryId: id,
-        newSortOrder: sortOrder
+        newSortOrder: sortOrder,
       });
     } catch (error) {
-      this.logger.error('Failed to update category sort order', error instanceof Error ? error : new Error(String(error)), {
-        categoryId: id,
-        sortOrder
-      });
+      this.logger.error(
+        'Failed to update category sort order',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          categoryId: id,
+          sortOrder,
+        },
+      );
       throw error;
     }
   }
@@ -238,7 +273,7 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       category.isActive,
       category.sortOrder,
       category.createdAt,
-      category.updatedAt
+      category.updatedAt,
     );
   }
 }

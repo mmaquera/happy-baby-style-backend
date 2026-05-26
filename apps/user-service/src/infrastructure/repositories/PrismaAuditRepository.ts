@@ -6,7 +6,7 @@ import { LoggerFactory } from '@hbs/logging';
 
 /**
  * Repositorio de infraestructura para logs de auditoría usando Prisma
- * 
+ *
  * Principios aplicados:
  * - Clean Architecture: Implementación en la capa de infraestructura
  * - Dependency Inversion: Implementa IAuditRepository del dominio
@@ -21,13 +21,13 @@ export class PrismaAuditRepository implements IAuditRepository {
 
   async create(data: CreateAuditLogRequest): Promise<AuditLog> {
     const startTime = Date.now();
-    
+
     try {
       this.logger.debug('Creating audit log', {
         action: data.action,
         userId: data.userId,
         tableName: data.tableName,
-        context: 'PrismaAuditRepository.create'
+        context: 'PrismaAuditRepository.create',
       });
 
       const created = await this.prisma.auditLog.create({
@@ -40,28 +40,32 @@ export class PrismaAuditRepository implements IAuditRepository {
           newValues: data.newValues ? JSON.parse(JSON.stringify(data.newValues)) : null,
           ipAddress: data.ipAddress || null,
           userAgent: data.userAgent || null,
-        }
+        },
       });
 
       const duration = Date.now() - startTime;
-      
+
       this.logger.info('Audit log created successfully', {
         auditLogId: created.id,
         action: created.action,
         duration,
-        context: 'PrismaAuditRepository.create'
+        context: 'PrismaAuditRepository.create',
       });
 
       return this.mapToAuditLog(created);
     } catch (error) {
       const duration = Date.now() - startTime;
-      
-      this.logger.error('Failed to create audit log', error instanceof Error ? error : new Error(String(error)), {
-        action: data.action,
-        userId: data.userId,
-        duration,
-        context: 'PrismaAuditRepository.create'
-      });
+
+      this.logger.error(
+        'Failed to create audit log',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          action: data.action,
+          userId: data.userId,
+          duration,
+          context: 'PrismaAuditRepository.create',
+        },
+      );
 
       throw error;
     }
@@ -71,15 +75,19 @@ export class PrismaAuditRepository implements IAuditRepository {
     try {
       const logs = await this.prisma.auditLog.findMany({
         where: { userId },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      return logs.map(log => this.mapToAuditLog(log));
+      return logs.map((log) => this.mapToAuditLog(log));
     } catch (error) {
-      this.logger.error('Failed to find audit logs by user id', error instanceof Error ? error : new Error(String(error)), {
-        userId,
-        context: 'PrismaAuditRepository.findByUserId'
-      });
+      this.logger.error(
+        'Failed to find audit logs by user id',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          userId,
+          context: 'PrismaAuditRepository.findByUserId',
+        },
+      );
       throw error;
     }
   }
@@ -89,16 +97,20 @@ export class PrismaAuditRepository implements IAuditRepository {
       const logs = await this.prisma.auditLog.findMany({
         where: { action },
         orderBy: { createdAt: 'desc' },
-        take: limit
+        take: limit,
       });
 
-      return logs.map(log => this.mapToAuditLog(log));
+      return logs.map((log) => this.mapToAuditLog(log));
     } catch (error) {
-      this.logger.error('Failed to find audit logs by action', error instanceof Error ? error : new Error(String(error)), {
-        action,
-        limit,
-        context: 'PrismaAuditRepository.findByAction'
-      });
+      this.logger.error(
+        'Failed to find audit logs by action',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          action,
+          limit,
+          context: 'PrismaAuditRepository.findByAction',
+        },
+      );
       throw error;
     }
   }
@@ -106,15 +118,19 @@ export class PrismaAuditRepository implements IAuditRepository {
   async findById(id: string): Promise<AuditLog | null> {
     try {
       const log = await this.prisma.auditLog.findUnique({
-        where: { id }
+        where: { id },
       });
 
       return log ? this.mapToAuditLog(log) : null;
     } catch (error) {
-      this.logger.error('Failed to find audit log by id', error instanceof Error ? error : new Error(String(error)), {
-        id,
-        context: 'PrismaAuditRepository.findById'
-      });
+      this.logger.error(
+        'Failed to find audit log by id',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          id,
+          context: 'PrismaAuditRepository.findById',
+        },
+      );
       throw error;
     }
   }
@@ -124,18 +140,22 @@ export class PrismaAuditRepository implements IAuditRepository {
       const logs = await this.prisma.auditLog.findMany({
         where: {
           tableName,
-          recordId
+          recordId,
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      return logs.map(log => this.mapToAuditLog(log));
+      return logs.map((log) => this.mapToAuditLog(log));
     } catch (error) {
-      this.logger.error('Failed to find audit logs by table and record', error instanceof Error ? error : new Error(String(error)), {
-        tableName,
-        recordId,
-        context: 'PrismaAuditRepository.findByTableAndRecord'
-      });
+      this.logger.error(
+        'Failed to find audit logs by table and record',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          tableName,
+          recordId,
+          context: 'PrismaAuditRepository.findByTableAndRecord',
+        },
+      );
       throw error;
     }
   }
@@ -151,8 +171,7 @@ export class PrismaAuditRepository implements IAuditRepository {
       newValues: prismaAuditLog.newValues as Record<string, any> | undefined,
       ipAddress: prismaAuditLog.ipAddress || undefined,
       userAgent: prismaAuditLog.userAgent || undefined,
-      createdAt: prismaAuditLog.createdAt
+      createdAt: prismaAuditLog.createdAt,
     };
   }
 }
-

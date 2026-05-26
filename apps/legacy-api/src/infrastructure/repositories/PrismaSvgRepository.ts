@@ -19,7 +19,7 @@ export class PrismaSvgRepository implements ISvgRepository {
     const operationId = this.performanceLogger.startTimer('svgCreate', {
       entityType: svg.entityType,
       entityId: svg.entityId,
-      fileName: svg.fileName
+      fileName: svg.fileName,
     });
 
     try {
@@ -28,7 +28,7 @@ export class PrismaSvgRepository implements ISvgRepository {
         fileName: svg.fileName,
         entityType: svg.entityType,
         entityId: svg.entityId,
-        context: 'PrismaSvgRepository.create'
+        context: 'PrismaSvgRepository.create',
       });
 
       const createdImage = await this.prisma.image.create({
@@ -46,8 +46,8 @@ export class PrismaSvgRepository implements ISvgRepository {
           createdAt: svg.createdAt,
           dimensions: svg.dimensions ? JSON.stringify(svg.dimensions) : null,
           viewBox: svg.viewBox,
-          optimized: svg.optimized
-        }
+          optimized: svg.optimized,
+        },
       });
 
       const duration = Date.now() - startTime;
@@ -57,23 +57,27 @@ export class PrismaSvgRepository implements ISvgRepository {
         svgId: createdImage.id,
         fileName: createdImage.fileName,
         duration,
-        context: 'PrismaSvgRepository.create'
+        context: 'PrismaSvgRepository.create',
       });
 
       return this.mapToEntity(createdImage);
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to create SVG entity', error instanceof Error ? error : new Error(String(error)), {
-        svgId: svg.id,
-        fileName: svg.fileName,
-        duration,
-        context: 'PrismaSvgRepository.create'
-      });
+      this.logger.error(
+        'Failed to create SVG entity',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          svgId: svg.id,
+          fileName: svg.fileName,
+          duration,
+          context: 'PrismaSvgRepository.create',
+        },
+      );
 
       throw error;
     }
@@ -86,11 +90,11 @@ export class PrismaSvgRepository implements ISvgRepository {
     try {
       this.logger.debug('Finding SVG by ID', {
         svgId: id,
-        context: 'PrismaSvgRepository.findById'
+        context: 'PrismaSvgRepository.findById',
       });
 
       const image = await this.prisma.image.findUnique({
-        where: { id }
+        where: { id },
       });
 
       const duration = Date.now() - startTime;
@@ -101,7 +105,7 @@ export class PrismaSvgRepository implements ISvgRepository {
           svgId: id,
           fileName: image.fileName,
           duration,
-          context: 'PrismaSvgRepository.findById'
+          context: 'PrismaSvgRepository.findById',
         });
         return this.mapToEntity(image);
       }
@@ -109,22 +113,26 @@ export class PrismaSvgRepository implements ISvgRepository {
       this.logger.debug('SVG not found by ID', {
         svgId: id,
         duration,
-        context: 'PrismaSvgRepository.findById'
+        context: 'PrismaSvgRepository.findById',
       });
 
       return null;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to find SVG by ID', error instanceof Error ? error : new Error(String(error)), {
-        svgId: id,
-        duration,
-        context: 'PrismaSvgRepository.findById'
-      });
+      this.logger.error(
+        'Failed to find SVG by ID',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          svgId: id,
+          duration,
+          context: 'PrismaSvgRepository.findById',
+        },
+      );
 
       throw error;
     }
@@ -134,14 +142,14 @@ export class PrismaSvgRepository implements ISvgRepository {
     const startTime = Date.now();
     const operationId = this.performanceLogger.startTimer('svgFindByEntity', {
       entityType,
-      entityId
+      entityId,
     });
 
     try {
       this.logger.debug('Finding SVGs by entity', {
         entityType,
         entityId,
-        context: 'PrismaSvgRepository.findByEntity'
+        context: 'PrismaSvgRepository.findByEntity',
       });
 
       const images = await this.prisma.image.findMany({
@@ -149,12 +157,12 @@ export class PrismaSvgRepository implements ISvgRepository {
           entityType,
           entityId,
           mimeType: {
-            in: ['image/svg+xml', 'application/svg+xml']
-          }
+            in: ['image/svg+xml', 'application/svg+xml'],
+          },
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       const duration = Date.now() - startTime;
@@ -165,23 +173,27 @@ export class PrismaSvgRepository implements ISvgRepository {
         entityId,
         count: images.length,
         duration,
-        context: 'PrismaSvgRepository.findByEntity'
+        context: 'PrismaSvgRepository.findByEntity',
       });
 
-      return images.map(image => this.mapToEntity(image));
+      return images.map((image) => this.mapToEntity(image));
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to find SVGs by entity', error instanceof Error ? error : new Error(String(error)), {
-        entityType,
-        entityId,
-        duration,
-        context: 'PrismaSvgRepository.findByEntity'
-      });
+      this.logger.error(
+        'Failed to find SVGs by entity',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          entityType,
+          entityId,
+          duration,
+          context: 'PrismaSvgRepository.findByEntity',
+        },
+      );
 
       throw error;
     }
@@ -194,16 +206,16 @@ export class PrismaSvgRepository implements ISvgRepository {
     try {
       this.logger.debug('Finding SVG by filename', {
         fileName,
-        context: 'PrismaSvgRepository.findByFileName'
+        context: 'PrismaSvgRepository.findByFileName',
       });
 
       const image = await this.prisma.image.findFirst({
-        where: { 
+        where: {
           fileName,
           mimeType: {
-            in: ['image/svg+xml', 'application/svg+xml']
-          }
-        }
+            in: ['image/svg+xml', 'application/svg+xml'],
+          },
+        },
       });
 
       const duration = Date.now() - startTime;
@@ -214,7 +226,7 @@ export class PrismaSvgRepository implements ISvgRepository {
           fileName,
           svgId: image.id,
           duration,
-          context: 'PrismaSvgRepository.findByFileName'
+          context: 'PrismaSvgRepository.findByFileName',
         });
         return this.mapToEntity(image);
       }
@@ -222,22 +234,26 @@ export class PrismaSvgRepository implements ISvgRepository {
       this.logger.debug('SVG not found by filename', {
         fileName,
         duration,
-        context: 'PrismaSvgRepository.findByFileName'
+        context: 'PrismaSvgRepository.findByFileName',
       });
 
       return null;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to find SVG by filename', error instanceof Error ? error : new Error(String(error)), {
-        fileName,
-        duration,
-        context: 'PrismaSvgRepository.findByFileName'
-      });
+      this.logger.error(
+        'Failed to find SVG by filename',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          fileName,
+          duration,
+          context: 'PrismaSvgRepository.findByFileName',
+        },
+      );
 
       throw error;
     }
@@ -251,11 +267,11 @@ export class PrismaSvgRepository implements ISvgRepository {
       this.logger.info('Updating SVG entity', {
         svgId: id,
         updates: Object.keys(updates),
-        context: 'PrismaSvgRepository.update'
+        context: 'PrismaSvgRepository.update',
       });
 
       const updateData: any = {};
-      
+
       if (updates.fileName) updateData.fileName = updates.fileName;
       if (updates.originalName) updateData.originalName = updates.originalName;
       if (updates.mimeType) updateData.mimeType = updates.mimeType;
@@ -271,7 +287,7 @@ export class PrismaSvgRepository implements ISvgRepository {
 
       const updatedImage = await this.prisma.image.update({
         where: { id },
-        data: updateData
+        data: updateData,
       });
 
       const duration = Date.now() - startTime;
@@ -281,22 +297,26 @@ export class PrismaSvgRepository implements ISvgRepository {
         svgId: id,
         fileName: updatedImage.fileName,
         duration,
-        context: 'PrismaSvgRepository.update'
+        context: 'PrismaSvgRepository.update',
       });
 
       return this.mapToEntity(updatedImage);
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to update SVG entity', error instanceof Error ? error : new Error(String(error)), {
-        svgId: id,
-        duration,
-        context: 'PrismaSvgRepository.update'
-      });
+      this.logger.error(
+        'Failed to update SVG entity',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          svgId: id,
+          duration,
+          context: 'PrismaSvgRepository.update',
+        },
+      );
 
       throw error;
     }
@@ -309,11 +329,11 @@ export class PrismaSvgRepository implements ISvgRepository {
     try {
       this.logger.info('Deleting SVG entity', {
         svgId: id,
-        context: 'PrismaSvgRepository.delete'
+        context: 'PrismaSvgRepository.delete',
       });
 
       await this.prisma.image.delete({
-        where: { id }
+        where: { id },
       });
 
       const duration = Date.now() - startTime;
@@ -322,22 +342,26 @@ export class PrismaSvgRepository implements ISvgRepository {
       this.logger.info('SVG entity deleted successfully', {
         svgId: id,
         duration,
-        context: 'PrismaSvgRepository.delete'
+        context: 'PrismaSvgRepository.delete',
       });
 
       return true;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to delete SVG entity', error instanceof Error ? error : new Error(String(error)), {
-        svgId: id,
-        duration,
-        context: 'PrismaSvgRepository.delete'
-      });
+      this.logger.error(
+        'Failed to delete SVG entity',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          svgId: id,
+          duration,
+          context: 'PrismaSvgRepository.delete',
+        },
+      );
 
       throw error;
     }
@@ -351,20 +375,20 @@ export class PrismaSvgRepository implements ISvgRepository {
       this.logger.debug('Finding all SVGs', {
         limit,
         offset,
-        context: 'PrismaSvgRepository.findAll'
+        context: 'PrismaSvgRepository.findAll',
       });
 
       const images = await this.prisma.image.findMany({
         where: {
           mimeType: {
-            in: ['image/svg+xml', 'application/svg+xml']
-          }
+            in: ['image/svg+xml', 'application/svg+xml'],
+          },
         },
         take: limit,
         skip: offset,
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       const duration = Date.now() - startTime;
@@ -375,23 +399,27 @@ export class PrismaSvgRepository implements ISvgRepository {
         limit,
         offset,
         duration,
-        context: 'PrismaSvgRepository.findAll'
+        context: 'PrismaSvgRepository.findAll',
       });
 
-      return images.map(image => this.mapToEntity(image));
+      return images.map((image) => this.mapToEntity(image));
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to find all SVGs', error instanceof Error ? error : new Error(String(error)), {
-        limit,
-        offset,
-        duration,
-        context: 'PrismaSvgRepository.findAll'
-      });
+      this.logger.error(
+        'Failed to find all SVGs',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          limit,
+          offset,
+          duration,
+          context: 'PrismaSvgRepository.findAll',
+        },
+      );
 
       throw error;
     }
@@ -403,15 +431,15 @@ export class PrismaSvgRepository implements ISvgRepository {
 
     try {
       this.logger.debug('Counting SVGs', {
-        context: 'PrismaSvgRepository.count'
+        context: 'PrismaSvgRepository.count',
       });
 
       const count = await this.prisma.image.count({
         where: {
           mimeType: {
-            in: ['image/svg+xml', 'application/svg+xml']
-          }
-        }
+            in: ['image/svg+xml', 'application/svg+xml'],
+          },
+        },
       });
 
       const duration = Date.now() - startTime;
@@ -420,32 +448,40 @@ export class PrismaSvgRepository implements ISvgRepository {
       this.logger.debug('SVG count retrieved', {
         count,
         duration,
-        context: 'PrismaSvgRepository.count'
+        context: 'PrismaSvgRepository.count',
       });
 
       return count;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to count SVGs', error instanceof Error ? error : new Error(String(error)), {
-        duration,
-        context: 'PrismaSvgRepository.count'
-      });
+      this.logger.error(
+        'Failed to count SVGs',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          duration,
+          context: 'PrismaSvgRepository.count',
+        },
+      );
 
       throw error;
     }
   }
 
-  async findByEntityType(entityType: SvgEntityType, limit?: number, offset?: number): Promise<SvgEntity[]> {
+  async findByEntityType(
+    entityType: SvgEntityType,
+    limit?: number,
+    offset?: number,
+  ): Promise<SvgEntity[]> {
     const startTime = Date.now();
     const operationId = this.performanceLogger.startTimer('svgFindByEntityType', {
       entityType,
       limit,
-      offset
+      offset,
     });
 
     try {
@@ -453,21 +489,21 @@ export class PrismaSvgRepository implements ISvgRepository {
         entityType,
         limit,
         offset,
-        context: 'PrismaSvgRepository.findByEntityType'
+        context: 'PrismaSvgRepository.findByEntityType',
       });
 
       const images = await this.prisma.image.findMany({
-        where: { 
+        where: {
           entityType,
           mimeType: {
-            in: ['image/svg+xml', 'application/svg+xml']
-          }
+            in: ['image/svg+xml', 'application/svg+xml'],
+          },
         },
         take: limit,
         skip: offset,
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       const duration = Date.now() - startTime;
@@ -479,24 +515,28 @@ export class PrismaSvgRepository implements ISvgRepository {
         limit,
         offset,
         duration,
-        context: 'PrismaSvgRepository.findByEntityType'
+        context: 'PrismaSvgRepository.findByEntityType',
       });
 
-      return images.map(image => this.mapToEntity(image));
+      return images.map((image) => this.mapToEntity(image));
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('Failed to find SVGs by entity type', error instanceof Error ? error : new Error(String(error)), {
-        entityType,
-        limit,
-        offset,
-        duration,
-        context: 'PrismaSvgRepository.findByEntityType'
-      });
+      this.logger.error(
+        'Failed to find SVGs by entity type',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          entityType,
+          limit,
+          offset,
+          duration,
+          context: 'PrismaSvgRepository.findByEntityType',
+        },
+      );
 
       throw error;
     }
@@ -517,7 +557,7 @@ export class PrismaSvgRepository implements ISvgRepository {
       image.createdAt,
       image.dimensions ? JSON.parse(image.dimensions) : undefined,
       image.viewBox,
-      image.optimized || false
+      image.optimized || false,
     );
   }
 }

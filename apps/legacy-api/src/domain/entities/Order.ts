@@ -1,18 +1,37 @@
 // Función para generar UUID simple
 function generateId(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
 
 // Tipos de productos
-export type ProductSize = 'recien_nacido' | '3_meses' | '6_meses' | '9_meses' | '12_meses' | '18_meses' | '24_meses';
-export type ProductColor = 'blanco' | 'rosa_suave' | 'azul_cielo' | 'amarillo_pastel' | 'verde_menta' | 'gris_perla';
+export type ProductSize =
+  | 'recien_nacido'
+  | '3_meses'
+  | '6_meses'
+  | '9_meses'
+  | '12_meses'
+  | '18_meses'
+  | '24_meses';
+export type ProductColor =
+  | 'blanco'
+  | 'rosa_suave'
+  | 'azul_cielo'
+  | 'amarillo_pastel'
+  | 'verde_menta'
+  | 'gris_perla';
 
 // Tipos de estado de pedido
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
 
 // Entidad de dirección de envío
 export interface ShippingAddress {
@@ -94,7 +113,7 @@ export class OrderEntity implements Order {
     public readonly updatedAt: Date,
     public readonly deliveredAt: Date | undefined,
     public readonly items: OrderItem[] = [],
-    public readonly shippingAddress: ShippingAddress | undefined = undefined
+    public readonly shippingAddress: ShippingAddress | undefined = undefined,
   ) {}
 
   static create(data: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'deliveredAt'>): OrderEntity {
@@ -111,7 +130,7 @@ export class OrderEntity implements Order {
       now,
       undefined,
       data.items,
-      data.shippingAddress
+      data.shippingAddress,
     );
   }
 
@@ -128,13 +147,13 @@ export class OrderEntity implements Order {
       new Date(),
       data.deliveredAt ?? this.deliveredAt,
       this.items,
-      this.shippingAddress
+      this.shippingAddress,
     );
   }
 
   updateStatus(status: OrderStatus): OrderEntity {
     const deliveredAt = status === 'delivered' ? new Date() : this.deliveredAt;
-    
+
     return new OrderEntity(
       this.id,
       this.customerEmail,
@@ -147,7 +166,7 @@ export class OrderEntity implements Order {
       new Date(),
       deliveredAt,
       this.items,
-      this.shippingAddress
+      this.shippingAddress,
     );
   }
 
@@ -170,7 +189,7 @@ export class OrderEntity implements Order {
       processing: 'En Proceso',
       shipped: 'Enviado',
       delivered: 'Entregado',
-      cancelled: 'Cancelado'
+      cancelled: 'Cancelado',
     };
     return statusLabels[this.status];
   }
@@ -186,7 +205,7 @@ export class OrderItemEntity implements OrderItem {
     public readonly price: number,
     public readonly size: ProductSize,
     public readonly color: ProductColor,
-    public readonly createdAt: Date
+    public readonly createdAt: Date,
   ) {}
 
   static create(data: Omit<OrderItem, 'id' | 'createdAt'>): OrderItemEntity {
@@ -199,7 +218,7 @@ export class OrderItemEntity implements OrderItem {
       data.price,
       data.size,
       data.color,
-      now
+      now,
     );
   }
 
@@ -216,7 +235,7 @@ export class ShippingAddressEntity implements ShippingAddress {
     public readonly city: string,
     public readonly state: string,
     public readonly zipCode: string,
-    public readonly country: string
+    public readonly country: string,
   ) {}
 
   static create(data: Omit<ShippingAddress, 'id'>): ShippingAddressEntity {
@@ -226,7 +245,7 @@ export class ShippingAddressEntity implements ShippingAddress {
       data.city,
       data.state,
       data.zipCode,
-      data.country
+      data.country,
     );
   }
 

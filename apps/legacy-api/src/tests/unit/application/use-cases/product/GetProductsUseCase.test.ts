@@ -1,4 +1,7 @@
-import { GetProductsUseCase, GetProductsRequest } from '@application/use-cases/product/GetProductsUseCase';
+import {
+  GetProductsUseCase,
+  GetProductsRequest,
+} from '@application/use-cases/product/GetProductsUseCase';
 import { IProductRepository } from '@domain/repositories/IProductRepository';
 import { ProductEntity } from '@domain/entities/Product';
 
@@ -46,7 +49,7 @@ describe('GetProductsUseCase', () => {
         4.5,
         100,
         new Date(),
-        new Date()
+        new Date(),
       ),
       new ProductEntity(
         'prod-2',
@@ -64,8 +67,8 @@ describe('GetProductsUseCase', () => {
         4.0,
         50,
         new Date(),
-        new Date()
-      )
+        new Date(),
+      ),
     ];
 
     it('should return products with pagination when no filters are provided', async () => {
@@ -84,7 +87,7 @@ describe('GetProductsUseCase', () => {
         inStock: undefined,
         search: undefined,
         limit: 50,
-        offset: 0
+        offset: 0,
       });
       expect(result.products).toEqual(mockProducts);
       expect(result.total).toBe(2);
@@ -100,12 +103,12 @@ describe('GetProductsUseCase', () => {
           minPrice: 20,
           maxPrice: 50,
           inStock: true,
-          search: 'test'
+          search: 'test',
         },
         pagination: {
           limit: 10,
-          offset: 0
-        }
+          offset: 0,
+        },
       };
 
       mockProductRepository.findAll.mockResolvedValue([mockProducts[0]]);
@@ -122,7 +125,7 @@ describe('GetProductsUseCase', () => {
         inStock: true,
         search: 'test',
         limit: 10,
-        offset: 0
+        offset: 0,
       });
       expect(result.products).toEqual([mockProducts[0]]);
       expect(result.total).toBe(1);
@@ -134,8 +137,8 @@ describe('GetProductsUseCase', () => {
       const request: GetProductsRequest = {
         pagination: {
           limit: 1,
-          offset: 0
-        }
+          offset: 0,
+        },
       };
 
       mockProductRepository.findAll.mockResolvedValue([mockProducts[0]]);
@@ -153,8 +156,8 @@ describe('GetProductsUseCase', () => {
       // Arrange
       const request: GetProductsRequest = {
         filters: {
-          search: '  trimmed search  '
-        }
+          search: '  trimmed search  ',
+        },
       };
 
       mockProductRepository.findAll.mockResolvedValue([]);
@@ -171,7 +174,7 @@ describe('GetProductsUseCase', () => {
         inStock: undefined,
         search: 'trimmed search',
         limit: 50,
-        offset: 0
+        offset: 0,
       });
     });
 
@@ -194,9 +197,7 @@ describe('GetProductsUseCase', () => {
       mockProductRepository.findAll.mockRejectedValue(repositoryError);
 
       // Act & Assert
-      await expect(getProductsUseCase.execute())
-        .rejects
-        .toThrow('Database connection failed');
+      await expect(getProductsUseCase.execute()).rejects.toThrow('Database connection failed');
 
       expect(mockProductRepository.findAll).toHaveBeenCalledTimes(1);
     });
@@ -205,8 +206,8 @@ describe('GetProductsUseCase', () => {
       // Arrange
       const request: GetProductsRequest = {
         filters: {
-          categoryId: 'cat-1'
-        }
+          categoryId: 'cat-1',
+        },
         // No pagination provided
       };
 
@@ -224,7 +225,7 @@ describe('GetProductsUseCase', () => {
         inStock: undefined,
         search: undefined,
         limit: 50,
-        offset: 0
+        offset: 0,
       });
     });
   });

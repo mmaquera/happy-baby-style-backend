@@ -1,14 +1,14 @@
 import { IUserRepository } from '@domain/repositories/IUserRepository';
-import { 
-  User, 
-  UserProfile, 
-  UserAddress, 
-  UserRole, 
-  UserStats, 
-  CreateUserRequest, 
-  UpdateUserRequest, 
-  CreateUserAddressRequest, 
-  UpdateUserAddressRequest
+import {
+  User,
+  UserProfile,
+  UserAddress,
+  UserRole,
+  UserStats,
+  CreateUserRequest,
+  UpdateUserRequest,
+  CreateUserAddressRequest,
+  UpdateUserAddressRequest,
 } from '@domain/entities/User';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -40,10 +40,14 @@ export class PrismaUserProfileRepository implements IUserRepository {
         lastLoginAt: prismaUserProfile.lastLoginAt,
         createdAt: prismaUserProfile.createdAt,
         updatedAt: prismaUserProfile.updatedAt,
-        addresses: prismaUserProfile.addresses ? prismaUserProfile.addresses.map(this.mapToUserAddress) : [],
-        favoriteProductIds: []
+        addresses: prismaUserProfile.addresses
+          ? prismaUserProfile.addresses.map(this.mapToUserAddress)
+          : [],
+        favoriteProductIds: [],
       },
-      addresses: prismaUserProfile.addresses ? prismaUserProfile.addresses.map(this.mapToUserAddress) : []
+      addresses: prismaUserProfile.addresses
+        ? prismaUserProfile.addresses.map(this.mapToUserAddress)
+        : [],
     };
   }
 
@@ -51,7 +55,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
     return {
       id: prismaAddress.id,
       userId: prismaAddress.userId,
-      title: prismaAddress.type || 'shipping',  // Usar 'type' de Prisma, mapear a 'title' del dominio
+      title: prismaAddress.type || 'shipping', // Usar 'type' de Prisma, mapear a 'title' del dominio
       firstName: prismaAddress.firstName,
       lastName: prismaAddress.lastName,
       addressLine1: prismaAddress.address1,
@@ -62,7 +66,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
       country: prismaAddress.country,
       isDefault: prismaAddress.isDefault,
       createdAt: prismaAddress.createdAt,
-      updatedAt: prismaAddress.updatedAt
+      updatedAt: prismaAddress.updatedAt,
     };
   }
 
@@ -81,8 +85,10 @@ export class PrismaUserProfileRepository implements IUserRepository {
       lastLoginAt: prismaUserProfile.lastLoginAt,
       createdAt: prismaUserProfile.createdAt,
       updatedAt: prismaUserProfile.updatedAt,
-      addresses: prismaUserProfile.addresses ? prismaUserProfile.addresses.map(this.mapToUserAddress) : [],
-      favoriteProductIds: []
+      addresses: prismaUserProfile.addresses
+        ? prismaUserProfile.addresses.map(this.mapToUserAddress)
+        : [],
+      favoriteProductIds: [],
     };
   }
 
@@ -104,19 +110,19 @@ export class PrismaUserProfileRepository implements IUserRepository {
           avatar: undefined,
           role: data.role || 'customer',
           emailVerified: false,
-          isActive: true
+          isActive: true,
         },
         include: {
-          addresses: true
-        }
+          addresses: true,
+        },
       });
 
       // Create the password entry
       await tx.userPassword.create({
         data: {
           userId: userProfile.id,
-          passwordHash
-        }
+          passwordHash,
+        },
       });
 
       return userProfile;
@@ -125,14 +131,19 @@ export class PrismaUserProfileRepository implements IUserRepository {
     return this.mapToUser(result);
   }
 
-  async getUsers(limit?: number, offset?: number, role?: UserRole, isActive?: boolean): Promise<{ users: User[], total: number }> {
+  async getUsers(
+    limit?: number,
+    offset?: number,
+    role?: UserRole,
+    isActive?: boolean,
+  ): Promise<{ users: User[]; total: number }> {
     const where: any = {};
-    
+
     // Only add filters for defined and non-null values
     if (role !== undefined && role !== null) {
       where.role = role;
     }
-    
+
     if (isActive !== undefined && isActive !== null) {
       where.isActive = isActive;
     }
@@ -143,18 +154,18 @@ export class PrismaUserProfileRepository implements IUserRepository {
         take: limit,
         skip: offset,
         include: {
-          addresses: true
+          addresses: true,
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       }),
-      this.prisma.userProfile.count({ where })
+      this.prisma.userProfile.count({ where }),
     ]);
 
     return {
-      users: userProfiles.map(up => this.mapToUser(up)),
-      total
+      users: userProfiles.map((up) => this.mapToUser(up)),
+      total,
     };
   }
 
@@ -164,8 +175,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
       include: {
         addresses: true,
         accounts: true,
-        sessions: true
-      }
+        sessions: true,
+      },
     });
 
     return userProfile ? this.mapToUser(userProfile) : null;
@@ -175,8 +186,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
     const userProfile = await this.prisma.userProfile.findUnique({
       where: { email },
       include: {
-        addresses: true
-      }
+        addresses: true,
+      },
     });
 
     return userProfile ? this.mapToUser(userProfile) : null;
@@ -184,25 +195,25 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
   async updateUser(id: string, data: UpdateUserRequest): Promise<User> {
     const updateData: any = {};
-    
+
     if (data.email !== undefined) updateData.email = data.email;
     if (data.role !== undefined) updateData.role = data.role;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
-    
+
     if (data.profile) {
       if (data.profile.firstName !== undefined) updateData.firstName = data.profile.firstName;
       if (data.profile.lastName !== undefined) updateData.lastName = data.profile.lastName;
       if (data.profile.phone !== undefined) updateData.phone = data.profile.phone;
-      if (data.profile.birthDate !== undefined) updateData.dateOfBirth = data.profile.birthDate;  // Mapear a dateOfBirth de la BD
-      if (data.profile.avatarUrl !== undefined) updateData.avatar = data.profile.avatarUrl;       // Mapear a avatar de la BD
+      if (data.profile.birthDate !== undefined) updateData.dateOfBirth = data.profile.birthDate; // Mapear a dateOfBirth de la BD
+      if (data.profile.avatarUrl !== undefined) updateData.avatar = data.profile.avatarUrl; // Mapear a avatar de la BD
     }
 
     const updatedUserProfile = await this.prisma.userProfile.update({
       where: { id },
       data: updateData,
       include: {
-        addresses: true
-      }
+        addresses: true,
+      },
     });
 
     return this.mapToUser(updatedUserProfile);
@@ -216,34 +227,28 @@ export class PrismaUserProfileRepository implements IUserRepository {
       await tx.userAccount.deleteMany({ where: { userId: id } });
       await tx.userAddress.deleteMany({ where: { userId: id } });
       await tx.userFavorite.deleteMany({ where: { userId: id } });
-      
+
       // Delete the user profile
       await tx.userProfile.delete({ where: { id } });
     });
   }
 
   async getUserStats(): Promise<UserStats> {
-    const [
-      totalUsers,
-      activeUsers,
-      adminUsers,
-      customerUsers,
-      staffUsers,
-      usersThisMonth
-    ] = await Promise.all([
-      this.prisma.userProfile.count(),
-      this.prisma.userProfile.count({ where: { isActive: true } }),
-      this.prisma.userProfile.count({ where: { role: 'admin' } }),
-      this.prisma.userProfile.count({ where: { role: 'customer' } }),
-      this.prisma.userProfile.count({ where: { role: 'staff' } }),
-      this.prisma.userProfile.count({
-        where: {
-          createdAt: {
-            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-          }
-        }
-      })
-    ]);
+    const [totalUsers, activeUsers, adminUsers, customerUsers, staffUsers, usersThisMonth] =
+      await Promise.all([
+        this.prisma.userProfile.count(),
+        this.prisma.userProfile.count({ where: { isActive: true } }),
+        this.prisma.userProfile.count({ where: { role: 'admin' } }),
+        this.prisma.userProfile.count({ where: { role: 'customer' } }),
+        this.prisma.userProfile.count({ where: { role: 'staff' } }),
+        this.prisma.userProfile.count({
+          where: {
+            createdAt: {
+              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+            },
+          },
+        }),
+      ]);
 
     return {
       totalUsers,
@@ -252,8 +257,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
       usersByRole: {
         admin: adminUsers,
         customer: customerUsers,
-        staff: staffUsers
-      }
+        staff: staffUsers,
+      },
     };
   }
 
@@ -261,22 +266,22 @@ export class PrismaUserProfileRepository implements IUserRepository {
     const userProfiles = await this.prisma.userProfile.findMany({
       where: { role },
       include: {
-        addresses: true
-      }
+        addresses: true,
+      },
     });
 
-    return userProfiles.map(up => this.mapToUser(up));
+    return userProfiles.map((up) => this.mapToUser(up));
   }
 
   async getActiveUsers(): Promise<User[]> {
     const userProfiles = await this.prisma.userProfile.findMany({
       where: { isActive: true },
       include: {
-        addresses: true
-      }
+        addresses: true,
+      },
     });
 
-    return userProfiles.map(up => this.mapToUser(up));
+    return userProfiles.map((up) => this.mapToUser(up));
   }
 
   async searchUsers(query: string): Promise<User[]> {
@@ -285,19 +290,22 @@ export class PrismaUserProfileRepository implements IUserRepository {
         OR: [
           { email: { contains: query, mode: 'insensitive' } },
           { firstName: { contains: query, mode: 'insensitive' } },
-          { lastName: { contains: query, mode: 'insensitive' } }
-        ]
+          { lastName: { contains: query, mode: 'insensitive' } },
+        ],
       },
       include: {
-        addresses: true
-      }
+        addresses: true,
+      },
     });
 
-    return userProfiles.map(up => this.mapToUser(up));
+    return userProfiles.map((up) => this.mapToUser(up));
   }
 
   // User profile operations (these delegate to user operations since UserProfile is the main entity)
-  async createUserProfile(userId: string, profile: Omit<UserProfile, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<UserProfile> {
+  async createUserProfile(
+    userId: string,
+    profile: Omit<UserProfile, 'id' | 'userId' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UserProfile> {
     const updatedUserProfile = await this.prisma.userProfile.update({
       where: { id: userId },
       data: {
@@ -305,8 +313,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
         lastName: profile.lastName,
         phone: profile.phone,
         dateOfBirth: profile.dateOfBirth,
-        avatar: profile.avatar
-      }
+        avatar: profile.avatar,
+      },
     });
 
     return this.mapToUserProfile(updatedUserProfile);
@@ -314,15 +322,18 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
   async getUserProfile(userId: string): Promise<UserProfile | null> {
     const userProfile = await this.prisma.userProfile.findUnique({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     return userProfile ? this.mapToUserProfile(userProfile) : null;
   }
 
-  async updateUserProfile(userId: string, profile: Partial<Omit<UserProfile, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>): Promise<UserProfile> {
+  async updateUserProfile(
+    userId: string,
+    profile: Partial<Omit<UserProfile, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>,
+  ): Promise<UserProfile> {
     const updateData: any = {};
-    
+
     if (profile.firstName !== undefined) updateData.firstName = profile.firstName;
     if (profile.lastName !== undefined) updateData.lastName = profile.lastName;
     if (profile.phone !== undefined) updateData.phone = profile.phone;
@@ -331,7 +342,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
     const updatedUserProfile = await this.prisma.userProfile.update({
       where: { id: userId },
-      data: updateData
+      data: updateData,
     });
 
     return this.mapToUserProfile(updatedUserProfile);
@@ -346,8 +357,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
         lastName: '',
         phone: null,
         dateOfBirth: null,
-        avatar: null
-      }
+        avatar: null,
+      },
     });
   }
 
@@ -356,7 +367,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
     const address = await this.prisma.userAddress.create({
       data: {
         userId: data.userId,
-        type: data.title,  // Mapear 'title' del dominio a 'type' de Prisma
+        type: data.title, // Mapear 'title' del dominio a 'type' de Prisma
         firstName: data.firstName,
         lastName: data.lastName,
         address1: data.addressLine1,
@@ -365,8 +376,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
         state: data.state,
         postalCode: data.postalCode,
         country: data.country,
-        isDefault: data.isDefault || false
-      }
+        isDefault: data.isDefault || false,
+      },
     });
 
     return this.mapToUserAddress(address);
@@ -374,15 +385,15 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
   async getUserAddresses(userId: string): Promise<UserAddress[]> {
     const addresses = await this.prisma.userAddress.findMany({
-      where: { userId }
+      where: { userId },
     });
 
-    return addresses.map(addr => this.mapToUserAddress(addr));
+    return addresses.map((addr) => this.mapToUserAddress(addr));
   }
 
   async getUserAddressById(id: string): Promise<UserAddress | null> {
     const address = await this.prisma.userAddress.findUnique({
-      where: { id }
+      where: { id },
     });
 
     return address ? this.mapToUserAddress(address) : null;
@@ -390,8 +401,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
   async updateUserAddress(id: string, data: UpdateUserAddressRequest): Promise<UserAddress> {
     const updateData: any = {};
-    
-    if (data.title !== undefined) updateData.type = data.title;  // Mapear 'title' del dominio a 'type' de Prisma
+
+    if (data.title !== undefined) updateData.type = data.title; // Mapear 'title' del dominio a 'type' de Prisma
     if (data.firstName !== undefined) updateData.firstName = data.firstName;
     if (data.lastName !== undefined) updateData.lastName = data.lastName;
     if (data.addressLine1 !== undefined) updateData.address1 = data.addressLine1;
@@ -404,7 +415,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
     const updatedAddress = await this.prisma.userAddress.update({
       where: { id },
-      data: updateData
+      data: updateData,
     });
 
     return this.mapToUserAddress(updatedAddress);
@@ -412,7 +423,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
   async deleteUserAddress(id: string): Promise<void> {
     await this.prisma.userAddress.delete({
-      where: { id }
+      where: { id },
     });
   }
 
@@ -421,23 +432,23 @@ export class PrismaUserProfileRepository implements IUserRepository {
       // Reset all addresses to non-default
       await tx.userAddress.updateMany({
         where: { userId },
-        data: { isDefault: false }
+        data: { isDefault: false },
       });
 
       // Set the specified address as default
       await tx.userAddress.update({
         where: { id: addressId },
-        data: { isDefault: true }
+        data: { isDefault: true },
       });
     });
   }
 
   async getDefaultAddress(userId: string): Promise<UserAddress | null> {
     const address = await this.prisma.userAddress.findFirst({
-      where: { 
+      where: {
         userId,
-        isDefault: true 
-      }
+        isDefault: true,
+      },
     });
 
     return address ? this.mapToUserAddress(address) : null;
@@ -445,7 +456,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
 
   async getUserPasswordHash(userId: string): Promise<string | null> {
     const userPassword = await this.prisma.userPassword.findUnique({
-      where: { userId }
+      where: { userId },
     });
 
     return userPassword?.passwordHash || null;
@@ -454,7 +465,7 @@ export class PrismaUserProfileRepository implements IUserRepository {
   async updateUserLastLogin(userId: string): Promise<void> {
     await this.prisma.userProfile.update({
       where: { id: userId },
-      data: { lastLoginAt: new Date() }
+      data: { lastLoginAt: new Date() },
     });
   }
 }

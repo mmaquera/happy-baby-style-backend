@@ -78,9 +78,9 @@ export class LoggerFactory {
    * Create a logger for GraphQL operations
    */
   createGraphQLLogger(): ILogger {
-    return this.createLoggerWithContext({ 
+    return this.createLoggerWithContext({
       module: 'GraphQL',
-      operation: 'query'
+      operation: 'query',
     });
   }
 
@@ -88,9 +88,9 @@ export class LoggerFactory {
    * Create a logger for HTTP requests
    */
   createRequestLogger(): ILogger {
-    return this.createLoggerWithContext({ 
+    return this.createLoggerWithContext({
       module: 'HTTP',
-      operation: 'request'
+      operation: 'request',
     });
   }
 
@@ -98,9 +98,9 @@ export class LoggerFactory {
    * Create a logger for database operations
    */
   createDatabaseLogger(): ILogger {
-    return this.createLoggerWithContext({ 
+    return this.createLoggerWithContext({
       module: 'Database',
-      operation: 'query'
+      operation: 'query',
     });
   }
 
@@ -108,9 +108,9 @@ export class LoggerFactory {
    * Create a logger for authentication operations
    */
   createAuthLogger(): ILogger {
-    return this.createLoggerWithContext({ 
+    return this.createLoggerWithContext({
       module: 'Authentication',
-      operation: 'auth'
+      operation: 'auth',
     });
   }
 
@@ -118,9 +118,9 @@ export class LoggerFactory {
    * Create a logger for validation operations
    */
   createValidationLogger(): ILogger {
-    return this.createLoggerWithContext({ 
+    return this.createLoggerWithContext({
       module: 'Validation',
-      operation: 'validate'
+      operation: 'validate',
     });
   }
 
@@ -140,10 +140,10 @@ export class LoggerFactory {
       // Return a no-op logger if performance logging is disabled
       return this.createNoOpLogger();
     }
-    
-    return this.createLoggerWithContext({ 
+
+    return this.createLoggerWithContext({
       module: 'Performance',
-      operation: 'measure'
+      operation: 'measure',
     });
   }
 
@@ -158,7 +158,7 @@ export class LoggerFactory {
       error: () => {},
       fatal: () => {},
       child: () => this.createNoOpLogger(),
-      setTraceId: () => this.createNoOpLogger()
+      setTraceId: () => this.createNoOpLogger(),
     };
   }
 
@@ -170,4 +170,4 @@ export class LoggerFactory {
       await this.defaultLogger.close();
     }
   }
-} 
+}

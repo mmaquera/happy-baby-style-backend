@@ -28,9 +28,11 @@ export class GetCategoryBySlugUseCase {
         throw new NotFoundError('Category', request.slug);
       }
 
-      this.logger.info('GetCategoryBySlug completed', { slug: request.slug, categoryId: category.id });
+      this.logger.info('GetCategoryBySlug completed', {
+        slug: request.slug,
+        categoryId: category.id,
+      });
       return category;
-
     } catch (error: any) {
       this.logger.error('GetCategoryBySlug use case failed', error, { slug: request.slug });
       throw error;

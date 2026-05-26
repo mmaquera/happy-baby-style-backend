@@ -1,4 +1,7 @@
-import { ICategoryRepository, CategoryFilters } from '../../domain/repositories/ICategoryRepository';
+import {
+  ICategoryRepository,
+  CategoryFilters,
+} from '../../domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '../../domain/entities/Category';
 import { PrismaClient } from '@prisma/client';
 import { ILogger, LoggerFactory } from '@hbs/logging';
@@ -19,12 +22,16 @@ export class PrismaCategoryRepository implements ICategoryRepository {
           slug: category.slug,
           image: category.imageUrl,
           isActive: category.isActive,
-          sortOrder: category.sortOrder
-        }
+          sortOrder: category.sortOrder,
+        },
       });
       return this.mapToEntity(created);
     } catch (error) {
-      this.logger.error('Failed to create category', error instanceof Error ? error : new Error(String(error)), { name: category.name });
+      this.logger.error(
+        'Failed to create category',
+        error instanceof Error ? error : new Error(String(error)),
+        { name: category.name },
+      );
       throw error;
     }
   }
@@ -34,7 +41,11 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       const category = await this.prisma.category.findUnique({ where: { id } });
       return category ? this.mapToEntity(category) : null;
     } catch (error) {
-      this.logger.error('Failed to find category by ID', error instanceof Error ? error : new Error(String(error)), { categoryId: id });
+      this.logger.error(
+        'Failed to find category by ID',
+        error instanceof Error ? error : new Error(String(error)),
+        { categoryId: id },
+      );
       throw error;
     }
   }
@@ -46,18 +57,22 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       if (filters?.search) {
         where.OR = [
           { name: { contains: filters.search, mode: 'insensitive' } },
-          { description: { contains: filters.search, mode: 'insensitive' } }
+          { description: { contains: filters.search, mode: 'insensitive' } },
         ];
       }
       const categories = await this.prisma.category.findMany({
         where,
         orderBy: { sortOrder: 'asc' },
         take: filters?.limit,
-        skip: filters?.offset
+        skip: filters?.offset,
       });
-      return categories.map(c => this.mapToEntity(c));
+      return categories.map((c) => this.mapToEntity(c));
     } catch (error) {
-      this.logger.error('Failed to find all categories', error instanceof Error ? error : new Error(String(error)), { filters });
+      this.logger.error(
+        'Failed to find all categories',
+        error instanceof Error ? error : new Error(String(error)),
+        { filters },
+      );
       throw error;
     }
   }
@@ -67,7 +82,11 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       const category = await this.prisma.category.findUnique({ where: { name } });
       return category ? this.mapToEntity(category) : null;
     } catch (error) {
-      this.logger.error('Failed to find category by name', error instanceof Error ? error : new Error(String(error)), { name });
+      this.logger.error(
+        'Failed to find category by name',
+        error instanceof Error ? error : new Error(String(error)),
+        { name },
+      );
       throw error;
     }
   }
@@ -77,7 +96,11 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       const category = await this.prisma.category.findUnique({ where: { slug } });
       return category ? this.mapToEntity(category) : null;
     } catch (error) {
-      this.logger.error('Failed to find category by slug', error instanceof Error ? error : new Error(String(error)), { slug });
+      this.logger.error(
+        'Failed to find category by slug',
+        error instanceof Error ? error : new Error(String(error)),
+        { slug },
+      );
       throw error;
     }
   }
@@ -92,12 +115,16 @@ export class PrismaCategoryRepository implements ICategoryRepository {
           slug: categoryData.slug,
           image: categoryData.imageUrl,
           isActive: categoryData.isActive,
-          sortOrder: categoryData.sortOrder
-        }
+          sortOrder: categoryData.sortOrder,
+        },
       });
       return this.mapToEntity(updated);
     } catch (error) {
-      this.logger.error('Failed to update category', error instanceof Error ? error : new Error(String(error)), { categoryId: id });
+      this.logger.error(
+        'Failed to update category',
+        error instanceof Error ? error : new Error(String(error)),
+        { categoryId: id },
+      );
       throw error;
     }
   }
@@ -106,7 +133,11 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     try {
       await this.prisma.category.delete({ where: { id } });
     } catch (error) {
-      this.logger.error('Failed to delete category', error instanceof Error ? error : new Error(String(error)), { categoryId: id });
+      this.logger.error(
+        'Failed to delete category',
+        error instanceof Error ? error : new Error(String(error)),
+        { categoryId: id },
+      );
       throw error;
     }
   }
@@ -115,11 +146,14 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     try {
       const categories = await this.prisma.category.findMany({
         where: { isActive: true },
-        orderBy: { sortOrder: 'asc' }
+        orderBy: { sortOrder: 'asc' },
       });
-      return categories.map(c => this.mapToEntity(c));
+      return categories.map((c) => this.mapToEntity(c));
     } catch (error) {
-      this.logger.error('Failed to find active categories', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Failed to find active categories',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -128,7 +162,11 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     try {
       await this.prisma.category.update({ where: { id }, data: { sortOrder } });
     } catch (error) {
-      this.logger.error('Failed to update category sort order', error instanceof Error ? error : new Error(String(error)), { categoryId: id, sortOrder });
+      this.logger.error(
+        'Failed to update category sort order',
+        error instanceof Error ? error : new Error(String(error)),
+        { categoryId: id, sortOrder },
+      );
       throw error;
     }
   }
@@ -143,7 +181,7 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       category.isActive,
       category.sortOrder,
       category.createdAt,
-      category.updatedAt
+      category.updatedAt,
     );
   }
 }

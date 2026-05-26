@@ -17,7 +17,7 @@ export interface Image {
 export enum ImageEntityType {
   PRODUCT = 'product',
   USER = 'user',
-  CATEGORY = 'category'
+  CATEGORY = 'category',
 }
 
 export class ImageEntity implements Image {
@@ -32,7 +32,7 @@ export class ImageEntity implements Image {
     public readonly path: string,
     public readonly entityType: ImageEntityType,
     public readonly entityId: string,
-    public readonly createdAt: Date
+    public readonly createdAt: Date,
   ) {}
 
   static create(data: Omit<Image, 'id' | 'createdAt'>): ImageEntity {
@@ -47,7 +47,7 @@ export class ImageEntity implements Image {
       data.path,
       data.entityType,
       data.entityId,
-      new Date()
+      new Date(),
     );
   }
 

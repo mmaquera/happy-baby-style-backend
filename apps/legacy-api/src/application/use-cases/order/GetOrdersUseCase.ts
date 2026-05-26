@@ -29,7 +29,7 @@ export class GetOrdersUseCase {
       const pagination = request.pagination || {};
       const limit = pagination.limit || 50;
       const offset = pagination.offset || 0;
-      
+
       const filters: OrderFilters = {
         userId: request.filters?.userId,
         status: request.filters?.status,
@@ -37,12 +37,12 @@ export class GetOrdersUseCase {
         endDate: request.filters?.endDate,
         orderNumber: request.filters?.orderNumber,
         limit,
-        offset
+        offset,
       };
 
       const orders = await this.orderRepository.findAll(filters);
-      
-      // Note: This is a simplified implementation. 
+
+      // Note: This is a simplified implementation.
       // For production, you'd want to get the actual total count from the database
       const hasMore = orders.length === limit;
       const total = offset + orders.length + (hasMore ? 1 : 0);
@@ -50,10 +50,12 @@ export class GetOrdersUseCase {
       return {
         orders,
         total,
-        hasMore
+        hasMore,
       };
     } catch (error) {
-      throw new Error(`Failed to get orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get orders: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
-} 
+}

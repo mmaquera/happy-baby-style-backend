@@ -33,14 +33,23 @@ export class UpdateProductUseCase {
       if (existingSku) throw new Error('SKU already exists');
     }
 
-    if (request.price !== undefined && request.price < 0) throw new ValidationError('Price must be non-negative');
-    if (request.salePrice !== undefined && request.salePrice < 0) throw new ValidationError('Sale price must be non-negative');
-    if (request.salePrice !== undefined && request.price !== undefined && request.salePrice >= request.price) {
+    if (request.price !== undefined && request.price < 0)
+      throw new ValidationError('Price must be non-negative');
+    if (request.salePrice !== undefined && request.salePrice < 0)
+      throw new ValidationError('Sale price must be non-negative');
+    if (
+      request.salePrice !== undefined &&
+      request.price !== undefined &&
+      request.salePrice >= request.price
+    ) {
       throw new ValidationError('Sale price must be less than regular price');
     }
-    if (request.stockQuantity !== undefined && request.stockQuantity < 0) throw new ValidationError('Stock quantity must be non-negative');
-    if (request.rating !== undefined && (request.rating < 0 || request.rating > 5)) throw new ValidationError('Rating must be between 0 and 5');
-    if (request.reviewCount !== undefined && request.reviewCount < 0) throw new ValidationError('Review count must be non-negative');
+    if (request.stockQuantity !== undefined && request.stockQuantity < 0)
+      throw new ValidationError('Stock quantity must be non-negative');
+    if (request.rating !== undefined && (request.rating < 0 || request.rating > 5))
+      throw new ValidationError('Rating must be between 0 and 5');
+    if (request.reviewCount !== undefined && request.reviewCount < 0)
+      throw new ValidationError('Review count must be non-negative');
 
     const updateData: Partial<ProductEntity> = {
       categoryId: request.categoryId,
@@ -55,7 +64,7 @@ export class UpdateProductUseCase {
       stockQuantity: request.stockQuantity,
       tags: request.tags,
       rating: request.rating,
-      reviewCount: request.reviewCount
+      reviewCount: request.reviewCount,
     };
 
     return this.productRepository.update(request.id, updateData);

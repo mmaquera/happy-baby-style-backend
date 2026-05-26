@@ -11,20 +11,22 @@ export interface CreateUserSessionAnalyticsResponse {
 export class CreateUserSessionAnalyticsUseCase {
   constructor(
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   @LoggingDecorator.logUseCase({
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'CreateUserSessionAnalytics' }
+    context: { useCase: 'CreateUserSessionAnalytics' },
   })
-  async execute(request: CreateUserSessionAnalyticsRequest): Promise<CreateUserSessionAnalyticsResponse> {
+  async execute(
+    request: CreateUserSessionAnalyticsRequest,
+  ): Promise<CreateUserSessionAnalyticsResponse> {
     this.logger.info('Starting user session analytics creation', {
       sessionId: request.sessionId,
       userId: request.userId,
-      operation: 'CreateUserSessionAnalytics'
+      operation: 'CreateUserSessionAnalytics',
     });
 
     try {
@@ -32,17 +34,19 @@ export class CreateUserSessionAnalyticsUseCase {
       this.validateRequest(request);
 
       // Check if analytics already exist for this session
-      const existingAnalytics = await this.authRepository.findSessionAnalyticsBySessionId(request.sessionId);
+      const existingAnalytics = await this.authRepository.findSessionAnalyticsBySessionId(
+        request.sessionId,
+      );
       if (existingAnalytics) {
         this.logger.warn('Session analytics already exist for session', {
           sessionId: request.sessionId,
           analyticsId: existingAnalytics.id,
-          operation: 'CreateUserSessionAnalytics'
+          operation: 'CreateUserSessionAnalytics',
         });
-        
+
         // Return existing analytics instead of creating new ones
         return {
-          analytics: existingAnalytics
+          analytics: existingAnalytics,
         };
       }
 
@@ -58,7 +62,7 @@ export class CreateUserSessionAnalyticsUseCase {
         browser: request.browser,
         os: request.os,
         country: request.country,
-        city: request.city
+        city: request.city,
       };
 
       const analytics = await this.authRepository.createSessionAnalytics(analyticsData);
@@ -67,18 +71,17 @@ export class CreateUserSessionAnalyticsUseCase {
         analyticsId: analytics.id,
         sessionId: analytics.sessionId,
         userId: analytics.userId,
-        operation: 'CreateUserSessionAnalytics'
+        operation: 'CreateUserSessionAnalytics',
       });
 
       return {
-        analytics
+        analytics,
       };
-
     } catch (error) {
       this.logger.error('Failed to create user session analytics', error as Error, {
         sessionId: request.sessionId,
         userId: request.userId,
-        operation: 'CreateUserSessionAnalytics'
+        operation: 'CreateUserSessionAnalytics',
       });
       throw error;
     }
@@ -93,19 +96,33 @@ export class CreateUserSessionAnalyticsUseCase {
       throw new ValidationError('User ID is required and must be a string');
     }
 
-    if (request.pageViews !== undefined && (typeof request.pageViews !== 'number' || request.pageViews < 0)) {
+    if (
+      request.pageViews !== undefined &&
+      (typeof request.pageViews !== 'number' || request.pageViews < 0)
+    ) {
       throw new ValidationError('Page views must be a non-negative number');
     }
 
-    if (request.timeSpent !== undefined && (typeof request.timeSpent !== 'number' || request.timeSpent < 0)) {
+    if (
+      request.timeSpent !== undefined &&
+      (typeof request.timeSpent !== 'number' || request.timeSpent < 0)
+    ) {
       throw new ValidationError('Time spent must be a non-negative number');
     }
 
-    if (request.bounceRate !== undefined && (typeof request.bounceRate !== 'number' || request.bounceRate < 0 || request.bounceRate > 1)) {
+    if (
+      request.bounceRate !== undefined &&
+      (typeof request.bounceRate !== 'number' || request.bounceRate < 0 || request.bounceRate > 1)
+    ) {
       throw new ValidationError('Bounce rate must be a number between 0 and 1');
     }
 
-    if (request.conversionRate !== undefined && (typeof request.conversionRate !== 'number' || request.conversionRate < 0 || request.conversionRate > 1)) {
+    if (
+      request.conversionRate !== undefined &&
+      (typeof request.conversionRate !== 'number' ||
+        request.conversionRate < 0 ||
+        request.conversionRate > 1)
+    ) {
       throw new ValidationError('Conversion rate must be a number between 0 and 1');
     }
   }

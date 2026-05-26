@@ -12,11 +12,11 @@ export class GetUserByIdUseCase {
     }
 
     const user = await this.userRepository.getUserById(id);
-    
+
     if (!user) {
       throw new Error('User not found');
     }
 
     return user;
   }
-} 
+}

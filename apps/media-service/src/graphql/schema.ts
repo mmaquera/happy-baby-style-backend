@@ -95,7 +95,13 @@ export const typeDefs = gql`
 
   type Mutation {
     uploadImage(file: Upload!, entityType: String!, entityId: String!): UploadImageResponse!
-    uploadSvg(file: Upload!, entityType: String!, entityId: String!, optimize: Boolean, sanitize: Boolean): UploadSvgResponse!
+    uploadSvg(
+      file: Upload!
+      entityType: String!
+      entityId: String!
+      optimize: Boolean
+      sanitize: Boolean
+    ): UploadSvgResponse!
     deleteImage(id: ID!): Boolean!
     deleteSvg(id: ID!): Boolean!
   }

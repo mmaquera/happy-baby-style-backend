@@ -17,20 +17,18 @@ export interface DeleteCategoryResult {
 export class DeleteCategoryUseCase {
   private readonly logger: ILogger;
 
-  constructor(
-    private readonly categoryRepository: ICategoryRepository
-  ) {
+  constructor(private readonly categoryRepository: ICategoryRepository) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('DeleteCategoryUseCase');
   }
 
   async execute(request: DeleteCategoryRequest): Promise<DeleteCategoryResult> {
     const traceId = `delete-category-${Date.now()}`;
-    
+
     try {
       this.logger.info('Starting category deletion process', {
         categoryId: request.id,
         forceDelete: request.forceDelete,
-        traceId
+        traceId,
       });
 
       // Validar que la categoría existe
@@ -38,7 +36,7 @@ export class DeleteCategoryUseCase {
       if (!existingCategory) {
         this.logger.warn('Category deletion failed: category not found', {
           categoryId: request.id,
-          traceId
+          traceId,
         });
         throw new NotFoundError('Category', request.id);
       }
@@ -46,7 +44,7 @@ export class DeleteCategoryUseCase {
       // Verificar si la categoría tiene productos asociados
       // Nota: Esto requeriría una implementación adicional en el repositorio
       // Por ahora, asumimos que no hay productos asociados
-      
+
       const deletedAt = new Date();
       const softDelete = !request.forceDelete;
 
@@ -54,7 +52,7 @@ export class DeleteCategoryUseCase {
         // Soft delete: marcar como inactiva
         this.logger.debug('Performing soft delete for category', {
           categoryId: request.id,
-          traceId
+          traceId,
         });
 
         await this.categoryRepository.update(request.id, {
@@ -64,35 +62,38 @@ export class DeleteCategoryUseCase {
 
         this.logger.info('Category soft deleted successfully', {
           categoryId: request.id,
-          traceId
+          traceId,
         });
       } else {
         // Hard delete: eliminar completamente
         this.logger.debug('Performing hard delete for category', {
           categoryId: request.id,
-          traceId
+          traceId,
         });
 
         await this.categoryRepository.delete(request.id);
 
         this.logger.info('Category hard deleted successfully', {
           categoryId: request.id,
-          traceId
+          traceId,
         });
       }
 
       return {
         id: request.id,
         deletedAt,
-        softDelete
+        softDelete,
       };
-
     } catch (error) {
-      this.logger.error('Failed to delete category', error instanceof Error ? error : new Error(String(error)), {
-        categoryId: request.id,
-        forceDelete: request.forceDelete,
-        traceId
-      });
+      this.logger.error(
+        'Failed to delete category',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          categoryId: request.id,
+          forceDelete: request.forceDelete,
+          traceId,
+        },
+      );
       throw error;
     }
   }

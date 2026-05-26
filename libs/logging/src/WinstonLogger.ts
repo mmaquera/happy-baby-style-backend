@@ -30,8 +30,8 @@ export class WinstonLogger implements ILogger {
       transports.push(
         new winston.transports.Console({
           format: this.createConsoleFormat(),
-          level: config.level
-        })
+          level: config.level,
+        }),
       );
     }
 
@@ -45,8 +45,8 @@ export class WinstonLogger implements ILogger {
             maxSize: config.maxSize,
             maxFiles: config.maxFiles,
             format: this.createFileFormat(),
-            level: config.level
-          })
+            level: config.level,
+          }),
         );
 
         // Error log file
@@ -57,24 +57,24 @@ export class WinstonLogger implements ILogger {
             maxSize: config.maxSize,
             maxFiles: config.maxFiles,
             format: this.createFileFormat(),
-            level: LogLevel.ERROR
-          })
+            level: LogLevel.ERROR,
+          }),
         );
       } else {
         transports.push(
           new winston.transports.File({
             filename: `${config.logDirectory}/application.log`,
             format: this.createFileFormat(),
-            level: config.level
-          })
+            level: config.level,
+          }),
         );
 
         transports.push(
           new winston.transports.File({
             filename: `${config.logDirectory}/error.log`,
             format: this.createFileFormat(),
-            level: LogLevel.ERROR
-          })
+            level: LogLevel.ERROR,
+          }),
         );
       }
     }
@@ -82,7 +82,7 @@ export class WinstonLogger implements ILogger {
     return winston.createLogger({
       level: config.level,
       transports,
-      exitOnError: false
+      exitOnError: false,
     });
   }
 
@@ -91,12 +91,12 @@ export class WinstonLogger implements ILogger {
    */
   private createConsoleFormat() {
     const config = this.config.getConfig();
-    
+
     if (config.format === 'json') {
       return winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: config.enableErrorStack }),
-        winston.format.json()
+        winston.format.json(),
       );
     }
 
@@ -105,24 +105,24 @@ export class WinstonLogger implements ILogger {
       winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
       winston.format.printf(({ timestamp, level, message, context, error, ...meta }) => {
         let log = `${timestamp} [${level}]: ${message}`;
-        
+
         if (context) {
           log += ` | Context: ${JSON.stringify(context)}`;
         }
-        
+
         if (error && typeof error === 'object' && 'message' in error) {
           log += ` | Error: ${(error as any).message}`;
           if (config.enableErrorStack && (error as any).stack) {
             log += `\nStack: ${(error as any).stack}`;
           }
         }
-        
+
         if (Object.keys(meta).length > 0) {
           log += ` | Meta: ${JSON.stringify(meta)}`;
         }
-        
+
         return log;
-      })
+      }),
     );
   }
 
@@ -131,11 +131,11 @@ export class WinstonLogger implements ILogger {
    */
   private createFileFormat() {
     const config = this.config.getConfig();
-    
+
     return winston.format.combine(
       winston.format.timestamp(),
       winston.format.errors({ stack: config.enableErrorStack }),
-      winston.format.json()
+      winston.format.json(),
     );
   }
 
@@ -145,7 +145,7 @@ export class WinstonLogger implements ILogger {
   private createLogContext(context?: Record<string, any>): LogContext {
     const logContext: LogContext = {
       ...this.childContext,
-      ...context
+      ...context,
     };
 
     if (this.traceId) {
@@ -163,7 +163,7 @@ export class WinstonLogger implements ILogger {
 
     const errorInfo: any = {
       name: error.name,
-      message: error.message
+      message: error.message,
     };
 
     if (this.config.getConfig().enableErrorStack && error.stack) {
@@ -184,42 +184,42 @@ export class WinstonLogger implements ILogger {
   debug(message: string, context?: Record<string, any>, traceId?: string): void {
     const logContext = this.createLogContext(context);
     if (traceId) logContext.traceId = traceId;
-    
+
     this.logger.debug(message, logContext);
   }
 
   info(message: string, context?: Record<string, any>, traceId?: string): void {
     const logContext = this.createLogContext(context);
     if (traceId) logContext.traceId = traceId;
-    
+
     this.logger.info(message, logContext);
   }
 
   warn(message: string, context?: Record<string, any>, traceId?: string): void {
     const logContext = this.createLogContext(context);
     if (traceId) logContext.traceId = traceId;
-    
+
     this.logger.warn(message, logContext);
   }
 
   error(message: string, error?: Error, context?: Record<string, any>, traceId?: string): void {
     const logContext = this.createLogContext(context);
     if (traceId) logContext.traceId = traceId;
-    
+
     this.logger.error(message, {
       ...logContext,
-      error: this.formatError(error)
+      error: this.formatError(error),
     });
   }
 
   fatal(message: string, error?: Error, context?: Record<string, any>, traceId?: string): void {
     const logContext = this.createLogContext(context);
     if (traceId) logContext.traceId = traceId;
-    
+
     this.logger.error(message, {
       ...logContext,
       error: this.formatError(error),
-      level: 'fatal'
+      level: 'fatal',
     });
   }
 
@@ -251,4 +251,4 @@ export class WinstonLogger implements ILogger {
       resolve();
     });
   }
-} 
+}

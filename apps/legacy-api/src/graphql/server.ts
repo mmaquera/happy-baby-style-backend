@@ -23,7 +23,7 @@ export interface Context {
 
 export async function createApolloServer(app: Express): Promise<ApolloServer<Context>> {
   const authMiddleware = new AuthMiddleware();
-  
+
   // Get rate limiting service from container
   const { Container } = await import('@shared/container');
   const container = Container.getInstance();
@@ -37,7 +37,7 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
     csrfPrevention: false, // Deshabilitar CSRF para permitir uploads
     formatError: (error, originalError) => {
       console.error('GraphQL Error:', error);
-      
+
       // Only format domain errors, let others pass through
       if (originalError instanceof DomainError) {
         const domainError = originalError;
@@ -49,18 +49,20 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
           },
         });
       }
-      
+
       // For internal server errors, only show them if they're real errors
       if (error.extensions?.code === 'INTERNAL_SERVER_ERROR') {
         // Check if this is a real error or just a cosmetic one
-        if (error.message.includes('result.map is not a function') || 
-            error.message.includes('Cannot read property')) {
+        if (
+          error.message.includes('result.map is not a function') ||
+          error.message.includes('Cannot read property')
+        ) {
           return new GraphQLError('Data processing error');
         }
         // Don't show generic internal server errors, return a clean error
         return new GraphQLError('An error occurred while processing your request');
       }
-      
+
       return error;
     },
     introspection: process.env.NODE_ENV !== 'production',
@@ -79,7 +81,7 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
     // File upload middleware using graphql-upload-cjs (CommonJS compatible)
     graphqlUploadExpress({
       maxFileSize: 10 * 1024 * 1024, // 10MB
-      maxFiles: 10
+      maxFiles: 10,
     }),
     expressMiddleware(server, {
       context: async ({ req }): Promise<Context> => {
@@ -91,7 +93,7 @@ export async function createApolloServer(app: Express): Promise<ApolloServer<Con
           req,
         };
       },
-    })
+    }),
   );
 
   return server;
@@ -106,4 +108,4 @@ process.on('SIGINT', async () => {
 process.on('SIGTERM', async () => {
   console.log('Shutting down GraphQL server...');
   process.exit(0);
-}); 
+});

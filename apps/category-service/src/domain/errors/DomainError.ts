@@ -4,7 +4,7 @@ export abstract class DomainError extends Error {
 
   constructor(
     message: string,
-    public readonly details?: Record<string, any>
+    public readonly details?: Record<string, any>,
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -14,7 +14,13 @@ export abstract class DomainError extends Error {
   }
 
   toJSON() {
-    return { name: this.name, code: this.code, message: this.message, statusCode: this.statusCode, details: this.details };
+    return {
+      name: this.name,
+      code: this.code,
+      message: this.message,
+      statusCode: this.statusCode,
+      details: this.details,
+    };
   }
 }
 
@@ -27,19 +33,30 @@ export class ValidationError extends DomainError {
 }
 
 export class RequiredFieldError extends ValidationError {
-  constructor(fieldName: string) { super(`${fieldName} is required`, fieldName); }
+  constructor(fieldName: string) {
+    super(`${fieldName} is required`, fieldName);
+  }
 }
 
 export class InvalidFormatError extends ValidationError {
   constructor(fieldName: string, expectedFormat?: string) {
-    super(`${fieldName} has invalid format${expectedFormat ? `. Expected: ${expectedFormat}` : ''}`, fieldName);
+    super(
+      `${fieldName} has invalid format${expectedFormat ? `. Expected: ${expectedFormat}` : ''}`,
+      fieldName,
+    );
   }
 }
 
 export class InvalidRangeError extends ValidationError {
   constructor(fieldName: string, min?: number, max?: number) {
-    const range = min !== undefined && max !== undefined ? `between ${min} and ${max}`
-      : min !== undefined ? `at least ${min}` : max !== undefined ? `at most ${max}` : 'within valid range';
+    const range =
+      min !== undefined && max !== undefined
+        ? `between ${min} and ${max}`
+        : min !== undefined
+          ? `at least ${min}`
+          : max !== undefined
+            ? `at most ${max}`
+            : 'within valid range';
     super(`${fieldName} must be ${range}`, fieldName);
   }
 }
@@ -48,7 +65,10 @@ export class NotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
   readonly statusCode = 404;
   constructor(resource: string, identifier?: string) {
-    super(`${resource}${identifier ? ` with identifier '${identifier}'` : ''} not found`, identifier ? { identifier } : undefined);
+    super(
+      `${resource}${identifier ? ` with identifier '${identifier}'` : ''} not found`,
+      identifier ? { identifier } : undefined,
+    );
   }
 }
 
@@ -69,13 +89,18 @@ export class DuplicateError extends ConflictError {
 export class BusinessLogicError extends DomainError {
   readonly code = 'BUSINESS_LOGIC_ERROR';
   readonly statusCode = 422;
-  constructor(message: string, details?: Record<string, any>) { super(message, details); }
+  constructor(message: string, details?: Record<string, any>) {
+    super(message, details);
+  }
 }
 
 export class DatabaseError extends DomainError {
   readonly code = 'DATABASE_ERROR';
   readonly statusCode = 500;
   constructor(operation: string, originalError?: Error) {
-    super(`Database operation failed: ${operation}`, originalError ? { originalError: originalError.message } : undefined);
+    super(
+      `Database operation failed: ${operation}`,
+      originalError ? { originalError: originalError.message } : undefined,
+    );
   }
 }

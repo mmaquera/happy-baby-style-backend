@@ -5,11 +5,11 @@ export abstract class DomainError extends Error {
 
   constructor(
     message: string,
-    public readonly details?: Record<string, any>
+    public readonly details?: Record<string, any>,
   ) {
     super(message);
     this.name = this.constructor.name;
-    
+
     // Maintain proper stack trace for where our error was thrown (only available on V8)
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, this.constructor);
@@ -22,7 +22,7 @@ export abstract class DomainError extends Error {
       code: this.code,
       message: this.message,
       statusCode: this.statusCode,
-      details: this.details
+      details: this.details,
     };
   }
 }
@@ -47,21 +47,22 @@ export class InvalidFormatError extends ValidationError {
   constructor(fieldName: string, expectedFormat?: string) {
     super(
       `${fieldName} has invalid format${expectedFormat ? `. Expected: ${expectedFormat}` : ''}`,
-      fieldName
+      fieldName,
     );
   }
 }
 
 export class InvalidRangeError extends ValidationError {
   constructor(fieldName: string, min?: number, max?: number) {
-    const range = min !== undefined && max !== undefined 
-      ? `between ${min} and ${max}`
-      : min !== undefined 
-        ? `at least ${min}`
-        : max !== undefined 
-          ? `at most ${max}`
-          : 'within valid range';
-    
+    const range =
+      min !== undefined && max !== undefined
+        ? `between ${min} and ${max}`
+        : min !== undefined
+          ? `at least ${min}`
+          : max !== undefined
+            ? `at most ${max}`
+            : 'within valid range';
+
     super(`${fieldName} must be ${range}`, fieldName);
   }
 }
@@ -74,7 +75,7 @@ export class NotFoundError extends DomainError {
   constructor(resource: string, identifier?: string) {
     super(
       `${resource}${identifier ? ` with identifier '${identifier}'` : ''} not found`,
-      identifier ? { identifier } : undefined
+      identifier ? { identifier } : undefined,
     );
   }
 }

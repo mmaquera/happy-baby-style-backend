@@ -1,13 +1,13 @@
 import { CategoryEntity } from '@domain/entities/Product';
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
-import { 
-  RequiredFieldError, 
-  InvalidFormatError, 
+import {
+  RequiredFieldError,
+  InvalidFormatError,
   InvalidRangeError,
-  DuplicateError, 
+  DuplicateError,
   BusinessLogicError,
   DatabaseError,
-  ValidationError 
+  ValidationError,
 } from '@domain/errors/DomainError';
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
@@ -25,19 +25,17 @@ export interface CreateCategoryRequest {
 export class CreateCategoryUseCase {
   private readonly logger: ILogger;
 
-  constructor(
-    private readonly categoryRepository: ICategoryRepository
-  ) {
+  constructor(private readonly categoryRepository: ICategoryRepository) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('CreateCategoryUseCase');
   }
 
   async execute(request: CreateCategoryRequest): Promise<CategoryEntity> {
     const traceId = `create-category-${Date.now()}`;
-    
+
     try {
       this.logger.info('Starting category creation process', {
         name: request.name,
-        traceId
+        traceId,
       });
 
       // Validación de input usando el servicio de validación
@@ -52,7 +50,7 @@ export class CreateCategoryUseCase {
         this.logger.warn('Category creation failed: name already exists', {
           name: request.name,
           existingCategoryId: existingCategoryByName.id,
-          traceId
+          traceId,
         });
         throw new DuplicateError('Category', 'name', request.name);
       }
@@ -63,7 +61,7 @@ export class CreateCategoryUseCase {
         this.logger.warn('Category creation failed: slug already exists', {
           slug,
           existingCategoryId: existingCategoryBySlug.id,
-          traceId
+          traceId,
         });
         throw new DuplicateError('Category', 'slug', slug);
       }
@@ -75,14 +73,14 @@ export class CreateCategoryUseCase {
         slug,
         imageUrl: request.imageUrl,
         isActive: request.isActive ?? true,
-        sortOrder: request.sortOrder || 0
+        sortOrder: request.sortOrder || 0,
       });
 
       this.logger.debug('Category entity created, saving to repository', {
         categoryId: category.id,
         name: category.name,
         slug: category.slug,
-        traceId
+        traceId,
       });
 
       const result = await this.categoryRepository.create(category);
@@ -91,34 +89,39 @@ export class CreateCategoryUseCase {
         categoryId: result.id,
         name: result.name,
         slug: result.slug,
-        traceId
+        traceId,
       });
 
       return result;
-
     } catch (error) {
       // Re-throw validation and domain errors as-is
-      if (error instanceof ValidationError || 
-          error instanceof DuplicateError || 
-          error instanceof BusinessLogicError) {
+      if (
+        error instanceof ValidationError ||
+        error instanceof DuplicateError ||
+        error instanceof BusinessLogicError
+      ) {
         this.logger.warn('Category creation failed: business logic error', {
           name: request.name,
           error: error.message,
-          traceId
+          traceId,
         });
         throw error;
       }
-      
+
       // Wrap infrastructure errors
-      this.logger.error('Category creation failed: infrastructure error', error instanceof Error ? error : new Error(String(error)), {
-        name: request.name,
-        traceId
-      });
-      
+      this.logger.error(
+        'Category creation failed: infrastructure error',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          name: request.name,
+          traceId,
+        },
+      );
+
       if (error instanceof Error) {
         throw new DatabaseError('create category', error);
       }
-      
+
       throw new DatabaseError('create category');
     }
   }
@@ -128,7 +131,7 @@ export class CreateCategoryUseCase {
     if (!request.name || request.name.trim().length === 0) {
       throw new RequiredFieldError('name');
     }
-    
+
     if (request.name.trim().length < 2 || request.name.trim().length > 100) {
       throw new InvalidRangeError('name', 2, 100);
     }
@@ -145,10 +148,10 @@ export class CreateCategoryUseCase {
       if (request.imageUrl.trim().length === 0) {
         throw new InvalidFormatError('imageUrl', 'non-empty string');
       }
-      
+
       // Validar que sea una URL válida (absoluta) o una ruta relativa válida
       const trimmedUrl = request.imageUrl.trim();
-      
+
       // Si es una URL absoluta, validar con URL constructor
       if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
         try {
@@ -156,7 +159,7 @@ export class CreateCategoryUseCase {
         } catch {
           throw new InvalidFormatError('imageUrl', 'valid URL format');
         }
-      } 
+      }
       // Si es una ruta relativa, validar que tenga formato válido
       else if (trimmedUrl.startsWith('/')) {
         // Validar que la ruta relativa tenga formato válido
@@ -173,7 +176,7 @@ export class CreateCategoryUseCase {
       if (typeof request.sortOrder !== 'number' || !Number.isInteger(request.sortOrder)) {
         throw new InvalidFormatError('sortOrder', 'integer');
       }
-      
+
       if (request.sortOrder < 0 || request.sortOrder > 999) {
         throw new InvalidRangeError('sortOrder', 0, 999);
       }

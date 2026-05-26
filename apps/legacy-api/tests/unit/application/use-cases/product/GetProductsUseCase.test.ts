@@ -1,4 +1,7 @@
-import { GetProductsUseCase, GetProductsRequest } from '@application/use-cases/product/GetProductsUseCase';
+import {
+  GetProductsUseCase,
+  GetProductsRequest,
+} from '@application/use-cases/product/GetProductsUseCase';
 import { IProductRepository, ProductFilters } from '@domain/repositories/IProductRepository';
 import { ProductEntity } from '@domain/entities/Product';
 
@@ -17,7 +20,7 @@ const mockProductRepository: jest.Mocked<IProductRepository> = {
   getProductVariants: jest.fn(),
   updateVariant: jest.fn(),
   deleteVariant: jest.fn(),
-  getCategories: jest.fn()
+  getCategories: jest.fn(),
 };
 
 describe('GetProductsUseCase', () => {
@@ -48,8 +51,8 @@ describe('GetProductsUseCase', () => {
           4.5,
           5,
           new Date(),
-          new Date()
-        )
+          new Date(),
+        ),
       ];
 
       mockProductRepository.findAll.mockResolvedValue(mockProducts);
@@ -69,7 +72,7 @@ describe('GetProductsUseCase', () => {
         inStock: undefined,
         search: undefined,
         limit: 50,
-        offset: 0
+        offset: 0,
       });
     });
 
@@ -82,12 +85,12 @@ describe('GetProductsUseCase', () => {
           minPrice: 10,
           maxPrice: 50,
           inStock: true,
-          search: 'test'
+          search: 'test',
         },
         pagination: {
           limit: 10,
-          offset: 5
-        }
+          offset: 5,
+        },
       };
 
       const mockProducts: ProductEntity[] = [];
@@ -108,7 +111,7 @@ describe('GetProductsUseCase', () => {
         inStock: true,
         search: 'test',
         limit: 10,
-        offset: 5
+        offset: 5,
       });
     });
 
@@ -116,8 +119,8 @@ describe('GetProductsUseCase', () => {
       // Arrange
       const request: GetProductsRequest = {
         filters: {
-          search: '   '
-        }
+          search: '   ',
+        },
       };
 
       const mockProducts: ProductEntity[] = [];
@@ -136,7 +139,7 @@ describe('GetProductsUseCase', () => {
         inStock: undefined,
         search: undefined,
         limit: 50,
-        offset: 0
+        offset: 0,
       });
     });
 
@@ -162,7 +165,7 @@ describe('GetProductsUseCase', () => {
         inStock: undefined,
         search: undefined,
         limit: 50,
-        offset: 0
+        offset: 0,
       });
     });
 
@@ -176,4 +179,4 @@ describe('GetProductsUseCase', () => {
       expect(mockProductRepository.findAll).toHaveBeenCalled();
     });
   });
-}); 
+});

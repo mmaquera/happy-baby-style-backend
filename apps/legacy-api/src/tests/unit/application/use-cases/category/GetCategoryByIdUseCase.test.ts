@@ -1,4 +1,7 @@
-import { GetCategoryByIdUseCase, GetCategoryByIdRequest } from '@application/use-cases/category/GetCategoryByIdUseCase';
+import {
+  GetCategoryByIdUseCase,
+  GetCategoryByIdRequest,
+} from '@application/use-cases/category/GetCategoryByIdUseCase';
 import { ICategoryRepository } from '@domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '@domain/entities/Product';
 import { NotFoundError } from '@domain/errors/DomainError';
@@ -13,7 +16,7 @@ const mockCategoryRepository: jest.Mocked<ICategoryRepository> = {
   update: jest.fn(),
   delete: jest.fn(),
   findActive: jest.fn(),
-  updateSortOrder: jest.fn()
+  updateSortOrder: jest.fn(),
 };
 
 // Mock del logger
@@ -24,17 +27,19 @@ jest.mock('@hbs/logging', () => ({
         info: jest.fn(),
         debug: jest.fn(),
         error: jest.fn(),
-        warn: jest.fn()
-      })
-    })
-  }
+        warn: jest.fn(),
+      }),
+    }),
+  },
 }));
 
 // Mock del decorador
 jest.mock('@hbs/logging', () => ({
   LoggingDecorator: {
-    logUseCase: jest.fn(() => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => descriptor)
-  }
+    logUseCase: jest.fn(
+      () => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => descriptor,
+    ),
+  },
 }));
 
 describe('GetCategoryByIdUseCase', () => {
@@ -55,7 +60,7 @@ describe('GetCategoryByIdUseCase', () => {
       true,
       1,
       new Date('2024-01-01'),
-      new Date('2024-01-01')
+      new Date('2024-01-01'),
     );
   });
 

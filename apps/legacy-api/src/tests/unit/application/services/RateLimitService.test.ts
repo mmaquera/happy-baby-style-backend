@@ -1,5 +1,9 @@
 import { RateLimitService } from '@application/services/RateLimitService';
-import { IRateLimitService, RateLimitStatus, RateLimitConfig } from '@domain/interfaces/IRateLimitService';
+import {
+  IRateLimitService,
+  RateLimitStatus,
+  RateLimitConfig,
+} from '@domain/interfaces/IRateLimitService';
 import { ILogger } from '@hbs/logging';
 import { RateLimitConfigService } from '../../../../config/rateLimitConfig';
 
@@ -16,7 +20,7 @@ describe('RateLimitService', () => {
       debug: jest.fn(),
       fatal: jest.fn(),
       child: jest.fn(),
-      setTraceId: jest.fn()
+      setTraceId: jest.fn(),
     };
 
     // Create mock config service
@@ -27,18 +31,20 @@ describe('RateLimitService', () => {
       updateEndpointConfig: jest.fn(),
       addEndpointConfig: jest.fn(),
       removeEndpointConfig: jest.fn(),
-      getConfigSummary: jest.fn()
+      getConfigSummary: jest.fn(),
     } as any;
 
     // Mock the RateLimitConfigService class
     jest.doMock('../../../../config/rateLimitConfig', () => ({
       RateLimitConfigService: {
-        getInstance: jest.fn().mockReturnValue(mockConfigService)
-      }
+        getInstance: jest.fn().mockReturnValue(mockConfigService),
+      },
     }));
 
     // Re-import to get the mocked version
-    const { RateLimitService: MockedRateLimitService } = require('../../../../application/services/RateLimitService');
+    const {
+      RateLimitService: MockedRateLimitService,
+    } = require('../../../../application/services/RateLimitService');
     rateLimitService = new MockedRateLimitService(mockLogger);
   });
 
@@ -56,7 +62,7 @@ describe('RateLimitService', () => {
         maxRequests: 5,
         blockDuration: 30 * 60 * 1000, // 30 minutes
         skipSuccessfulRequests: true,
-        message: 'Too many login attempts'
+        message: 'Too many login attempts',
       });
     });
 
@@ -98,7 +104,7 @@ describe('RateLimitService', () => {
 
       // First call should block due to limit exceeded
       await rateLimitService.isRequestAllowed(testKey, testEndpoint);
-      
+
       // Second call should block due to being currently blocked
       const result = await rateLimitService.isRequestAllowed(testKey, testEndpoint);
 
@@ -112,7 +118,7 @@ describe('RateLimitService', () => {
         maxRequests: 5,
         blockDuration: 100, // 100ms for testing
         skipSuccessfulRequests: true,
-        message: 'Too many login attempts'
+        message: 'Too many login attempts',
       });
 
       // Record 6 requests to trigger blocking
@@ -121,7 +127,7 @@ describe('RateLimitService', () => {
       }
 
       // Wait for block duration to expire
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const result = await rateLimitService.isRequestAllowed(testKey, testEndpoint);
 
@@ -136,7 +142,11 @@ describe('RateLimitService', () => {
       const result = await rateLimitService.isRequestAllowed(testKey, testEndpoint);
 
       expect(result).toBe(true);
-      expect(mockLogger.error).toHaveBeenCalledWith('Error checking rate limit', expect.any(Error), expect.any(Object));
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Error checking rate limit',
+        expect.any(Error),
+        expect.any(Object),
+      );
     });
   });
 
@@ -150,7 +160,7 @@ describe('RateLimitService', () => {
         maxRequests: 3,
         blockDuration: 60 * 60 * 1000, // 1 hour
         skipSuccessfulRequests: true,
-        message: 'Too many registration attempts'
+        message: 'Too many registration attempts',
       });
     });
 
@@ -177,14 +187,14 @@ describe('RateLimitService', () => {
         maxRequests: 3,
         blockDuration: 60 * 60 * 1000,
         skipSuccessfulRequests: true,
-        message: 'Too many registration attempts'
+        message: 'Too many registration attempts',
       });
 
       // Record first request
       await rateLimitService.recordRequest(testKey, testEndpoint, true);
 
       // Wait for window to expire
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Record second request (should reset window)
       await rateLimitService.recordRequest(testKey, testEndpoint, true);
@@ -215,7 +225,7 @@ describe('RateLimitService', () => {
         maxRequests: 20,
         blockDuration: 15 * 60 * 1000,
         skipSuccessfulRequests: false,
-        message: 'Too many refresh attempts'
+        message: 'Too many refresh attempts',
       });
     });
 
@@ -309,20 +319,23 @@ describe('RateLimitService', () => {
         maxRequests: 100,
         blockDuration: 100, // 100ms for testing
         skipSuccessfulRequests: false,
-        message: 'Too many requests'
+        message: 'Too many requests',
       });
 
       // Record a request
       await rateLimitService.recordRequest(testKey, testEndpoint, true);
 
       // Wait for window to expire
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Clean up expired data
       const cleanedCount = await rateLimitService.cleanupExpiredData();
 
       expect(cleanedCount).toBe(1);
-      expect(mockLogger.info).toHaveBeenCalledWith('Cleaned up expired rate limiting data', expect.any(Object));
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Cleaned up expired rate limiting data',
+        expect.any(Object),
+      );
     });
   });
 

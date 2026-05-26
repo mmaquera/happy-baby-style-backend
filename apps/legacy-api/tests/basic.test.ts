@@ -7,4 +7,4 @@ describe('Basic Test', () => {
     const result = await Promise.resolve('test');
     expect(result).toBe('test');
   });
-}); 
+});

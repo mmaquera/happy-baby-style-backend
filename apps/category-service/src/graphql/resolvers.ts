@@ -11,9 +11,15 @@ import { GraphQLScalarType, Kind } from 'graphql';
 
 const DateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
-  serialize(value: any) { return value instanceof Date ? value.toISOString() : value; },
-  parseValue(value: any) { return new Date(value as string); },
-  parseLiteral(ast: any) { return ast.kind === Kind.STRING ? new Date(ast.value) : null; }
+  serialize(value: any) {
+    return value instanceof Date ? value.toISOString() : value;
+  },
+  parseValue(value: any) {
+    return new Date(value as string);
+  },
+  parseLiteral(ast: any) {
+    return ast.kind === Kind.STRING ? new Date(ast.value) : null;
+  },
 });
 
 function handleError(error: any): { message: string; code: string; details?: any } {
@@ -38,7 +44,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
       __resolveReference: async (ref: { id: string }) => {
         const category = await categoryRepository.findById(ref.id);
         return category ? transformCategory(category) : null;
-      }
+      },
     },
 
     Query: {
@@ -50,7 +56,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
         try {
           const result = await getCategoriesUseCase.execute({
             filters: filters || {},
-            pagination: pagination || { limit: 50, offset: 0 }
+            pagination: pagination || { limit: 50, offset: 0 },
           });
           const duration = Date.now() - startTime;
           return ResponseFactory.createPaginatedResponse(
@@ -61,15 +67,20 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
               offset: pagination?.offset || 0,
               hasMore: result.hasMore,
               currentPage: Math.floor((pagination?.offset || 0) / (pagination?.limit || 50)) + 1,
-              totalPages: Math.ceil(result.total / (pagination?.limit || 50))
+              totalPages: Math.ceil(result.total / (pagination?.limit || 50)),
             },
             'Categories retrieved successfully',
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
           const err = handleError(error);
-          return ResponseFactory.createErrorResponse(err.message, (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR, err.details, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            err.message,
+            (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+            err.details,
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -85,12 +96,17 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
             transformCategory(category),
             'Category retrieved successfully',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
           const err = handleError(error);
-          return ResponseFactory.createErrorResponse(err.message, (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR, err.details, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            err.message,
+            (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+            err.details,
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -106,14 +122,19 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
             transformCategory(category),
             'Category retrieved successfully',
             RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
           const err = handleError(error);
-          return ResponseFactory.createErrorResponse(err.message, (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR, err.details, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            err.message,
+            (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+            err.details,
+            { requestId, traceId, duration },
+          );
         }
-      }
+      },
     },
 
     Mutation: {
@@ -129,19 +150,28 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
             slug: input.slug,
             imageUrl: input.image,
             isActive: input.isActive !== undefined ? input.isActive : true,
-            sortOrder: input.sortOrder || 0
+            sortOrder: input.sortOrder || 0,
           });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
-            { entity: transformCategory(category), id: category.id, createdAt: category.createdAt.toISOString() },
+            {
+              entity: transformCategory(category),
+              id: category.id,
+              createdAt: category.createdAt.toISOString(),
+            },
             'Category created successfully',
             RESPONSE_CODES.CREATED,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
           const err = handleError(error);
-          return ResponseFactory.createErrorResponse(err.message, (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR, err.details, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            err.message,
+            (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+            err.details,
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -158,7 +188,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
             slug: input.slug,
             imageUrl: input.image,
             isActive: input.isActive,
-            sortOrder: input.sortOrder
+            sortOrder: input.sortOrder,
           });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
@@ -166,16 +196,21 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
               entity: transformCategory(result.entity),
               id: result.id,
               updatedAt: result.updatedAt.toISOString(),
-              changes: result.changes
+              changes: result.changes,
             },
             'Category updated successfully',
             RESPONSE_CODES.UPDATED,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
           const err = handleError(error);
-          return ResponseFactory.createErrorResponse(err.message, (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR, err.details, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            err.message,
+            (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+            err.details,
+            { requestId, traceId, duration },
+          );
         }
       },
 
@@ -188,17 +223,26 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
           const result = await deleteCategoryUseCase.execute({ id, forceDelete: false });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
-            { id: result.id, deletedAt: result.deletedAt.toISOString(), softDelete: result.softDelete },
+            {
+              id: result.id,
+              deletedAt: result.deletedAt.toISOString(),
+              softDelete: result.softDelete,
+            },
             'Category deleted successfully',
             RESPONSE_CODES.DELETED,
-            { requestId, traceId, duration }
+            { requestId, traceId, duration },
           );
         } catch (error: any) {
           const duration = Date.now() - startTime;
           const err = handleError(error);
-          return ResponseFactory.createErrorResponse(err.message, (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR, err.details, { requestId, traceId, duration });
+          return ResponseFactory.createErrorResponse(
+            err.message,
+            (err.code as any) || RESPONSE_CODES.INTERNAL_ERROR,
+            err.details,
+            { requestId, traceId, duration },
+          );
         }
-      }
-    }
+      },
+    },
   };
 }

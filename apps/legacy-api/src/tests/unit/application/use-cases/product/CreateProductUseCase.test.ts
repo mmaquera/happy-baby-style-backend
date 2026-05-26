@@ -40,7 +40,7 @@ describe('CreateProductUseCase', () => {
       attributes: { color: 'red', size: 'M' },
       isActive: true,
       stockQuantity: 10,
-      tags: ['test', 'product']
+      tags: ['test', 'product'],
     };
 
     it('should create a product successfully when valid data is provided', async () => {
@@ -61,7 +61,7 @@ describe('CreateProductUseCase', () => {
         0,
         0,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockProductRepository.create.mockResolvedValue(expectedProduct);
@@ -83,8 +83,8 @@ describe('CreateProductUseCase', () => {
           attributes: validProductData.attributes,
           isActive: validProductData.isActive,
           stockQuantity: validProductData.stockQuantity,
-          tags: validProductData.tags
-        })
+          tags: validProductData.tags,
+        }),
       );
       expect(result).toEqual(expectedProduct);
     });
@@ -94,9 +94,7 @@ describe('CreateProductUseCase', () => {
       const invalidData = { ...validProductData, name: '' };
 
       // Act & Assert
-      await expect(createProductUseCase.execute(invalidData))
-        .rejects
-        .toThrow('name is required');
+      await expect(createProductUseCase.execute(invalidData)).rejects.toThrow('name is required');
 
       expect(mockProductRepository.create).not.toHaveBeenCalled();
     });
@@ -106,9 +104,9 @@ describe('CreateProductUseCase', () => {
       const invalidData = { ...validProductData, price: -10 };
 
       // Act & Assert
-      await expect(createProductUseCase.execute(invalidData))
-        .rejects
-        .toThrow('price must be at least');
+      await expect(createProductUseCase.execute(invalidData)).rejects.toThrow(
+        'price must be at least',
+      );
 
       expect(mockProductRepository.create).not.toHaveBeenCalled();
     });
@@ -118,9 +116,7 @@ describe('CreateProductUseCase', () => {
       const invalidData = { ...validProductData, sku: '' };
 
       // Act & Assert
-      await expect(createProductUseCase.execute(invalidData))
-        .rejects
-        .toThrow('sku is required');
+      await expect(createProductUseCase.execute(invalidData)).rejects.toThrow('sku is required');
 
       expect(mockProductRepository.create).not.toHaveBeenCalled();
     });
@@ -130,9 +126,9 @@ describe('CreateProductUseCase', () => {
       const invalidData = { ...validProductData, stockQuantity: -5 };
 
       // Act & Assert
-      await expect(createProductUseCase.execute(invalidData))
-        .rejects
-        .toThrow('stockQuantity must be at least');
+      await expect(createProductUseCase.execute(invalidData)).rejects.toThrow(
+        'stockQuantity must be at least',
+      );
 
       expect(mockProductRepository.create).not.toHaveBeenCalled();
     });
@@ -143,9 +139,9 @@ describe('CreateProductUseCase', () => {
       mockProductRepository.create.mockRejectedValue(repositoryError);
 
       // Act & Assert
-      await expect(createProductUseCase.execute(validProductData))
-        .rejects
-        .toThrow('Database operation failed: create product');
+      await expect(createProductUseCase.execute(validProductData)).rejects.toThrow(
+        'Database operation failed: create product',
+      );
 
       expect(mockProductRepository.create).toHaveBeenCalledTimes(1);
     });
@@ -157,7 +153,7 @@ describe('CreateProductUseCase', () => {
         name: 'Minimal Product',
         description: 'Minimal Description',
         price: 19.99,
-        sku: 'MIN-001'
+        sku: 'MIN-001',
       };
 
       const expectedProduct = new ProductEntity(
@@ -176,7 +172,7 @@ describe('CreateProductUseCase', () => {
         0,
         0,
         new Date(),
-        new Date()
+        new Date(),
       );
 
       mockProductRepository.create.mockResolvedValue(expectedProduct);
@@ -191,8 +187,8 @@ describe('CreateProductUseCase', () => {
           attributes: {},
           isActive: true,
           stockQuantity: 0,
-          tags: undefined // tags can be undefined when not provided
-        })
+          tags: undefined, // tags can be undefined when not provided
+        }),
       );
       expect(result).toEqual(expectedProduct);
     });

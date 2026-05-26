@@ -9,5 +9,9 @@ export interface ISvgRepository {
   delete(id: string): Promise<boolean>;
   findAll(limit?: number, offset?: number): Promise<SvgEntity[]>;
   count(): Promise<number>;
-  findByEntityType(entityType: SvgEntityType, limit?: number, offset?: number): Promise<SvgEntity[]>;
+  findByEntityType(
+    entityType: SvgEntityType,
+    limit?: number,
+    offset?: number,
+  ): Promise<SvgEntity[]>;
 }

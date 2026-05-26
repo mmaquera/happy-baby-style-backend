@@ -11,13 +11,13 @@ const mockLogger: ILogger = {
   error: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(() => mockLogger),
-  setTraceId: jest.fn(() => mockLogger)
+  setTraceId: jest.fn(() => mockLogger),
 };
 
 // Mock validation service
 const mockValidationService: IFileValidationService = {
   validateFile: jest.fn(),
-  getExtensionFromMimeType: jest.fn(() => '.jpg')
+  getExtensionFromMimeType: jest.fn(() => '.jpg'),
 };
 
 describe('LocalStorageService', () => {
@@ -43,20 +43,24 @@ describe('LocalStorageService', () => {
   describe('validateFile', () => {
     it('should return true for valid file', () => {
       (mockValidationService.validateFile as jest.Mock).mockImplementation(() => {});
-      
+
       const result = storageService.validateFile('test.jpg', 'image/jpeg', 1024);
-      
+
       expect(result).toBe(true);
-      expect(mockValidationService.validateFile).toHaveBeenCalledWith('test.jpg', 'image/jpeg', 1024);
+      expect(mockValidationService.validateFile).toHaveBeenCalledWith(
+        'test.jpg',
+        'image/jpeg',
+        1024,
+      );
     });
 
     it('should return false for invalid file', () => {
       (mockValidationService.validateFile as jest.Mock).mockImplementation(() => {
         throw new FileValidationError('Invalid file');
       });
-      
+
       const result = storageService.validateFile('test.txt', 'text/plain', 1024);
-      
+
       expect(result).toBe(false);
     });
   });
@@ -79,14 +83,14 @@ describe('LocalStorageService', () => {
         'test.jpg',
         'http://localhost:3000/uploads/test.jpg',
         'req123',
-        'trace456'
+        'trace456',
       );
 
       expect(response.success).toBe(true);
       expect(response.code).toBe('CREATED');
       expect(response.data).toEqual({
         url: 'http://localhost:3000/uploads/test.jpg',
-        fileName: 'test.jpg'
+        fileName: 'test.jpg',
       });
       expect(response.metadata?.requestId).toBe('req123');
       expect(response.metadata?.traceId).toBe('trace456');
@@ -98,14 +102,14 @@ describe('LocalStorageService', () => {
       const response = storageService.getDeletionResponse(
         'http://localhost:3000/uploads/test.jpg',
         'req123',
-        'trace456'
+        'trace456',
       );
 
       expect(response.success).toBe(true);
       expect(response.code).toBe('DELETED');
       expect(response.data).toEqual({
         fileUrl: 'http://localhost:3000/uploads/test.jpg',
-        deletedAt: expect.any(String)
+        deletedAt: expect.any(String),
       });
       expect(response.metadata?.requestId).toBe('req123');
       expect(response.metadata?.traceId).toBe('trace456');

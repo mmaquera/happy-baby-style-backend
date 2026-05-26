@@ -34,8 +34,8 @@ export class HttpProductValidationAdapter implements IProductValidationPort {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: PRODUCT_QUERY,
-          variables: { id: productId }
-        })
+          variables: { id: productId },
+        }),
       });
 
       if (!response.ok) {
@@ -64,11 +64,15 @@ export class HttpProductValidationAdapter implements IProductValidationPort {
           color: v.color,
           stockQuantity: Number(v.stockQuantity) || 0,
           price: Number(v.price) || 0,
-          isActive: v.isActive ?? true
-        }))
+          isActive: v.isActive ?? true,
+        })),
       };
     } catch (error) {
-      this.logger.error('Failed to validate product', error instanceof Error ? error : new Error(String(error)), { productId });
+      this.logger.error(
+        'Failed to validate product',
+        error instanceof Error ? error : new Error(String(error)),
+        { productId },
+      );
       return null;
     }
   }

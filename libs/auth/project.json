@@ -6,7 +6,9 @@
   "targets": {
     "build": {
       "executor": "nx:run-commands",
-      "outputs": ["{projectRoot}/dist"],
+      "outputs": [
+        "{projectRoot}/dist"
+      ],
       "options": {
         "command": "rm -rf libs/auth/dist && tsc -p libs/auth/tsconfig.json"
       }
@@ -16,6 +18,7 @@
       "options": {
         "command": "tsc --noEmit -p libs/auth/tsconfig.json"
       }
-    }
+    },
+    "lint": {}
   }
 }

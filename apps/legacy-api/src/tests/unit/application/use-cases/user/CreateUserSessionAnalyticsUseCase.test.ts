@@ -42,7 +42,7 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   verifyPassword: jest.fn(),
   updatePassword: jest.fn(),
   getUserById: jest.fn(),
-  getUserByEmail: jest.fn()
+  getUserByEmail: jest.fn(),
 };
 
 const mockLogger: jest.Mocked<ILogger> = {
@@ -52,7 +52,7 @@ const mockLogger: jest.Mocked<ILogger> = {
   debug: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(),
-  setTraceId: jest.fn()
+  setTraceId: jest.fn(),
 };
 
 describe('CreateUserSessionAnalyticsUseCase', () => {
@@ -75,7 +75,7 @@ describe('CreateUserSessionAnalyticsUseCase', () => {
       browser: 'chrome',
       os: 'android',
       country: 'PE',
-      city: 'Lima'
+      city: 'Lima',
     };
 
     const mockAnalytics: UserSessionAnalytics = {
@@ -92,7 +92,7 @@ describe('CreateUserSessionAnalyticsUseCase', () => {
       country: 'PE',
       city: 'Lima',
       createdAt: new Date('2024-01-15T10:00:00Z'),
-      updatedAt: new Date('2024-01-15T10:00:00Z')
+      updatedAt: new Date('2024-01-15T10:00:00Z'),
     };
 
     it('should create session analytics successfully', async () => {
@@ -116,15 +116,15 @@ describe('CreateUserSessionAnalyticsUseCase', () => {
         browser: 'chrome',
         os: 'android',
         country: 'PE',
-        city: 'Lima'
+        city: 'Lima',
       });
       expect(mockLogger.info).toHaveBeenCalledWith(
         'User session analytics created successfully',
         expect.objectContaining({
           analyticsId: 'analytics-789',
           sessionId: 'session-123',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
 
@@ -142,8 +142,8 @@ describe('CreateUserSessionAnalyticsUseCase', () => {
         'Session analytics already exist for session',
         expect.objectContaining({
           sessionId: 'session-123',
-          analyticsId: 'analytics-789'
-        })
+          analyticsId: 'analytics-789',
+        }),
       );
     });
 
@@ -151,7 +151,7 @@ describe('CreateUserSessionAnalyticsUseCase', () => {
       // Arrange
       const minimalRequest: CreateUserSessionAnalyticsRequest = {
         sessionId: 'session-123',
-        userId: 'user-456'
+        userId: 'user-456',
       };
       mockAuthRepository.findSessionAnalyticsBySessionId.mockResolvedValue(null);
       mockAuthRepository.createSessionAnalytics.mockResolvedValue(mockAnalytics);
@@ -171,7 +171,7 @@ describe('CreateUserSessionAnalyticsUseCase', () => {
         browser: undefined,
         os: undefined,
         country: undefined,
-        city: undefined
+        city: undefined,
       });
     });
 
@@ -241,8 +241,8 @@ describe('CreateUserSessionAnalyticsUseCase', () => {
         repositoryError,
         expect.objectContaining({
           sessionId: 'session-123',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
   });

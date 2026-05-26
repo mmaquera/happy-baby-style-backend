@@ -39,14 +39,14 @@ export class PerformanceLogger {
       duration: 0,
       startTime,
       endTime: 0,
-      context
+      context,
     });
 
     this.logger.debug(`Started timing operation: ${operation}`, {
       operationId,
       operation,
       startTime,
-      context
+      context,
     });
 
     return operationId;
@@ -57,7 +57,10 @@ export class PerformanceLogger {
    * @param operationId - Operation ID returned from startTimer
    * @param additionalContext - Additional context to log
    */
-  endTimer(operationId: string, additionalContext?: Record<string, any>): PerformanceMeasurement | null {
+  endTimer(
+    operationId: string,
+    additionalContext?: Record<string, any>,
+  ): PerformanceMeasurement | null {
     const measurement = this.measurements.get(operationId);
     if (!measurement) {
       this.logger.warn(`Attempted to end timer for unknown operation: ${operationId}`);
@@ -73,8 +76,8 @@ export class PerformanceLogger {
       duration,
       context: {
         ...measurement.context,
-        ...additionalContext
-      }
+        ...additionalContext,
+      },
     };
 
     this.measurements.set(operationId, finalMeasurement);
@@ -95,22 +98,22 @@ export class PerformanceLogger {
   async timeOperation<T>(
     operation: string,
     callback: () => Promise<T>,
-    context?: Record<string, any>
+    context?: Record<string, any>,
   ): Promise<{ result: T; measurement: PerformanceMeasurement }> {
     const operationId = this.startTimer(operation, context);
-    
+
     try {
       const result = await callback();
       const measurement = this.endTimer(operationId, { success: true });
-      
+
       return {
         result,
-        measurement: measurement!
+        measurement: measurement!,
       };
     } catch (error) {
-      this.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -126,22 +129,22 @@ export class PerformanceLogger {
   timeSyncOperation<T>(
     operation: string,
     callback: () => T,
-    context?: Record<string, any>
+    context?: Record<string, any>,
   ): { result: T; measurement: PerformanceMeasurement } {
     const operationId = this.startTimer(operation, context);
-    
+
     try {
       const result = callback();
       const measurement = this.endTimer(operationId, { success: true });
-      
+
       return {
         result,
-        measurement: measurement!
+        measurement: measurement!,
       };
     } catch (error) {
-      this.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -170,7 +173,7 @@ export class PerformanceLogger {
       durationMs: `${duration}ms`,
       startTime: new Date(measurement.startTime).toISOString(),
       endTime: new Date(measurement.endTime).toISOString(),
-      ...context
+      ...context,
     };
 
     switch (logLevel) {
@@ -221,29 +224,30 @@ export class PerformanceLogger {
     slowOperations: PerformanceMeasurement[];
   } {
     const measurements = Array.from(this.measurements.values());
-    
+
     if (measurements.length === 0) {
       return {
         totalOperations: 0,
         averageDuration: 0,
         minDuration: 0,
         maxDuration: 0,
-        slowOperations: []
+        slowOperations: [],
       };
     }
 
-    const durations = measurements.map(m => m.duration);
-    const averageDuration = durations.reduce((sum, duration) => sum + duration, 0) / durations.length;
+    const durations = measurements.map((m) => m.duration);
+    const averageDuration =
+      durations.reduce((sum, duration) => sum + duration, 0) / durations.length;
     const minDuration = Math.min(...durations);
     const maxDuration = Math.max(...durations);
-    const slowOperations = measurements.filter(m => m.duration > 1000);
+    const slowOperations = measurements.filter((m) => m.duration > 1000);
 
     return {
       totalOperations: measurements.length,
       averageDuration,
       minDuration,
       maxDuration,
-      slowOperations
+      slowOperations,
     };
   }
 
@@ -257,4 +261,4 @@ export class PerformanceLogger {
     const random = Math.random().toString(36).substring(2, 8);
     return `${operation}_${timestamp}_${random}`;
   }
-} 
+}

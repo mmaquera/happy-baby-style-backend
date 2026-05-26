@@ -1,7 +1,12 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
-import { DomainError, ValidationError, NotFoundError, InfrastructureError } from '../../../domain/errors/DomainError';
+import {
+  DomainError,
+  ValidationError,
+  NotFoundError,
+  InfrastructureError,
+} from '../../../domain/errors/DomainError';
 
 export class SetDefaultAddressUseCase {
   private readonly logger: ILogger;
@@ -12,11 +17,11 @@ export class SetDefaultAddressUseCase {
 
   async execute(userId: string, addressId: string): Promise<void> {
     const traceId = `set-default-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     this.logger.info('Starting default address setting', {
       traceId,
       userId,
-      addressId
+      addressId,
     });
 
     try {
@@ -36,17 +41,20 @@ export class SetDefaultAddressUseCase {
       }
 
       if (address.userId !== userId) {
-        throw new ValidationError('Address does not belong to the specified user', 'ADDRESS_USER_MISMATCH');
+        throw new ValidationError(
+          'Address does not belong to the specified user',
+          'ADDRESS_USER_MISMATCH',
+        );
       }
 
       // Get current default address
       const currentDefault = await this.userRepository.getDefaultAddress(userId);
-      
+
       if (currentDefault && currentDefault.id === addressId) {
         this.logger.info('Address is already the default', {
           traceId,
           addressId,
-          userId
+          userId,
         });
         return; // Already the default
       }
@@ -54,11 +62,11 @@ export class SetDefaultAddressUseCase {
       // Update current default to false if exists
       if (currentDefault) {
         await this.userRepository.updateUserAddress(currentDefault.id, { isDefault: false });
-        
+
         this.logger.info('Previous default address updated', {
           traceId,
           previousDefaultId: currentDefault.id,
-          userId
+          userId,
         });
       }
 
@@ -68,21 +76,27 @@ export class SetDefaultAddressUseCase {
       this.logger.info('Default address set successfully', {
         traceId,
         addressId,
-        userId
-      });
-
-    } catch (error) {
-      this.logger.error('Error setting default address', error instanceof Error ? error : new Error(String(error)), {
-        traceId,
         userId,
-        addressId
       });
+    } catch (error) {
+      this.logger.error(
+        'Error setting default address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          traceId,
+          userId,
+          addressId,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
       }
 
-      throw new InfrastructureError('Failed to set default address', error instanceof Error ? error : undefined);
+      throw new InfrastructureError(
+        'Failed to set default address',
+        error instanceof Error ? error : undefined,
+      );
     }
   }
 
@@ -99,7 +113,7 @@ export class SetDefaultAddressUseCase {
 
     // Validate UUID format for both IDs
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    
+
     if (userId && !uuidRegex.test(userId)) {
       errors.push('Invalid user ID format');
     }

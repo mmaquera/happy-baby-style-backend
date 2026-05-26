@@ -1,12 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { 
-  IAuthRepository 
-} from '@domain/repositories/IAuthRepository';
-import { 
-  UserAccount, 
-  UserSession, 
-  UserPassword, 
+import { IAuthRepository } from '@domain/repositories/IAuthRepository';
+import {
+  UserAccount,
+  UserSession,
+  UserPassword,
   AuthProvider,
   GoogleUserInfo,
   EmailLoginRequest,
@@ -16,16 +14,22 @@ import {
   UserAccountEntity,
   UserSessionEntity,
   UserPasswordEntity,
-  AuthTokens
+  AuthTokens,
 } from '@domain/entities/Auth';
 import { UserProfile, UserRole } from '@domain/entities/User';
-import { CreateUserSessionAnalyticsRequest, UpdateUserSessionAnalyticsRequest, UserSessionAnalytics } from '@domain/entities/Auth';
+import {
+  CreateUserSessionAnalyticsRequest,
+  UpdateUserSessionAnalyticsRequest,
+  UserSessionAnalytics,
+} from '@domain/entities/Auth';
 
 export class PrismaAuthRepository implements IAuthRepository {
   constructor(private prisma: PrismaClient) {}
 
   // OAuth Account Management
-  async createUserAccount(account: Omit<UserAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserAccount> {
+  async createUserAccount(
+    account: Omit<UserAccount, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UserAccount> {
     const created = await this.prisma.userAccount.create({
       data: {
         userId: account.userId,
@@ -37,20 +41,23 @@ export class PrismaAuthRepository implements IAuthRepository {
         scope: account.scope,
         idToken: account.idToken,
         expiresAt: account.expiresAt,
-      }
+      },
     });
 
     return this.mapToUserAccount(created);
   }
 
-  async findUserAccountByProvider(provider: AuthProvider, providerAccountId: string): Promise<UserAccount | null> {
+  async findUserAccountByProvider(
+    provider: AuthProvider,
+    providerAccountId: string,
+  ): Promise<UserAccount | null> {
     const account = await this.prisma.userAccount.findUnique({
       where: {
         provider_providerAccountId: {
           provider: provider,
-          providerAccountId: providerAccountId
-        }
-      }
+          providerAccountId: providerAccountId,
+        },
+      },
     });
 
     return account ? this.mapToUserAccount(account) : null;
@@ -59,10 +66,10 @@ export class PrismaAuthRepository implements IAuthRepository {
   async findUserAccountsByUserId(userId: string): Promise<UserAccount[]> {
     const accounts = await this.prisma.userAccount.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
-    return accounts.map(account => this.mapToUserAccount(account));
+    return accounts.map((account) => this.mapToUserAccount(account));
   }
 
   async updateUserAccount(id: string, data: Partial<UserAccount>): Promise<UserAccount> {
@@ -75,7 +82,7 @@ export class PrismaAuthRepository implements IAuthRepository {
         ...(data.scope !== undefined && { scope: data.scope }),
         ...(data.idToken !== undefined && { idToken: data.idToken }),
         ...(data.expiresAt !== undefined && { expiresAt: data.expiresAt }),
-      }
+      },
     });
 
     return this.mapToUserAccount(updated);
@@ -83,12 +90,14 @@ export class PrismaAuthRepository implements IAuthRepository {
 
   async deleteUserAccount(id: string): Promise<void> {
     await this.prisma.userAccount.delete({
-      where: { id }
+      where: { id },
     });
   }
 
   // Session Management
-  async createSession(session: Omit<UserSession, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserSession> {
+  async createSession(
+    session: Omit<UserSession, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UserSession> {
     const created = await this.prisma.userSession.create({
       data: {
         userId: session.userId,
@@ -99,7 +108,7 @@ export class PrismaAuthRepository implements IAuthRepository {
         userAgent: session.userAgent,
         ipAddress: session.ipAddress,
         isActive: session.isActive,
-      }
+      },
     });
 
     return this.mapToUserSession(created);
@@ -107,7 +116,7 @@ export class PrismaAuthRepository implements IAuthRepository {
 
   async findSessionByToken(token: string): Promise<UserSession | null> {
     const session = await this.prisma.userSession.findUnique({
-      where: { sessionToken: token }
+      where: { sessionToken: token },
     });
 
     return session ? this.mapToUserSession(session) : null;
@@ -116,10 +125,10 @@ export class PrismaAuthRepository implements IAuthRepository {
   async findSessionsByUserId(userId: string): Promise<UserSession[]> {
     const sessions = await this.prisma.userSession.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
-    return sessions.map(session => this.mapToUserSession(session));
+    return sessions.map((session) => this.mapToUserSession(session));
   }
 
   async updateSession(id: string, data: Partial<UserSession>): Promise<UserSession> {
@@ -132,7 +141,7 @@ export class PrismaAuthRepository implements IAuthRepository {
         ...(data.userAgent !== undefined && { userAgent: data.userAgent }),
         ...(data.ipAddress !== undefined && { ipAddress: data.ipAddress }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
-      }
+      },
     });
 
     return this.mapToUserSession(updated);
@@ -140,18 +149,15 @@ export class PrismaAuthRepository implements IAuthRepository {
 
   async deleteSession(id: string): Promise<void> {
     await this.prisma.userSession.delete({
-      where: { id }
+      where: { id },
     });
   }
 
   async deleteExpiredSessions(): Promise<number> {
     const result = await this.prisma.userSession.deleteMany({
       where: {
-        OR: [
-          { expiresAt: { lte: new Date() } },
-          { isActive: false }
-        ]
-      }
+        OR: [{ expiresAt: { lte: new Date() } }, { isActive: false }],
+      },
     });
 
     return result.count;
@@ -160,12 +166,14 @@ export class PrismaAuthRepository implements IAuthRepository {
   async invalidateUserSessions(userId: string): Promise<void> {
     await this.prisma.userSession.updateMany({
       where: { userId },
-      data: { isActive: false }
+      data: { isActive: false },
     });
   }
 
   // Password Management
-  async createUserPassword(password: Omit<UserPassword, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserPassword> {
+  async createUserPassword(
+    password: Omit<UserPassword, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UserPassword> {
     const created = await this.prisma.userPassword.create({
       data: {
         userId: password.userId,
@@ -173,7 +181,7 @@ export class PrismaAuthRepository implements IAuthRepository {
         salt: password.salt,
         resetToken: password.resetToken,
         resetExpiresAt: password.resetExpiresAt,
-      }
+      },
     });
 
     return this.mapToUserPassword(created);
@@ -181,7 +189,7 @@ export class PrismaAuthRepository implements IAuthRepository {
 
   async findUserPasswordByUserId(userId: string): Promise<UserPassword | null> {
     const password = await this.prisma.userPassword.findUnique({
-      where: { userId }
+      where: { userId },
     });
 
     return password ? this.mapToUserPassword(password) : null;
@@ -195,7 +203,7 @@ export class PrismaAuthRepository implements IAuthRepository {
         ...(data.salt !== undefined && { salt: data.salt }),
         ...(data.resetToken !== undefined && { resetToken: data.resetToken }),
         ...(data.resetExpiresAt !== undefined && { resetExpiresAt: data.resetExpiresAt }),
-      }
+      },
     });
 
     return this.mapToUserPassword(updated);
@@ -203,7 +211,7 @@ export class PrismaAuthRepository implements IAuthRepository {
 
   async deleteUserPassword(userId: string): Promise<void> {
     await this.prisma.userPassword.delete({
-      where: { userId }
+      where: { userId },
     });
   }
 
@@ -213,40 +221,44 @@ export class PrismaAuthRepository implements IAuthRepository {
     if (!userPassword) {
       return false;
     }
-    
+
     return await bcrypt.compare(password, userPassword.passwordHash);
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(newPassword, saltRounds);
-    
+
     await this.updateUserPassword(userId, { passwordHash });
   }
 
-  async getUserById(userId: string): Promise<{ id: string; email: string; isActive: boolean } | null> {
+  async getUserById(
+    userId: string,
+  ): Promise<{ id: string; email: string; isActive: boolean } | null> {
     const user = await this.prisma.userProfile.findUnique({
       where: { id: userId },
-      select: { 
-        id: true, 
-        email: true, 
-        isActive: true 
-      }
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+      },
     });
-    
+
     return user;
   }
 
-  async getUserByEmail(email: string): Promise<{ id: string; email: string; isActive: boolean } | null> {
+  async getUserByEmail(
+    email: string,
+  ): Promise<{ id: string; email: string; isActive: boolean } | null> {
     const user = await this.prisma.userProfile.findUnique({
       where: { email },
-      select: { 
-        id: true, 
-        email: true, 
-        isActive: true 
-      }
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+      },
     });
-    
+
     return user;
   }
 
@@ -257,8 +269,8 @@ export class PrismaAuthRepository implements IAuthRepository {
       where: { email: credentials.email },
       include: {
         password: true,
-        accounts: true
-      }
+        accounts: true,
+      },
     });
 
     if (!user) {
@@ -289,16 +301,13 @@ export class PrismaAuthRepository implements IAuthRepository {
       user: userProfile,
       tokens,
       isNewUser: false,
-      provider: AuthProvider.EMAIL
+      provider: AuthProvider.EMAIL,
     };
   }
 
   async authenticateWithGoogle(googleUser: GoogleUserInfo): Promise<AuthResult> {
     // Check if account already exists
-    let existingAccount = await this.findUserAccountByProvider(
-      AuthProvider.GOOGLE, 
-      googleUser.id
-    );
+    let existingAccount = await this.findUserAccountByProvider(AuthProvider.GOOGLE, googleUser.id);
 
     let user: UserProfile;
     let isNewUser = false;
@@ -306,7 +315,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     if (existingAccount) {
       // Existing Google account
       const userProfile = await this.prisma.userProfile.findUnique({
-        where: { id: existingAccount.userId }
+        where: { id: existingAccount.userId },
       });
 
       if (!userProfile) {
@@ -317,7 +326,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     } else {
       // Check if user exists by email
       let existingUser = await this.prisma.userProfile.findUnique({
-        where: { email: googleUser.email }
+        where: { email: googleUser.email },
       });
 
       if (existingUser) {
@@ -346,7 +355,7 @@ export class PrismaAuthRepository implements IAuthRepository {
             emailVerified: googleUser.verified_email,
             role: 'customer',
             isActive: true,
-          }
+          },
         });
 
         // Create Google account link
@@ -376,14 +385,14 @@ export class PrismaAuthRepository implements IAuthRepository {
       user,
       tokens,
       isNewUser,
-      provider: AuthProvider.GOOGLE
+      provider: AuthProvider.GOOGLE,
     };
   }
 
   async registerWithEmail(data: EmailRegisterRequest): Promise<AuthResult> {
     // Check if user already exists
     const existingUser = await this.prisma.userProfile.findUnique({
-      where: { email: data.email }
+      where: { email: data.email },
     });
 
     if (existingUser) {
@@ -404,14 +413,14 @@ export class PrismaAuthRepository implements IAuthRepository {
           role: 'customer',
           emailVerified: false,
           isActive: true,
-        }
+        },
       });
 
       await tx.userPassword.create({
         data: {
           userId: user.id,
           passwordHash,
-        }
+        },
       });
 
       return user;
@@ -424,7 +433,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       user: userProfile,
       tokens,
       isNewUser: true,
-      provider: AuthProvider.EMAIL
+      provider: AuthProvider.EMAIL,
     };
   }
 
@@ -436,7 +445,7 @@ export class PrismaAuthRepository implements IAuthRepository {
   async updateUserLastLogin(userId: string): Promise<void> {
     await this.prisma.userProfile.update({
       where: { id: userId },
-      data: { lastLoginAt: new Date() }
+      data: { lastLoginAt: new Date() },
     });
   }
 
@@ -446,19 +455,20 @@ export class PrismaAuthRepository implements IAuthRepository {
       include: {
         user: {
           include: {
-            accounts: true
-          }
-        }
-      }
+            accounts: true,
+          },
+        },
+      },
     });
 
     if (!session || !session.isActive || session.expiresAt < new Date()) {
       return null;
     }
 
-    const primaryProvider = session.user.accounts.length > 0 
-      ? session.user.accounts[0].provider as AuthProvider
-      : AuthProvider.EMAIL;
+    const primaryProvider =
+      session.user.accounts.length > 0
+        ? (session.user.accounts[0].provider as AuthProvider)
+        : AuthProvider.EMAIL;
 
     return {
       userId: session.userId,
@@ -479,10 +489,10 @@ export class PrismaAuthRepository implements IAuthRepository {
         include: {
           user: {
             include: {
-              accounts: true
-            }
-          }
-        }
+              accounts: true,
+            },
+          },
+        },
       });
 
       // Validar que la sesión exista y sea válida
@@ -514,28 +524,28 @@ export class PrismaAuthRepository implements IAuthRepository {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         expiresAt: newExpiresAt,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Mapear usuario y determinar proveedor
       const user = this.mapToUserProfile(session.user);
-      const primaryProvider = session.user.accounts.length > 0 
-        ? session.user.accounts[0].provider as AuthProvider
-        : AuthProvider.EMAIL;
+      const primaryProvider =
+        session.user.accounts.length > 0
+          ? (session.user.accounts[0].provider as AuthProvider)
+          : AuthProvider.EMAIL;
 
       return {
         user,
         tokens,
         isNewUser: false,
-        provider: primaryProvider
+        provider: primaryProvider,
       };
-
     } catch (error) {
       // Log del error para debugging
       console.error('Error refreshing user session:', {
         refreshToken: refreshToken ? '[REDACTED]' : 'undefined',
         error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // Re-lanzar el error para que sea manejado por el use case
@@ -549,38 +559,42 @@ export class PrismaAuthRepository implements IAuthRepository {
       if (sessionId) {
         // Logout specific session
         await this.prisma.userSession.updateMany({
-          where: { 
-            id: sessionId, 
+          where: {
+            id: sessionId,
             userId,
-            isActive: true 
+            isActive: true,
           },
-          data: { 
-            isActive: false, 
+          data: {
+            isActive: false,
             expiresAt: new Date(),
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       } else {
         // Logout all user sessions
         await this.prisma.userSession.updateMany({
-          where: { 
+          where: {
             userId,
-            isActive: true 
+            isActive: true,
           },
-          data: { 
-            isActive: false, 
+          data: {
+            isActive: false,
             expiresAt: new Date(),
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       }
     } catch (error) {
-      throw new Error(`Failed to logout user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to logout user: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
   // Session Analytics Management
-  async createSessionAnalytics(data: CreateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics> {
+  async createSessionAnalytics(
+    data: CreateUserSessionAnalyticsRequest,
+  ): Promise<UserSessionAnalytics> {
     try {
       const created = await this.prisma.userSessionAnalytics.create({
         data: {
@@ -594,37 +608,43 @@ export class PrismaAuthRepository implements IAuthRepository {
           browser: data.browser,
           os: data.os,
           country: data.country,
-          city: data.city
-        }
+          city: data.city,
+        },
       });
 
       return this.mapToUserSessionAnalytics(created);
     } catch (error) {
-      throw new Error(`Failed to create session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
   async findSessionAnalyticsById(id: string): Promise<UserSessionAnalytics | null> {
     try {
       const analytics = await this.prisma.userSessionAnalytics.findUnique({
-        where: { id }
+        where: { id },
       });
 
       return analytics ? this.mapToUserSessionAnalytics(analytics) : null;
     } catch (error) {
-      throw new Error(`Failed to find session analytics by ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to find session analytics by ID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
   async findSessionAnalyticsBySessionId(sessionId: string): Promise<UserSessionAnalytics | null> {
     try {
       const analytics = await this.prisma.userSessionAnalytics.findFirst({
-        where: { sessionId }
+        where: { sessionId },
       });
 
       return analytics ? this.mapToUserSessionAnalytics(analytics) : null;
     } catch (error) {
-      throw new Error(`Failed to find session analytics by session ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to find session analytics by session ID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
@@ -632,16 +652,21 @@ export class PrismaAuthRepository implements IAuthRepository {
     try {
       const analytics = await this.prisma.userSessionAnalytics.findMany({
         where: { userId },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      return analytics.map(analytics => this.mapToUserSessionAnalytics(analytics));
+      return analytics.map((analytics) => this.mapToUserSessionAnalytics(analytics));
     } catch (error) {
-      throw new Error(`Failed to find session analytics by user ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to find session analytics by user ID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
-  async updateSessionAnalytics(id: string, data: UpdateUserSessionAnalyticsRequest): Promise<UserSessionAnalytics> {
+  async updateSessionAnalytics(
+    id: string,
+    data: UpdateUserSessionAnalyticsRequest,
+  ): Promise<UserSessionAnalytics> {
     try {
       const updated = await this.prisma.userSessionAnalytics.update({
         where: { id },
@@ -655,43 +680,51 @@ export class PrismaAuthRepository implements IAuthRepository {
           ...(data.os !== undefined && { os: data.os }),
           ...(data.country !== undefined && { country: data.country }),
           ...(data.city !== undefined && { city: data.city }),
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       return this.mapToUserSessionAnalytics(updated);
     } catch (error) {
-      throw new Error(`Failed to update session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
   async deleteSessionAnalytics(id: string): Promise<void> {
     try {
       await this.prisma.userSessionAnalytics.delete({
-        where: { id }
+        where: { id },
       });
     } catch (error) {
-      throw new Error(`Failed to delete session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete session analytics: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
   async deleteSessionAnalyticsBySessionId(sessionId: string): Promise<void> {
     try {
       await this.prisma.userSessionAnalytics.deleteMany({
-        where: { sessionId }
+        where: { sessionId },
       });
     } catch (error) {
-      throw new Error(`Failed to delete session analytics by session ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete session analytics by session ID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
   async deleteSessionAnalyticsByUserId(userId: string): Promise<void> {
     try {
       await this.prisma.userSessionAnalytics.deleteMany({
-        where: { userId }
+        where: { userId },
       });
     } catch (error) {
-      throw new Error(`Failed to delete session analytics by user ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete session analytics by user ID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
@@ -700,10 +733,10 @@ export class PrismaAuthRepository implements IAuthRepository {
     // Generar tokens seguros usando crypto.randomUUID() para mayor seguridad
     const timestamp = Date.now();
     const randomId = crypto.randomUUID();
-    
+
     // Access token: formato más seguro con timestamp y UUID
     const accessToken = `access_${userId}_${timestamp}_${randomId}`;
-    
+
     // Refresh token: formato más seguro con timestamp y UUID
     const refreshToken = `refresh_${userId}_${timestamp}_${randomId}`;
 
@@ -711,7 +744,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       accessToken,
       refreshToken,
       expiresIn: 3600, // 1 hour
-      tokenType: 'Bearer'
+      tokenType: 'Bearer',
     };
   }
 
@@ -729,7 +762,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       idToken: data.idToken,
       expiresAt: data.expiresAt,
       createdAt: data.createdAt,
-      updatedAt: data.updatedAt
+      updatedAt: data.updatedAt,
     };
   }
 
@@ -745,7 +778,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       ipAddress: data.ipAddress,
       isActive: data.isActive,
       createdAt: data.createdAt,
-      updatedAt: data.updatedAt
+      updatedAt: data.updatedAt,
     };
   }
 
@@ -758,7 +791,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       resetToken: data.resetToken,
       resetExpiresAt: data.resetExpiresAt,
       createdAt: data.createdAt,
-      updatedAt: data.updatedAt
+      updatedAt: data.updatedAt,
     };
   }
 
@@ -777,7 +810,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
       addresses: [],
-      favoriteProductIds: []
+      favoriteProductIds: [],
     };
   }
 
@@ -796,7 +829,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       country: data.country,
       city: data.city,
       createdAt: data.createdAt,
-      updatedAt: data.updatedAt
+      updatedAt: data.updatedAt,
     };
   }
 }

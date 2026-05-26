@@ -14,7 +14,7 @@ export class UploadImageUseCase {
 
   constructor(
     private readonly imageRepository: IImageRepository,
-    private readonly storageService: IStorageService
+    private readonly storageService: IStorageService,
   ) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('UploadImageUseCase');
   }
@@ -41,7 +41,10 @@ export class UploadImageUseCase {
 
       fileBuffer = Buffer.concat(chunks);
     } catch (error) {
-      this.logger.error('Failed to resolve file or create buffer', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Failed to resolve file or create buffer',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw new Error('Failed to process uploaded file');
     }
 
@@ -50,7 +53,7 @@ export class UploadImageUseCase {
       mimetype: resolvedFile?.mimetype || 'unknown',
       size: fileBuffer.length,
       encoding: resolvedFile?.encoding || 'unknown',
-      buffer: fileBuffer
+      buffer: fileBuffer,
     };
 
     if (!fileInfo.buffer || fileInfo.buffer.length === 0) {
@@ -71,7 +74,7 @@ export class UploadImageUseCase {
       fileInfo.buffer,
       fileName,
       fileInfo.mimetype,
-      `${entityType}s/${entityId}`
+      `${entityType}s/${entityId}`,
     );
 
     const image = ImageEntity.create({
@@ -83,12 +86,16 @@ export class UploadImageUseCase {
       bucket: 'images',
       path: `${entityType}s/${entityId}/${fileName}`,
       entityType,
-      entityId
+      entityId,
     });
 
     const savedImage = await this.imageRepository.create(image);
 
-    this.logger.info('Image uploaded successfully', { imageId: savedImage.id, entityType, entityId });
+    this.logger.info('Image uploaded successfully', {
+      imageId: savedImage.id,
+      entityType,
+      entityId,
+    });
 
     return savedImage;
   }

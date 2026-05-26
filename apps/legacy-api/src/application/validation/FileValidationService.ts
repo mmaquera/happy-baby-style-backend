@@ -11,7 +11,7 @@ export class FileValidationService implements IFileValidationService {
     'image/svg+xml',
     'application/svg+xml',
     'application/pdf',
-    'text/plain'
+    'text/plain',
   ];
 
   validateFile(fileName: string, mimeType: string, fileSize: number): void {
@@ -26,7 +26,9 @@ export class FileValidationService implements IFileValidationService {
 
     // Validate mime type
     if (!mimeType || !this.allowedMimeTypes.includes(mimeType)) {
-      throw new ValidationError(`Invalid mime type. Allowed types: ${this.allowedMimeTypes.join(', ')}`);
+      throw new ValidationError(
+        `Invalid mime type. Allowed types: ${this.allowedMimeTypes.join(', ')}`,
+      );
     }
 
     // Validate file size
@@ -35,7 +37,9 @@ export class FileValidationService implements IFileValidationService {
     }
 
     if (fileSize > this.maxFileSize) {
-      throw new ValidationError(`File size exceeds maximum allowed size of ${this.maxFileSize / (1024 * 1024)}MB`);
+      throw new ValidationError(
+        `File size exceeds maximum allowed size of ${this.maxFileSize / (1024 * 1024)}MB`,
+      );
     }
   }
 
@@ -48,7 +52,7 @@ export class FileValidationService implements IFileValidationService {
       'image/svg+xml': '.svg',
       'application/svg+xml': '.svg',
       'application/pdf': '.pdf',
-      'text/plain': '.txt'
+      'text/plain': '.txt',
     };
 
     return mimeToExt[mimeType] || '.bin';

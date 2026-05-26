@@ -4,13 +4,13 @@ import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
 import { LoggingDecorator } from '@hbs/logging';
 import { PerformanceLogger } from '@hbs/logging';
-import { 
-  RequiredFieldError, 
-  InvalidRangeError, 
-  DuplicateError, 
+import {
+  RequiredFieldError,
+  InvalidRangeError,
+  DuplicateError,
   BusinessLogicError,
   DatabaseError,
-  ValidationError 
+  ValidationError,
 } from '@domain/errors/DomainError';
 
 export interface CreateProductRequest {
@@ -31,9 +31,7 @@ export class CreateProductUseCase {
   private readonly logger: ILogger;
   private readonly performanceLogger: PerformanceLogger;
 
-  constructor(
-    private readonly productRepository: IProductRepository
-  ) {
+  constructor(private readonly productRepository: IProductRepository) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('CreateProductUseCase');
     this.performanceLogger = new PerformanceLogger();
   }
@@ -43,111 +41,155 @@ export class CreateProductUseCase {
     includeResult: true,
     includeDuration: true,
     includeError: true,
-    context: { useCase: 'CreateProduct' }
+    context: { useCase: 'CreateProduct' },
   })
   async execute(request: CreateProductRequest): Promise<ProductEntity> {
     const traceId = `create-product-${Date.now()}-${request.sku}`;
 
     // Log operation start with image analysis
-    this.logger.info('Starting product creation process', {
-      operation: 'createProduct',
-      productName: request.name,
-      sku: request.sku,
-      categoryId: request.categoryId,
-      hasImages: !!(request.images && request.images.length > 0),
-      imageCount: request.images?.length || 0,
-      context: 'CreateProductUseCase.execute'
-    }, traceId);
+    this.logger.info(
+      'Starting product creation process',
+      {
+        operation: 'createProduct',
+        productName: request.name,
+        sku: request.sku,
+        categoryId: request.categoryId,
+        hasImages: !!(request.images && request.images.length > 0),
+        imageCount: request.images?.length || 0,
+        context: 'CreateProductUseCase.execute',
+      },
+      traceId,
+    );
 
     // Start performance measurement
     const operationId = this.performanceLogger.startTimer('createProductProcess', {
       productName: request.name,
       sku: request.sku,
-      imageCount: request.images?.length || 0
+      imageCount: request.images?.length || 0,
     });
 
     try {
       // Validación de input usando métodos locales
-      this.logger.debug('Validating product input', {
-        productName: request.name,
-        sku: request.sku,
-        hasImages: !!(request.images && request.images.length > 0),
-        context: 'CreateProductUseCase.validateInput'
-      }, traceId);
+      this.logger.debug(
+        'Validating product input',
+        {
+          productName: request.name,
+          sku: request.sku,
+          hasImages: !!(request.images && request.images.length > 0),
+          context: 'CreateProductUseCase.validateInput',
+        },
+        traceId,
+      );
 
       this.validateInput(request);
 
       // Analyze images if provided
       if (request.images && request.images.length > 0) {
-        const blobUrls = request.images.filter(img => img.startsWith('blob:'));
-        const validUrls = request.images.filter(img => !img.startsWith('blob:') && (img.startsWith('http') || img.startsWith('/')));
-        const invalidUrls = request.images.filter(img => !img.startsWith('blob:') && !img.startsWith('http') && !img.startsWith('/'));
+        const blobUrls = request.images.filter((img) => img.startsWith('blob:'));
+        const validUrls = request.images.filter(
+          (img) => !img.startsWith('blob:') && (img.startsWith('http') || img.startsWith('/')),
+        );
+        const invalidUrls = request.images.filter(
+          (img) => !img.startsWith('blob:') && !img.startsWith('http') && !img.startsWith('/'),
+        );
 
-        this.logger.info('Analyzing product images', {
-          productName: request.name,
-          sku: request.sku,
-          totalImages: request.images.length,
-          blobUrls: blobUrls.length,
-          validUrls: validUrls.length,
-          invalidUrls: invalidUrls.length,
-          imageList: request.images,
-          context: 'CreateProductUseCase.analyzeImages'
-        }, traceId);
-
-        if (blobUrls.length > 0) {
-          this.logger.warn('Product contains blob URLs - images may not be properly uploaded', {
+        this.logger.info(
+          'Analyzing product images',
+          {
             productName: request.name,
             sku: request.sku,
-            blobCount: blobUrls.length,
-            blobUrls: blobUrls,
-            recommendation: 'Use uploadImage mutation before createProduct',
-            context: 'CreateProductUseCase.analyzeImages'
-          }, traceId);
+            totalImages: request.images.length,
+            blobUrls: blobUrls.length,
+            validUrls: validUrls.length,
+            invalidUrls: invalidUrls.length,
+            imageList: request.images,
+            context: 'CreateProductUseCase.analyzeImages',
+          },
+          traceId,
+        );
+
+        if (blobUrls.length > 0) {
+          this.logger.warn(
+            'Product contains blob URLs - images may not be properly uploaded',
+            {
+              productName: request.name,
+              sku: request.sku,
+              blobCount: blobUrls.length,
+              blobUrls: blobUrls,
+              recommendation: 'Use uploadImage mutation before createProduct',
+              context: 'CreateProductUseCase.analyzeImages',
+            },
+            traceId,
+          );
         }
 
         if (invalidUrls.length > 0) {
-          this.logger.warn('Product contains invalid image URLs', {
-            productName: request.name,
-            sku: request.sku,
-            invalidCount: invalidUrls.length,
-            invalidUrls: invalidUrls,
-            context: 'CreateProductUseCase.analyzeImages'
-          }, traceId);
+          this.logger.warn(
+            'Product contains invalid image URLs',
+            {
+              productName: request.name,
+              sku: request.sku,
+              invalidCount: invalidUrls.length,
+              invalidUrls: invalidUrls,
+              context: 'CreateProductUseCase.analyzeImages',
+            },
+            traceId,
+          );
         }
       } else {
-        this.logger.info('Product created without images', {
-          productName: request.name,
-          sku: request.sku,
-          context: 'CreateProductUseCase.analyzeImages'
-        }, traceId);
+        this.logger.info(
+          'Product created without images',
+          {
+            productName: request.name,
+            sku: request.sku,
+            context: 'CreateProductUseCase.analyzeImages',
+          },
+          traceId,
+        );
       }
 
-      this.logger.debug('Product input validation successful', {
-        productName: request.name,
-        sku: request.sku,
-        context: 'CreateProductUseCase.validateInput'
-      }, traceId);
+      this.logger.debug(
+        'Product input validation successful',
+        {
+          productName: request.name,
+          sku: request.sku,
+          context: 'CreateProductUseCase.validateInput',
+        },
+        traceId,
+      );
 
       // Validar que el SKU sea único
-      this.logger.debug('Checking SKU uniqueness', {
-        sku: request.sku,
-        context: 'CreateProductUseCase.checkSku'
-      }, traceId);
+      this.logger.debug(
+        'Checking SKU uniqueness',
+        {
+          sku: request.sku,
+          context: 'CreateProductUseCase.checkSku',
+        },
+        traceId,
+      );
 
       const existingProduct = await this.productRepository.findBySku(request.sku);
       if (existingProduct) {
-        this.logger.warn('SKU already exists', {
-          sku: request.sku,
-          existingProductId: existingProduct.id,
-          context: 'CreateProductUseCase.checkSku'
-        }, traceId);
+        this.logger.warn(
+          'SKU already exists',
+          {
+            sku: request.sku,
+            existingProductId: existingProduct.id,
+            context: 'CreateProductUseCase.checkSku',
+          },
+          traceId,
+        );
         throw new DuplicateError('Product', 'SKU', request.sku);
       }
 
-      this.logger.debug('SKU is unique, proceeding with creation', {
-        sku: request.sku,
-        context: 'CreateProductUseCase.checkSku'
-      }, traceId);
+      this.logger.debug(
+        'SKU is unique, proceeding with creation',
+        {
+          sku: request.sku,
+          context: 'CreateProductUseCase.checkSku',
+        },
+        traceId,
+      );
 
       // Crear producto
       const product = ProductEntity.create({
@@ -161,23 +203,31 @@ export class CreateProductUseCase {
         attributes: request.attributes || {},
         isActive: request.isActive ?? true,
         stockQuantity: request.stockQuantity || 0,
-        tags: request.tags
+        tags: request.tags,
       });
 
-      this.logger.debug('Product entity created', {
-        productId: product.id,
-        productName: product.name,
-        sku: product.sku,
-        imageCount: product.images.length,
-        context: 'CreateProductUseCase.createEntity'
-      }, traceId);
+      this.logger.debug(
+        'Product entity created',
+        {
+          productId: product.id,
+          productName: product.name,
+          sku: product.sku,
+          imageCount: product.images.length,
+          context: 'CreateProductUseCase.createEntity',
+        },
+        traceId,
+      );
 
-      this.logger.info('Saving product to database', {
-        productId: product.id,
-        productName: product.name,
-        sku: product.sku,
-        context: 'CreateProductUseCase.saveProduct'
-      }, traceId);
+      this.logger.info(
+        'Saving product to database',
+        {
+          productId: product.id,
+          productName: product.name,
+          sku: product.sku,
+          context: 'CreateProductUseCase.saveProduct',
+        },
+        traceId,
+      );
 
       const savedProduct = await this.productRepository.create(product);
 
@@ -185,48 +235,59 @@ export class CreateProductUseCase {
       const measurement = this.performanceLogger.endTimer(operationId, {
         success: true,
         productId: savedProduct.id,
-        productName: savedProduct.name
+        productName: savedProduct.name,
       });
 
-      this.logger.info('Product creation process completed successfully', {
-        productId: savedProduct.id,
-        productName: savedProduct.name,
-        sku: savedProduct.sku,
-        imageCount: savedProduct.images.length,
-        duration: measurement?.duration,
-        context: 'CreateProductUseCase.execute'
-      }, traceId);
+      this.logger.info(
+        'Product creation process completed successfully',
+        {
+          productId: savedProduct.id,
+          productName: savedProduct.name,
+          sku: savedProduct.sku,
+          imageCount: savedProduct.images.length,
+          duration: measurement?.duration,
+          context: 'CreateProductUseCase.execute',
+        },
+        traceId,
+      );
 
       return savedProduct;
     } catch (error) {
       // End performance measurement with error
       this.performanceLogger.endTimer(operationId, {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
-      this.logger.error('Product creation process failed', error instanceof Error ? error : new Error('Unknown error'), {
-        operation: 'createProduct',
-        productName: request.name,
-        sku: request.sku,
-        categoryId: request.categoryId,
-        imageCount: request.images?.length || 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        context: 'CreateProductUseCase.execute'
-      }, traceId);
+      this.logger.error(
+        'Product creation process failed',
+        error instanceof Error ? error : new Error('Unknown error'),
+        {
+          operation: 'createProduct',
+          productName: request.name,
+          sku: request.sku,
+          categoryId: request.categoryId,
+          imageCount: request.images?.length || 0,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          context: 'CreateProductUseCase.execute',
+        },
+        traceId,
+      );
 
       // Re-throw validation and domain errors as-is
-      if (error instanceof ValidationError || 
-          error instanceof DuplicateError || 
-          error instanceof BusinessLogicError) {
+      if (
+        error instanceof ValidationError ||
+        error instanceof DuplicateError ||
+        error instanceof BusinessLogicError
+      ) {
         throw error;
       }
-      
+
       // Wrap infrastructure errors
       if (error instanceof Error) {
         throw new DatabaseError('create product', error);
       }
-      
+
       throw new DatabaseError('create product');
     }
   }
@@ -246,10 +307,10 @@ export class CreateProductUseCase {
     this.validateString('description', request.description, { maxLength: 2000 });
 
     // Validar SKU
-    this.validateString('sku', request.sku, { 
-      minLength: 1, 
+    this.validateString('sku', request.sku, {
+      minLength: 1,
       maxLength: 50,
-      pattern: /^[A-Z0-9\-_]+$/
+      pattern: /^[A-Z0-9\-_]+$/,
     });
 
     // Validar precio
@@ -274,7 +335,7 @@ export class CreateProductUseCase {
         maxLength: 10,
         itemValidator: (item) => {
           this.validateImageUrl('image', item);
-        }
+        },
       });
     }
 
@@ -284,35 +345,46 @@ export class CreateProductUseCase {
         maxLength: 20,
         itemValidator: (item) => {
           this.validateString('tag', item, { minLength: 1, maxLength: 50 });
-        }
+        },
       });
     }
   }
 
   // Métodos de validación privados
   private validateRequired(field: string, value: any): void {
-    if (value === undefined || value === null || 
-        (typeof value === 'string' && value.trim().length === 0)) {
+    if (
+      value === undefined ||
+      value === null ||
+      (typeof value === 'string' && value.trim().length === 0)
+    ) {
       throw new ValidationError(`Field '${field}' is required`);
     }
   }
 
-  private validateString(field: string, value: any, options?: {
-    minLength?: number;
-    maxLength?: number;
-    pattern?: RegExp;
-  }): void {
+  private validateString(
+    field: string,
+    value: any,
+    options?: {
+      minLength?: number;
+      maxLength?: number;
+      pattern?: RegExp;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       if (typeof value !== 'string') {
         throw new ValidationError(`Field '${field}' must be a string`);
       }
 
       if (options?.minLength && value.length < options.minLength) {
-        throw new ValidationError(`Field '${field}' must be at least ${options.minLength} characters long`);
+        throw new ValidationError(
+          `Field '${field}' must be at least ${options.minLength} characters long`,
+        );
       }
 
       if (options?.maxLength && value.length > options.maxLength) {
-        throw new ValidationError(`Field '${field}' must not exceed ${options.maxLength} characters`);
+        throw new ValidationError(
+          `Field '${field}' must not exceed ${options.maxLength} characters`,
+        );
       }
 
       if (options?.pattern && !options.pattern.test(value)) {
@@ -321,11 +393,15 @@ export class CreateProductUseCase {
     }
   }
 
-  private validateNumber(field: string, value: any, options?: {
-    min?: number;
-    max?: number;
-    integer?: boolean;
-  }): void {
+  private validateNumber(
+    field: string,
+    value: any,
+    options?: {
+      min?: number;
+      max?: number;
+      integer?: boolean;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       if (typeof value !== 'number' || isNaN(value)) {
         throw new ValidationError(`Field '${field}' must be a number`);
@@ -345,11 +421,15 @@ export class CreateProductUseCase {
     }
   }
 
-  private validateArray(field: string, value: any, options?: {
-    minLength?: number;
-    maxLength?: number;
-    itemValidator?: (item: any, index: number) => void;
-  }): void {
+  private validateArray(
+    field: string,
+    value: any,
+    options?: {
+      minLength?: number;
+      maxLength?: number;
+      itemValidator?: (item: any, index: number) => void;
+    },
+  ): void {
     if (value !== undefined && value !== null) {
       if (!Array.isArray(value)) {
         throw new ValidationError(`Field '${field}' must be an array`);
@@ -389,7 +469,7 @@ export class CreateProductUseCase {
       }
 
       const trimmedUrl = value.trim();
-      
+
       // Si es una URL absoluta, validar con URL constructor
       if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
         try {
@@ -397,7 +477,7 @@ export class CreateProductUseCase {
         } catch {
           throw new ValidationError(`Field '${field}' has an invalid format`);
         }
-      } 
+      }
       // Si es una ruta relativa, validar que tenga formato válido
       else if (trimmedUrl.startsWith('/')) {
         // Validar que la ruta relativa tenga formato válido

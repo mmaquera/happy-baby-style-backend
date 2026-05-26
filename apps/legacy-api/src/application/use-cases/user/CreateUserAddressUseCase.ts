@@ -2,7 +2,13 @@ import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { UserAddress, CreateUserAddressRequest } from '../../../domain/entities/User';
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
-import { DomainError, ValidationError, ConflictError, NotFoundError, InfrastructureError } from '../../../domain/errors/DomainError';
+import {
+  DomainError,
+  ValidationError,
+  ConflictError,
+  NotFoundError,
+  InfrastructureError,
+} from '../../../domain/errors/DomainError';
 import { AddressValidationService } from '../../validation/AddressValidationService';
 
 export class CreateUserAddressUseCase {
@@ -16,11 +22,11 @@ export class CreateUserAddressUseCase {
 
   async execute(request: CreateUserAddressRequest): Promise<UserAddress> {
     const traceId = `create-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     this.logger.info('Starting address creation', {
       traceId,
       userId: request.userId,
-      addressType: request.title
+      addressType: request.title,
     });
 
     try {
@@ -35,11 +41,14 @@ export class CreateUserAddressUseCase {
         state: request.state,
         postalCode: request.postalCode,
         country: request.country || 'PE',
-        isDefault: request.isDefault
+        isDefault: request.isDefault,
       });
 
       if (!validationResult.isValid) {
-        throw new ValidationError(`Validation failed: ${validationResult.errors.join(', ')}`, 'address');
+        throw new ValidationError(
+          `Validation failed: ${validationResult.errors.join(', ')}`,
+          'address',
+        );
       }
 
       // Check if user exists
@@ -60,46 +69,50 @@ export class CreateUserAddressUseCase {
         traceId,
         addressId: address.id,
         userId: address.userId,
-        addressType: address.title
+        addressType: address.title,
       });
 
       return address;
-
     } catch (error) {
-      this.logger.error('Error creating address', error instanceof Error ? error : new Error(String(error)), {
-        traceId,
-        userId: request.userId,
-        request
-      });
+      this.logger.error(
+        'Error creating address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          traceId,
+          userId: request.userId,
+          request,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
       }
 
-      throw new InfrastructureError('Failed to create address', error instanceof Error ? error : undefined);
+      throw new InfrastructureError(
+        'Failed to create address',
+        error instanceof Error ? error : undefined,
+      );
     }
   }
-
-
 
   private async setAsDefaultAddress(userId: string): Promise<void> {
     try {
       // Get current default address
       const currentDefault = await this.userRepository.getDefaultAddress(userId);
-      
+
       if (currentDefault) {
         // Update current default to false
         await this.userRepository.updateUserAddress(currentDefault.id, { isDefault: false });
-        
+
         this.logger.info('Previous default address updated', {
           addressId: currentDefault.id,
-          userId
+          userId,
         });
       }
     } catch (error) {
       this.logger.warn('Failed to update previous default address', {
         userId,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       // Don't throw error, continue with creation
     }

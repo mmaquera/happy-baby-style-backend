@@ -19,7 +19,7 @@ export class RedisEventPublisher implements IEventPublisher {
       channel,
       orderId: event.orderId,
       orderNumber: event.orderNumber,
-      itemCount: event.items.length
+      itemCount: event.items.length,
     });
   }
 }

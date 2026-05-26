@@ -42,7 +42,7 @@ const mockAuthRepository: jest.Mocked<IAuthRepository> = {
   verifyPassword: jest.fn(),
   updatePassword: jest.fn(),
   getUserById: jest.fn(),
-  getUserByEmail: jest.fn()
+  getUserByEmail: jest.fn(),
 };
 
 const mockLogger: jest.Mocked<ILogger> = {
@@ -52,7 +52,7 @@ const mockLogger: jest.Mocked<ILogger> = {
   debug: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(),
-  setTraceId: jest.fn()
+  setTraceId: jest.fn(),
 };
 
 describe('RevokeAllUserSessionsUseCase', () => {
@@ -68,7 +68,7 @@ describe('RevokeAllUserSessionsUseCase', () => {
       userId: 'user-456',
       requestingUserId: 'user-456',
       reason: 'Security audit',
-      excludeCurrentSession: false
+      excludeCurrentSession: false,
     };
 
     const mockSessions: UserSession[] = [
@@ -83,7 +83,7 @@ describe('RevokeAllUserSessionsUseCase', () => {
         ipAddress: '192.168.1.1',
         isActive: true,
         createdAt: new Date('2024-01-15T10:00:00Z'),
-        updatedAt: new Date('2024-01-15T10:00:00Z')
+        updatedAt: new Date('2024-01-15T10:00:00Z'),
       },
       {
         id: 'session-2',
@@ -96,7 +96,7 @@ describe('RevokeAllUserSessionsUseCase', () => {
         ipAddress: '192.168.1.2',
         isActive: true,
         createdAt: new Date('2024-01-15T11:00:00Z'),
-        updatedAt: new Date('2024-01-15T11:00:00Z')
+        updatedAt: new Date('2024-01-15T11:00:00Z'),
       },
       {
         id: 'session-3',
@@ -109,8 +109,8 @@ describe('RevokeAllUserSessionsUseCase', () => {
         ipAddress: '192.168.1.3',
         isActive: false, // Already inactive
         createdAt: new Date('2024-01-15T12:00:00Z'),
-        updatedAt: new Date('2024-01-15T12:00:00Z')
-      }
+        updatedAt: new Date('2024-01-15T12:00:00Z'),
+      },
     ];
 
     it('should revoke all active user sessions successfully', async () => {
@@ -134,14 +134,14 @@ describe('RevokeAllUserSessionsUseCase', () => {
         expect.objectContaining({
           userId: 'user-456',
           sessionsRevoked: 2,
-          analyticsCleaned: 2
-        })
+          analyticsCleaned: 2,
+        }),
       );
     });
 
     it('should return early when no active sessions exist', async () => {
       // Arrange
-      const inactiveSessions = mockSessions.map(s => ({ ...s, isActive: false }));
+      const inactiveSessions = mockSessions.map((s) => ({ ...s, isActive: false }));
       mockAuthRepository.findSessionsByUserId.mockResolvedValue(inactiveSessions);
 
       // Act
@@ -155,8 +155,8 @@ describe('RevokeAllUserSessionsUseCase', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'No active sessions to revoke',
         expect.objectContaining({
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
 
@@ -173,8 +173,8 @@ describe('RevokeAllUserSessionsUseCase', () => {
         'User attempting to revoke sessions of another user',
         expect.objectContaining({
           userId: 'other-user-789',
-          requestingUserId: 'user-456'
-        })
+          requestingUserId: 'user-456',
+        }),
       );
     });
 
@@ -196,8 +196,8 @@ describe('RevokeAllUserSessionsUseCase', () => {
         expect.any(Error),
         expect.objectContaining({
           sessionId: 'session-2',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
 
@@ -219,8 +219,8 @@ describe('RevokeAllUserSessionsUseCase', () => {
         'Failed to clean session analytics',
         expect.objectContaining({
           sessionId: 'session-2',
-          userId: 'user-456'
-        })
+          userId: 'user-456',
+        }),
       );
     });
 
@@ -273,8 +273,8 @@ describe('RevokeAllUserSessionsUseCase', () => {
         repositoryError,
         expect.objectContaining({
           userId: 'user-456',
-          requestingUserId: 'user-456'
-        })
+          requestingUserId: 'user-456',
+        }),
       );
     });
 
@@ -282,7 +282,7 @@ describe('RevokeAllUserSessionsUseCase', () => {
       // Arrange
       const minimalRequest = {
         userId: 'user-456',
-        requestingUserId: 'user-456'
+        requestingUserId: 'user-456',
       };
       mockAuthRepository.findSessionsByUserId.mockResolvedValue([]);
 

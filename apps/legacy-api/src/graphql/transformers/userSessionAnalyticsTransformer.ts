@@ -19,7 +19,7 @@ export function transformUserSessionAnalytics(analytics: UserSessionAnalytics) {
     country: analytics.country,
     city: analytics.city,
     createdAt: analytics.createdAt.toISOString(),
-    updatedAt: analytics.updatedAt.toISOString()
+    updatedAt: analytics.updatedAt.toISOString(),
   };
 }
 

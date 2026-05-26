@@ -28,9 +28,11 @@ export class GetCategoryByIdUseCase {
         throw new NotFoundError('Category', request.id);
       }
 
-      this.logger.info('GetCategoryById completed', { categoryId: request.id, categoryName: category.name });
+      this.logger.info('GetCategoryById completed', {
+        categoryId: request.id,
+        categoryName: category.name,
+      });
       return category;
-
     } catch (error: any) {
       this.logger.error('GetCategoryById use case failed', error, { categoryId: request.id });
       throw error;

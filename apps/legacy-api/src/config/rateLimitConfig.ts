@@ -6,7 +6,7 @@ import { RateLimitConfig } from '@domain/interfaces/IRateLimitService';
  */
 export class RateLimitConfigService {
   private static instance: RateLimitConfigService;
-  
+
   private readonly endpointConfigs: Map<string, RateLimitConfig> = new Map();
 
   private constructor() {
@@ -27,7 +27,7 @@ export class RateLimitConfigService {
       maxRequests: 5, // 5 attempts per window
       blockDuration: 30 * 60 * 1000, // 30 minutes block
       skipSuccessfulRequests: true,
-      message: 'Too many login attempts. Please try again in 30 minutes.'
+      message: 'Too many login attempts. Please try again in 30 minutes.',
     });
 
     this.endpointConfigs.set('registerUser', {
@@ -35,7 +35,7 @@ export class RateLimitConfigService {
       maxRequests: 3, // 3 registration attempts per window
       blockDuration: 60 * 60 * 1000, // 1 hour block
       skipSuccessfulRequests: true,
-      message: 'Too many registration attempts. Please try again in 1 hour.'
+      message: 'Too many registration attempts. Please try again in 1 hour.',
     });
 
     this.endpointConfigs.set('refreshToken', {
@@ -43,7 +43,7 @@ export class RateLimitConfigService {
       maxRequests: 20, // 20 refresh attempts per window
       blockDuration: 15 * 60 * 1000, // 15 minutes block
       skipSuccessfulRequests: false,
-      message: 'Too many token refresh attempts. Please try again in 15 minutes.'
+      message: 'Too many token refresh attempts. Please try again in 15 minutes.',
     });
 
     this.endpointConfigs.set('logoutUser', {
@@ -51,7 +51,7 @@ export class RateLimitConfigService {
       maxRequests: 10, // 10 logout attempts per window
       blockDuration: 15 * 60 * 1000, // 15 minutes block
       skipSuccessfulRequests: true,
-      message: 'Too many logout attempts. Please try again in 15 minutes.'
+      message: 'Too many logout attempts. Please try again in 15 minutes.',
     });
 
     // Password reset endpoints
@@ -60,7 +60,7 @@ export class RateLimitConfigService {
       maxRequests: 3, // 3 reset requests per window
       blockDuration: 60 * 60 * 1000, // 1 hour block
       skipSuccessfulRequests: true,
-      message: 'Too many password reset requests. Please try again in 1 hour.'
+      message: 'Too many password reset requests. Please try again in 1 hour.',
     });
 
     this.endpointConfigs.set('resetPassword', {
@@ -68,7 +68,7 @@ export class RateLimitConfigService {
       maxRequests: 5, // 5 reset attempts per window
       blockDuration: 30 * 60 * 1000, // 30 minutes block
       skipSuccessfulRequests: true,
-      message: 'Too many password reset attempts. Please try again in 30 minutes.'
+      message: 'Too many password reset attempts. Please try again in 30 minutes.',
     });
 
     // General API endpoints - Less restrictive
@@ -77,7 +77,7 @@ export class RateLimitConfigService {
       maxRequests: 100, // 100 requests per window
       blockDuration: 15 * 60 * 1000, // 15 minutes block
       skipSuccessfulRequests: false,
-      message: 'Too many requests from this IP. Please try again in 15 minutes.'
+      message: 'Too many requests from this IP. Please try again in 15 minutes.',
     });
 
     // File upload endpoints
@@ -86,7 +86,7 @@ export class RateLimitConfigService {
       maxRequests: 10, // 10 uploads per window
       blockDuration: 15 * 60 * 1000, // 15 minutes block
       skipSuccessfulRequests: false,
-      message: 'Too many file upload attempts. Please try again in 15 minutes.'
+      message: 'Too many file upload attempts. Please try again in 15 minutes.',
     });
 
     // Admin endpoints - Moderate restriction
@@ -95,7 +95,7 @@ export class RateLimitConfigService {
       maxRequests: 50, // 50 requests per window
       blockDuration: 15 * 60 * 1000, // 15 minutes block
       skipSuccessfulRequests: false,
-      message: 'Too many admin requests. Please try again in 15 minutes.'
+      message: 'Too many admin requests. Please try again in 15 minutes.',
     });
   }
 
@@ -142,14 +142,14 @@ export class RateLimitConfigService {
    */
   getConfigSummary(): Record<string, { maxRequests: number; windowMs: number }> {
     const summary: Record<string, { maxRequests: number; windowMs: number }> = {};
-    
+
     for (const [endpoint, config] of this.endpointConfigs) {
       summary[endpoint] = {
         maxRequests: config.maxRequests,
-        windowMs: config.windowMs
+        windowMs: config.windowMs,
       };
     }
-    
+
     return summary;
   }
 }

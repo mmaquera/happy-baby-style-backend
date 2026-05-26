@@ -45,11 +45,15 @@ export class Container {
 
     // Favorites — not yet extracted to its own service; uses a stub repository
     const manageUserFavoritesUseCase = new ManageUserFavoritesUseCase({
-      addToFavorites: async () => { throw new Error('Not implemented'); },
-      removeFromFavorites: async () => { throw new Error('Not implemented'); },
+      addToFavorites: async () => {
+        throw new Error('Not implemented');
+      },
+      removeFromFavorites: async () => {
+        throw new Error('Not implemented');
+      },
       getUserFavorites: async () => [],
       isFavorite: async () => false,
-      getFavoriteStats: async () => ({ totalFavorites: 0 })
+      getFavoriteStats: async () => ({ totalFavorites: 0 }),
     });
 
     const rateLimitService = new RateLimitService(defaultLogger);

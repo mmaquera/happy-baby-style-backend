@@ -23,14 +23,17 @@ export class PrismaImageRepository implements IImageRepository {
           url: image.url,
           bucket: image.bucket,
           entityId: image.entityId,
-          entityType: image.entityType
-        }
+          entityType: image.entityType,
+        },
       });
 
       this.logger.info('Image created', { imageId: created.id });
       return this.mapToEntity(created);
     } catch (error) {
-      this.logger.error('Error creating image', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error creating image',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -41,7 +44,11 @@ export class PrismaImageRepository implements IImageRepository {
       if (!image) return null;
       return this.mapToEntity(image);
     } catch (error) {
-      this.logger.error('Error finding image by id', error instanceof Error ? error : new Error(String(error)), { imageId: id });
+      this.logger.error(
+        'Error finding image by id',
+        error instanceof Error ? error : new Error(String(error)),
+        { imageId: id },
+      );
       throw error;
     }
   }
@@ -57,12 +64,15 @@ export class PrismaImageRepository implements IImageRepository {
         where,
         orderBy: { createdAt: 'desc' },
         take: filters?.limit,
-        skip: filters?.offset
+        skip: filters?.offset,
       });
 
-      return images.map(img => this.mapToEntity(img));
+      return images.map((img) => this.mapToEntity(img));
     } catch (error) {
-      this.logger.error('Error finding images', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding images',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -71,12 +81,15 @@ export class PrismaImageRepository implements IImageRepository {
     try {
       const images = await this.prisma.image.findMany({
         where: { entityId, entityType },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      return images.map(img => this.mapToEntity(img));
+      return images.map((img) => this.mapToEntity(img));
     } catch (error) {
-      this.logger.error('Error finding images by entity', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error finding images by entity',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -86,7 +99,11 @@ export class PrismaImageRepository implements IImageRepository {
       await this.prisma.image.delete({ where: { id } });
       this.logger.info('Image deleted', { imageId: id });
     } catch (error) {
-      this.logger.error('Error deleting image', error instanceof Error ? error : new Error(String(error)), { imageId: id });
+      this.logger.error(
+        'Error deleting image',
+        error instanceof Error ? error : new Error(String(error)),
+        { imageId: id },
+      );
       throw error;
     }
   }
@@ -96,7 +113,10 @@ export class PrismaImageRepository implements IImageRepository {
       await this.prisma.image.deleteMany({ where: { entityId, entityType } });
       this.logger.info('Images deleted by entity', { entityId, entityType });
     } catch (error) {
-      this.logger.error('Error deleting images by entity', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error deleting images by entity',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -113,7 +133,7 @@ export class PrismaImageRepository implements IImageRepository {
       prismaImage.path,
       prismaImage.entityType as ImageEntityType,
       prismaImage.entityId,
-      prismaImage.createdAt
+      prismaImage.createdAt,
     );
   }
 }

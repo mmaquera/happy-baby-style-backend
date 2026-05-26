@@ -26,14 +26,14 @@ export interface GetUserSessionAnalyticsResponse {
 export class GetUserSessionAnalyticsUseCase {
   constructor(
     private authRepository: IAuthRepository,
-    private logger: ILogger
+    private logger: ILogger,
   ) {}
 
   @LoggingDecorator.logUseCase({
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'GetUserSessionAnalytics' }
+    context: { useCase: 'GetUserSessionAnalytics' },
   })
   async execute(request: GetUserSessionAnalyticsRequest): Promise<GetUserSessionAnalyticsResponse> {
     this.logger.info('Starting user session analytics retrieval', {
@@ -41,7 +41,7 @@ export class GetUserSessionAnalyticsUseCase {
       sessionId: request.sessionId,
       limit: request.limit,
       offset: request.offset,
-      operation: 'GetUserSessionAnalytics'
+      operation: 'GetUserSessionAnalytics',
     });
 
     try {
@@ -56,7 +56,9 @@ export class GetUserSessionAnalyticsUseCase {
 
       if (request.sessionId) {
         // Get analytics for specific session
-        const sessionAnalytics = await this.authRepository.findSessionAnalyticsBySessionId(request.sessionId);
+        const sessionAnalytics = await this.authRepository.findSessionAnalyticsBySessionId(
+          request.sessionId,
+        );
         analytics = sessionAnalytics ? [sessionAnalytics] : [];
       } else {
         // Get all analytics for user
@@ -75,7 +77,7 @@ export class GetUserSessionAnalyticsUseCase {
         total,
         returned: paginatedAnalytics.length,
         hasMore,
-        operation: 'GetUserSessionAnalytics'
+        operation: 'GetUserSessionAnalytics',
       });
 
       return {
@@ -86,14 +88,13 @@ export class GetUserSessionAnalyticsUseCase {
           limit,
           offset,
           currentPage,
-          totalPages
-        }
+          totalPages,
+        },
       };
-
     } catch (error) {
       this.logger.error('Failed to retrieve user session analytics', error as Error, {
         userId: request.userId,
-        operation: 'GetUserSessionAnalytics'
+        operation: 'GetUserSessionAnalytics',
       });
       throw error;
     }
@@ -104,11 +105,17 @@ export class GetUserSessionAnalyticsUseCase {
       throw new ValidationError('User ID is required and must be a string');
     }
 
-    if (request.limit !== undefined && (typeof request.limit !== 'number' || request.limit < 1 || request.limit > 100)) {
+    if (
+      request.limit !== undefined &&
+      (typeof request.limit !== 'number' || request.limit < 1 || request.limit > 100)
+    ) {
       throw new ValidationError('Limit must be a number between 1 and 100');
     }
 
-    if (request.offset !== undefined && (typeof request.offset !== 'number' || request.offset < 0)) {
+    if (
+      request.offset !== undefined &&
+      (typeof request.offset !== 'number' || request.offset < 0)
+    ) {
       throw new ValidationError('Offset must be a non-negative number');
     }
 

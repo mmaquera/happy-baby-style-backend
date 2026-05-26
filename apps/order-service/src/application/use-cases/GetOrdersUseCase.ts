@@ -35,7 +35,7 @@ export class GetOrdersUseCase {
       endDate: request.filters?.endDate,
       orderNumber: request.filters?.orderNumber,
       limit,
-      offset
+      offset,
     };
 
     const orders = await this.orderRepository.findAll(filters);
@@ -44,7 +44,7 @@ export class GetOrdersUseCase {
     return {
       orders,
       total: offset + orders.length + (hasMore ? 1 : 0),
-      hasMore
+      hasMore,
     };
   }
 }

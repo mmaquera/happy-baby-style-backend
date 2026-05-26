@@ -18,14 +18,14 @@ export interface GraphQLProduct {
   reviewCount: number;
   createdAt: string;
   updatedAt: string;
-  
+
   // Computed fields
   currentPrice: number;
   hasDiscount: boolean;
   discountPercentage: number;
   totalStock: number;
   isInStock: boolean;
-  
+
   // Relations
   category?: any;
   variants?: any[];
@@ -40,7 +40,7 @@ export function transformProduct(product: ProductEntity): GraphQLProduct {
     price: product.price,
     salePrice: product.salePrice,
     sku: product.sku,
-    images: product.images.map(imageUrl => {
+    images: product.images.map((imageUrl) => {
       // Si es una URL absoluta, devolverla tal como está
       if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
         return imageUrl;
@@ -56,17 +56,17 @@ export function transformProduct(product: ProductEntity): GraphQLProduct {
     reviewCount: product.reviewCount,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
-    
+
     // Computed fields
     currentPrice: product.getCurrentPrice(),
     hasDiscount: product.hasDiscount(),
     discountPercentage: product.getDiscountPercentage(),
     totalStock: product.getTotalStock(),
     isInStock: product.isInStock(),
-    
+
     // Relations
     category: product.category,
-    variants: product.variants || []
+    variants: product.variants || [],
   };
 }
 

@@ -1,6 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import { IOrderRepository, OrderFilters, OrderStats } from '@domain/repositories/IOrderRepository';
-import { Order, CreateOrderRequest, UpdateOrderRequest, OrderItem, ShippingAddress, OrderStatus } from '@domain/entities/Order';
+import {
+  Order,
+  CreateOrderRequest,
+  UpdateOrderRequest,
+  OrderItem,
+  ShippingAddress,
+  OrderStatus,
+} from '@domain/entities/Order';
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
 
@@ -32,7 +39,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       const total = orderData.items.reduce((sum, item) => {
         // Aquí deberías obtener el precio del producto desde la base de datos
         const itemPrice = 0; // Placeholder - obtener precio real del producto
-        return sum + (itemPrice * item.quantity);
+        return sum + itemPrice * item.quantity;
       }, 0);
 
       // Crear el pedido
@@ -69,17 +76,21 @@ export class PrismaOrderRepository implements IOrderRepository {
               totalPrice: 0, // Placeholder - calcular precio total real
             },
           });
-        })
+        }),
       );
 
       this.logger.info('Order created successfully', { orderId: createdOrder.id });
-      
+
       // Mapear a la entidad de dominio
       return this.mapToOrderEntity(createdOrder, orderItems, shippingAddress);
     } catch (error) {
-      this.logger.error('Error creating order', error instanceof Error ? error : new Error(String(error)), {
-        orderData
-      });
+      this.logger.error(
+        'Error creating order',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderData,
+        },
+      );
       throw error;
     }
   }
@@ -102,9 +113,13 @@ export class PrismaOrderRepository implements IOrderRepository {
 
       return this.mapToOrderEntity(order, order.items, order.shippingAddress);
     } catch (error) {
-      this.logger.error('Error finding order by id', error instanceof Error ? error : new Error(String(error)), {
-        orderId: id
-      });
+      this.logger.error(
+        'Error finding order by id',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderId: id,
+        },
+      );
       throw error;
     }
   }
@@ -154,13 +169,17 @@ export class PrismaOrderRepository implements IOrderRepository {
       });
 
       this.logger.debug('Orders found', { count: orders.length, filters });
-      return orders.map(order => 
-        this.mapToOrderEntity(order, order.items, order.shippingAddress)
+      return orders.map((order) =>
+        this.mapToOrderEntity(order, order.items, order.shippingAddress),
       );
     } catch (error) {
-      this.logger.error('Error finding orders', error instanceof Error ? error : new Error(String(error)), {
-        filters
-      });
+      this.logger.error(
+        'Error finding orders',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          filters,
+        },
+      );
       throw error;
     }
   }
@@ -198,10 +217,14 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.info('Order updated successfully', { orderId: id });
       return this.mapToOrderEntity(updatedOrder, updatedOrder.items, updatedOrder.shippingAddress);
     } catch (error) {
-      this.logger.error('Error updating order', error instanceof Error ? error : new Error(String(error)), {
-        orderId: id,
-        orderData
-      });
+      this.logger.error(
+        'Error updating order',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderId: id,
+          orderData,
+        },
+      );
       throw error;
     }
   }
@@ -215,9 +238,13 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.info('Order deleted successfully', { orderId: id });
       return true;
     } catch (error) {
-      this.logger.error('Error deleting order', error instanceof Error ? error : new Error(String(error)), {
-        orderId: id
-      });
+      this.logger.error(
+        'Error deleting order',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderId: id,
+        },
+      );
       throw error;
     }
   }
@@ -235,13 +262,17 @@ export class PrismaOrderRepository implements IOrderRepository {
       });
 
       this.logger.debug('Orders found by status', { status, count: orders.length });
-      return orders.map(order => 
-        this.mapToOrderEntity(order, order.items, order.shippingAddress)
+      return orders.map((order) =>
+        this.mapToOrderEntity(order, order.items, order.shippingAddress),
       );
     } catch (error) {
-      this.logger.error('Error finding orders by status', error instanceof Error ? error : new Error(String(error)), {
-        status
-      });
+      this.logger.error(
+        'Error finding orders by status',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          status,
+        },
+      );
       throw error;
     }
   }
@@ -263,13 +294,17 @@ export class PrismaOrderRepository implements IOrderRepository {
       });
 
       this.logger.debug('Orders found by customer email', { email, count: orders.length });
-      return orders.map(order => 
-        this.mapToOrderEntity(order, order.items, order.shippingAddress)
+      return orders.map((order) =>
+        this.mapToOrderEntity(order, order.items, order.shippingAddress),
       );
     } catch (error) {
-      this.logger.error('Error finding orders by customer email', error instanceof Error ? error : new Error(String(error)), {
-        email
-      });
+      this.logger.error(
+        'Error finding orders by customer email',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          email,
+        },
+      );
       throw error;
     }
   }
@@ -289,15 +324,22 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.info('Order status updated successfully', { orderId: id, status });
       return this.mapToOrderEntity(updatedOrder, updatedOrder.items, updatedOrder.shippingAddress);
     } catch (error) {
-      this.logger.error('Error updating order status', error instanceof Error ? error : new Error(String(error)), {
-        orderId: id,
-        status
-      });
+      this.logger.error(
+        'Error updating order status',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderId: id,
+          status,
+        },
+      );
       throw error;
     }
   }
 
-  async addOrderItem(orderId: string, item: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>): Promise<OrderItem> {
+  async addOrderItem(
+    orderId: string,
+    item: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>,
+  ): Promise<OrderItem> {
     try {
       const createdItem = await this.prisma.orderItem.create({
         data: {
@@ -312,10 +354,14 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.info('Order item added successfully', { orderId, itemId: createdItem.id });
       return this.mapToOrderItemEntity(createdItem);
     } catch (error) {
-      this.logger.error('Error adding order item', error instanceof Error ? error : new Error(String(error)), {
-        orderId,
-        item
-      });
+      this.logger.error(
+        'Error adding order item',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderId,
+          item,
+        },
+      );
       throw error;
     }
   }
@@ -329,10 +375,14 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.info('Order item removed successfully', { orderId, itemId });
       return true;
     } catch (error) {
-      this.logger.error('Error removing order item', error instanceof Error ? error : new Error(String(error)), {
-        orderId,
-        itemId
-      });
+      this.logger.error(
+        'Error removing order item',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderId,
+          itemId,
+        },
+      );
       throw error;
     }
   }
@@ -345,11 +395,15 @@ export class PrismaOrderRepository implements IOrderRepository {
       });
 
       this.logger.debug('Order items found', { orderId, count: items.length });
-      return items.map(item => this.mapToOrderItemEntity(item));
+      return items.map((item) => this.mapToOrderItemEntity(item));
     } catch (error) {
-      this.logger.error('Error getting order items', error instanceof Error ? error : new Error(String(error)), {
-        orderId
-      });
+      this.logger.error(
+        'Error getting order items',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          orderId,
+        },
+      );
       throw error;
     }
   }
@@ -373,14 +427,21 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.info('Shipping address created successfully', { addressId: createdAddress.id });
       return this.mapToShippingAddressEntity(createdAddress);
     } catch (error) {
-      this.logger.error('Error creating shipping address', error instanceof Error ? error : new Error(String(error)), {
-        addressData
-      });
+      this.logger.error(
+        'Error creating shipping address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          addressData,
+        },
+      );
       throw error;
     }
   }
 
-  async updateShippingAddress(id: string, addressData: Partial<Omit<ShippingAddress, 'id'>>): Promise<ShippingAddress> {
+  async updateShippingAddress(
+    id: string,
+    addressData: Partial<Omit<ShippingAddress, 'id'>>,
+  ): Promise<ShippingAddress> {
     try {
       const updateData: any = {};
 
@@ -403,10 +464,14 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.info('Shipping address updated successfully', { addressId: id });
       return this.mapToShippingAddressEntity(updatedAddress);
     } catch (error) {
-      this.logger.error('Error updating shipping address', error instanceof Error ? error : new Error(String(error)), {
-        addressId: id,
-        addressData
-      });
+      this.logger.error(
+        'Error updating shipping address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          addressId: id,
+          addressData,
+        },
+      );
       throw error;
     }
   }
@@ -418,17 +483,21 @@ export class PrismaOrderRepository implements IOrderRepository {
       });
 
       if (!address) {
-              this.logger.debug('Shipping address not found', { addressId: id });
-      return null;
-    }
+        this.logger.debug('Shipping address not found', { addressId: id });
+        return null;
+      }
 
-    return this.mapToShippingAddressEntity(address);
-  } catch (error) {
-    this.logger.error('Error getting shipping address', error instanceof Error ? error : new Error(String(error)), {
-      addressId: id
-    });
-    throw error;
-  }
+      return this.mapToShippingAddressEntity(address);
+    } catch (error) {
+      this.logger.error(
+        'Error getting shipping address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          addressId: id,
+        },
+      );
+      throw error;
+    }
   }
 
   async getOrderStats(): Promise<OrderStats> {
@@ -471,7 +540,10 @@ export class PrismaOrderRepository implements IOrderRepository {
       this.logger.debug('Order stats calculated', { stats });
       return stats;
     } catch (error) {
-      this.logger.error('Error calculating order stats', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Error calculating order stats',
+        error instanceof Error ? error : new Error(String(error)),
+      );
       throw error;
     }
   }
@@ -494,14 +566,18 @@ export class PrismaOrderRepository implements IOrderRepository {
       });
 
       this.logger.debug('Orders found by date range', { startDate, endDate, count: orders.length });
-      return orders.map(order => 
-        this.mapToOrderEntity(order, order.items, order.shippingAddress)
+      return orders.map((order) =>
+        this.mapToOrderEntity(order, order.items, order.shippingAddress),
       );
     } catch (error) {
-      this.logger.error('Error finding orders by date range', error instanceof Error ? error : new Error(String(error)), {
-        startDate,
-        endDate
-      });
+      this.logger.error(
+        'Error finding orders by date range',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          startDate,
+          endDate,
+        },
+      );
       throw error;
     }
   }
@@ -516,7 +592,8 @@ export class PrismaOrderRepository implements IOrderRepository {
     return {
       id: prismaOrder.id,
       customerEmail: prismaOrder.user?.email || '',
-      customerName: `${prismaOrder.user?.firstName || ''} ${prismaOrder.user?.lastName || ''}`.trim(),
+      customerName:
+        `${prismaOrder.user?.firstName || ''} ${prismaOrder.user?.lastName || ''}`.trim(),
       customerPhone: prismaOrder.user?.phone || undefined,
       status: prismaOrder.status as OrderStatus,
       total: Number(prismaOrder.totalAmount),
@@ -524,8 +601,10 @@ export class PrismaOrderRepository implements IOrderRepository {
       createdAt: prismaOrder.createdAt,
       updatedAt: prismaOrder.updatedAt,
       deliveredAt: prismaOrder.deliveredAt || undefined,
-      items: items.map(item => this.mapToOrderItemEntity(item)),
-      shippingAddress: shippingAddress ? this.mapToShippingAddressEntity(shippingAddress) : undefined,
+      items: items.map((item) => this.mapToOrderItemEntity(item)),
+      shippingAddress: shippingAddress
+        ? this.mapToShippingAddressEntity(shippingAddress)
+        : undefined,
     };
   }
 

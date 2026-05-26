@@ -14,12 +14,12 @@ export class PrismaProductRepository implements IProductRepository {
 
   async create(product: ProductEntity): Promise<ProductEntity> {
     const traceId = `create-product-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Creating new product', {
         name: product.name,
         categoryId: product.categoryId,
-        traceId
+        traceId,
       });
 
       const createdProduct = await this.prisma.product.create({
@@ -34,29 +34,33 @@ export class PrismaProductRepository implements IProductRepository {
           stockQuantity: product.stockQuantity,
           images: product.images,
           attributes: product.attributes,
-          tags: product.tags
+          tags: product.tags,
         },
         include: {
           category: true,
-          variants: true
-        }
+          variants: true,
+        },
       });
 
       const productEntity = this.mapToProductEntity(createdProduct);
-      
+
       this.logger.info('Product created successfully', {
         productId: productEntity.id,
         name: productEntity.name,
-        traceId
+        traceId,
       });
 
       return productEntity;
     } catch (error) {
-      this.logger.error('Failed to create product', error instanceof Error ? error : new Error(String(error)), {
-        name: product.name,
-        categoryId: product.categoryId,
-        traceId
-      });
+      this.logger.error(
+        'Failed to create product',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          name: product.name,
+          categoryId: product.categoryId,
+          traceId,
+        },
+      );
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -77,29 +81,33 @@ export class PrismaProductRepository implements IProductRepository {
         where: { id },
         include: {
           category: true,
-          variants: true
-        }
+          variants: true,
+        },
       });
 
       if (!product) {
         this.logger.debug('Product not found', {
-          productId: id
+          productId: id,
         });
         return null;
       }
 
       const productEntity = this.mapToProductEntity(product);
-      
+
       this.logger.debug('Product found successfully', {
         productId: id,
-        name: productEntity.name
+        name: productEntity.name,
       });
 
       return productEntity;
     } catch (error) {
-      this.logger.error('Failed to find product by ID', error instanceof Error ? error : new Error(String(error)), {
-        productId: id
-      });
+      this.logger.error(
+        'Failed to find product by ID',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          productId: id,
+        },
+      );
 
       throw error;
     }
@@ -117,25 +125,25 @@ export class PrismaProductRepository implements IProductRepository {
           hasSearchFilter: Boolean(filters?.search),
           hasSkuFilter: Boolean(filters?.sku),
           hasLimit: Boolean(filters?.limit),
-          hasOffset: Boolean(filters?.offset)
-        }
+          hasOffset: Boolean(filters?.offset),
+        },
       });
 
       const where: any = {};
 
       if (filters?.categoryId) {
         where.categoryId = filters.categoryId;
-        this.logger.debug('Category filter applied', { 
+        this.logger.debug('Category filter applied', {
           categoryId: filters.categoryId,
-          filterType: 'exact_match'
+          filterType: 'exact_match',
         });
       }
 
       if (filters?.isActive !== undefined) {
         where.isActive = filters.isActive;
-        this.logger.debug('Active filter applied', { 
+        this.logger.debug('Active filter applied', {
           isActive: filters.isActive,
-          filterType: 'boolean'
+          filterType: 'boolean',
         });
       }
 
@@ -153,36 +161,36 @@ export class PrismaProductRepository implements IProductRepository {
 
       if (filters?.inStock) {
         where.stockQuantity = { gt: 0 };
-        this.logger.debug('Stock filter applied', { 
+        this.logger.debug('Stock filter applied', {
           filterType: 'stock_quantity_gt_0',
-          inStock: filters.inStock
+          inStock: filters.inStock,
         });
       }
 
       if (filters?.search) {
         where.OR = [
           { name: { contains: filters.search, mode: 'insensitive' } },
-          { description: { contains: filters.search, mode: 'insensitive' } }
+          { description: { contains: filters.search, mode: 'insensitive' } },
         ];
-        this.logger.debug('Search filter applied', { 
+        this.logger.debug('Search filter applied', {
           searchTerm: filters.search,
           searchFields: ['name', 'description'],
-          caseInsensitive: true
+          caseInsensitive: true,
         });
       }
 
       if (filters?.sku) {
         where.sku = { contains: filters.sku, mode: 'insensitive' };
-        this.logger.debug('SKU filter applied', { 
+        this.logger.debug('SKU filter applied', {
           sku: filters.sku,
-          filterType: 'contains_insensitive'
+          filterType: 'contains_insensitive',
         });
       }
 
-      this.logger.debug('Final where clause constructed', { 
+      this.logger.debug('Final where clause constructed', {
         where,
         filterCount: Object.keys(where).length,
-        hasFilters: Object.keys(where).length > 0
+        hasFilters: Object.keys(where).length > 0,
       });
 
       const products = await this.prisma.product.findMany({
@@ -191,36 +199,40 @@ export class PrismaProductRepository implements IProductRepository {
         skip: filters?.offset,
         include: {
           category: true,
-          variants: true
+          variants: true,
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
       this.logger.debug('Database query executed successfully', {
         productsFound: products.length,
         limit: filters?.limit,
         offset: filters?.offset,
-        hasCategoryRelation: products.every(p => p.category),
-        hasVariantsRelation: products.every(p => p.variants)
+        hasCategoryRelation: products.every((p) => p.category),
+        hasVariantsRelation: products.every((p) => p.variants),
       });
 
-      const productEntities = products.map(product => this.mapToProductEntity(product));
-      
+      const productEntities = products.map((product) => this.mapToProductEntity(product));
+
       this.logger.debug('Products transformed to entities successfully', {
         count: productEntities.length,
-        transformationSuccess: productEntities.length === products.length
+        transformationSuccess: productEntities.length === products.length,
       });
 
       return productEntities;
     } catch (error) {
-      this.logger.error('Failed to find all products', error instanceof Error ? error : new Error(String(error)), {
-        filters,
-        errorContext: {
-          operation: 'findAll',
-          repository: 'PrismaProductRepository',
-          filtersApplied: Object.keys(filters || {}).length
-        }
-      });
+      this.logger.error(
+        'Failed to find all products',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          filters,
+          errorContext: {
+            operation: 'findAll',
+            repository: 'PrismaProductRepository',
+            filtersApplied: Object.keys(filters || {}).length,
+          },
+        },
+      );
 
       throw error;
     }
@@ -228,23 +240,23 @@ export class PrismaProductRepository implements IProductRepository {
 
   async update(id: string, product: Partial<ProductEntity>): Promise<ProductEntity> {
     const traceId = `update-product-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Updating product', {
         productId: id,
         changes: Object.keys(product),
-        traceId
+        traceId,
       });
 
       // Validate if product exists
       const existingProduct = await this.prisma.product.findUnique({
-        where: { id }
+        where: { id },
       });
 
       if (!existingProduct) {
         this.logger.warn('Product not found for update', {
           productId: id,
-          traceId
+          traceId,
         });
         throw new Error('Product not found');
       }
@@ -270,24 +282,28 @@ export class PrismaProductRepository implements IProductRepository {
         data: updateData,
         include: {
           category: true,
-          variants: true
-        }
+          variants: true,
+        },
       });
 
       const productEntity = this.mapToProductEntity(updatedProduct);
-      
+
       this.logger.info('Product updated successfully', {
         productId: id,
         name: productEntity.name,
-        traceId
+        traceId,
       });
 
       return productEntity;
     } catch (error) {
-      this.logger.error('Failed to update product', error instanceof Error ? error : new Error(String(error)), {
-        productId: id,
-        traceId
-      });
+      this.logger.error(
+        'Failed to update product',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          productId: id,
+          traceId,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
@@ -308,39 +324,43 @@ export class PrismaProductRepository implements IProductRepository {
 
   async delete(id: string): Promise<void> {
     const traceId = `delete-product-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Deleting product', {
         productId: id,
-        traceId
+        traceId,
       });
 
       // Validate if product exists
       const existingProduct = await this.prisma.product.findUnique({
-        where: { id }
+        where: { id },
       });
 
       if (!existingProduct) {
         this.logger.warn('Product not found for deletion', {
           productId: id,
-          traceId
+          traceId,
         });
         throw new Error('Product not found');
       }
 
       await this.prisma.product.delete({
-        where: { id }
+        where: { id },
       });
-      
+
       this.logger.info('Product deleted successfully', {
         productId: id,
-        traceId
+        traceId,
       });
     } catch (error) {
-      this.logger.error('Failed to delete product', error instanceof Error ? error : new Error(String(error)), {
-        productId: id,
-        traceId
-      });
+      this.logger.error(
+        'Failed to delete product',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          productId: id,
+          traceId,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
@@ -353,30 +373,34 @@ export class PrismaProductRepository implements IProductRepository {
   async findByCategory(categoryId: string): Promise<ProductEntity[]> {
     try {
       this.logger.debug('Finding products by category', {
-        categoryId
+        categoryId,
       });
 
       const products = await this.prisma.product.findMany({
         where: { categoryId },
         include: {
           category: true,
-          variants: true
+          variants: true,
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      const productEntities = products.map(product => this.mapToProductEntity(product));
-      
+      const productEntities = products.map((product) => this.mapToProductEntity(product));
+
       this.logger.debug('Products found by category successfully', {
         categoryId,
-        count: productEntities.length
+        count: productEntities.length,
       });
 
       return productEntities;
     } catch (error) {
-      this.logger.error('Failed to find products by category', error instanceof Error ? error : new Error(String(error)), {
-        categoryId
-      });
+      this.logger.error(
+        'Failed to find products by category',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          categoryId,
+        },
+      );
 
       throw error;
     }
@@ -385,36 +409,40 @@ export class PrismaProductRepository implements IProductRepository {
   async findBySku(sku: string): Promise<ProductEntity | null> {
     try {
       this.logger.debug('Finding product by SKU', {
-        sku
+        sku,
       });
 
       const product = await this.prisma.product.findUnique({
         where: { sku },
         include: {
           category: true,
-          variants: true
-        }
+          variants: true,
+        },
       });
 
       if (!product) {
         this.logger.debug('Product not found by SKU', {
-          sku
+          sku,
         });
         return null;
       }
 
       const productEntity = this.mapToProductEntity(product);
-      
+
       this.logger.debug('Product found by SKU successfully', {
         sku,
-        productId: productEntity.id
+        productId: productEntity.id,
       });
 
       return productEntity;
     } catch (error) {
-      this.logger.error('Failed to find product by SKU', error instanceof Error ? error : new Error(String(error)), {
-        sku
-      });
+      this.logger.error(
+        'Failed to find product by SKU',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          sku,
+        },
+      );
 
       throw error;
     }
@@ -424,35 +452,39 @@ export class PrismaProductRepository implements IProductRepository {
     try {
       this.logger.debug('Updating product stock', {
         productId: id,
-        stockQuantity
+        stockQuantity,
       });
 
       // Validate if product exists
       const existingProduct = await this.prisma.product.findUnique({
-        where: { id }
+        where: { id },
       });
 
       if (!existingProduct) {
         this.logger.warn('Product not found for stock update', {
-          productId: id
+          productId: id,
         });
         throw new Error('Product not found');
       }
 
       await this.prisma.product.update({
         where: { id },
-        data: { stockQuantity }
+        data: { stockQuantity },
       });
-      
+
       this.logger.debug('Product stock updated successfully', {
         productId: id,
-        stockQuantity
+        stockQuantity,
       });
     } catch (error) {
-      this.logger.error('Failed to update product stock', error instanceof Error ? error : new Error(String(error)), {
-        productId: id,
-        stockQuantity
-      });
+      this.logger.error(
+        'Failed to update product stock',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          productId: id,
+          stockQuantity,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
@@ -465,7 +497,7 @@ export class PrismaProductRepository implements IProductRepository {
   async search(query: string): Promise<ProductEntity[]> {
     try {
       this.logger.debug('Searching products', {
-        query
+        query,
       });
 
       const products = await this.prisma.product.findMany({
@@ -473,29 +505,33 @@ export class PrismaProductRepository implements IProductRepository {
           OR: [
             { name: { contains: query, mode: 'insensitive' } },
             { description: { contains: query, mode: 'insensitive' } },
-            { tags: { hasSome: [query] } }
+            { tags: { hasSome: [query] } },
           ],
-          isActive: true
+          isActive: true,
         },
         include: {
           category: true,
-          variants: true
+          variants: true,
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
-      const productEntities = products.map(product => this.mapToProductEntity(product));
-      
+      const productEntities = products.map((product) => this.mapToProductEntity(product));
+
       this.logger.debug('Product search completed', {
         query,
-        resultsCount: productEntities.length
+        resultsCount: productEntities.length,
       });
 
       return productEntities;
     } catch (error) {
-      this.logger.error('Failed to search products', error instanceof Error ? error : new Error(String(error)), {
-        query
-      });
+      this.logger.error(
+        'Failed to search products',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          query,
+        },
+      );
 
       throw error;
     }
@@ -503,23 +539,23 @@ export class PrismaProductRepository implements IProductRepository {
 
   async createVariant(variant: any): Promise<any> {
     const traceId = `create-variant-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Creating product variant', {
         productId: variant.productId,
         variantName: variant.name,
-        traceId
+        traceId,
       });
 
       // Validate if product exists
       const existingProduct = await this.prisma.product.findUnique({
-        where: { id: variant.productId }
+        where: { id: variant.productId },
       });
 
       if (!existingProduct) {
         this.logger.warn('Product not found for variant creation', {
           productId: variant.productId,
-          traceId
+          traceId,
         });
         throw new Error('Product not found');
       }
@@ -532,24 +568,28 @@ export class PrismaProductRepository implements IProductRepository {
           stockQuantity: variant.stockQuantity,
           productId: variant.productId,
           attributes: variant.attributes,
-          isActive: variant.isActive
-        }
+          isActive: variant.isActive,
+        },
       });
 
       const variantEntity = this.mapToVariantEntity(createdVariant);
-      
+
       this.logger.info('Product variant created successfully', {
         variantId: variantEntity.id,
         productId: variant.productId,
-        traceId
+        traceId,
       });
 
       return variantEntity;
     } catch (error) {
-      this.logger.error('Failed to create product variant', error instanceof Error ? error : new Error(String(error)), {
-        productId: variant.productId,
-        traceId
-      });
+      this.logger.error(
+        'Failed to create product variant',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          productId: variant.productId,
+          traceId,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
@@ -568,26 +608,30 @@ export class PrismaProductRepository implements IProductRepository {
   async getProductVariants(productId: string): Promise<any[]> {
     try {
       this.logger.debug('Getting product variants', {
-        productId
+        productId,
       });
 
       const variants = await this.prisma.productVariant.findMany({
         where: { productId },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
       });
 
-      const variantEntities = variants.map(variant => this.mapToVariantEntity(variant));
-      
+      const variantEntities = variants.map((variant) => this.mapToVariantEntity(variant));
+
       this.logger.debug('Product variants retrieved successfully', {
         productId,
-        variantsCount: variantEntities.length
+        variantsCount: variantEntities.length,
       });
 
       return variantEntities;
     } catch (error) {
-      this.logger.error('Failed to get product variants', error instanceof Error ? error : new Error(String(error)), {
-        productId
-      });
+      this.logger.error(
+        'Failed to get product variants',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          productId,
+        },
+      );
 
       throw error;
     }
@@ -595,23 +639,23 @@ export class PrismaProductRepository implements IProductRepository {
 
   async updateVariant(id: string, variantData: Partial<any>): Promise<any> {
     const traceId = `update-variant-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Updating product variant', {
         variantId: id,
         changes: Object.keys(variantData),
-        traceId
+        traceId,
       });
 
       // Validate if variant exists
       const existingVariant = await this.prisma.productVariant.findUnique({
-        where: { id }
+        where: { id },
       });
 
       if (!existingVariant) {
         this.logger.warn('Variant not found for update', {
           variantId: id,
-          traceId
+          traceId,
         });
         throw new Error('Variant not found');
       }
@@ -621,28 +665,33 @@ export class PrismaProductRepository implements IProductRepository {
       if (variantData.name) updateData.name = variantData.name;
       if (variantData.sku) updateData.sku = variantData.sku;
       if (variantData.price !== undefined) updateData.price = variantData.price;
-      if (variantData.stockQuantity !== undefined) updateData.stockQuantity = variantData.stockQuantity;
+      if (variantData.stockQuantity !== undefined)
+        updateData.stockQuantity = variantData.stockQuantity;
       if (variantData.attributes) updateData.attributes = variantData.attributes;
       if (variantData.isActive !== undefined) updateData.isActive = variantData.isActive;
 
       const variant = await this.prisma.productVariant.update({
         where: { id },
-        data: updateData
+        data: updateData,
       });
 
       const variantEntity = this.mapToVariantEntity(variant);
-      
+
       this.logger.info('Product variant updated successfully', {
         variantId: id,
-        traceId
+        traceId,
       });
 
       return variantEntity;
     } catch (error) {
-      this.logger.error('Failed to update product variant', error instanceof Error ? error : new Error(String(error)), {
-        variantId: id,
-        traceId
-      });
+      this.logger.error(
+        'Failed to update product variant',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          variantId: id,
+          traceId,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
@@ -660,39 +709,43 @@ export class PrismaProductRepository implements IProductRepository {
 
   async deleteVariant(id: string): Promise<void> {
     const traceId = `delete-variant-${Date.now()}`;
-    
+
     try {
       this.logger.debug('Deleting product variant', {
         variantId: id,
-        traceId
+        traceId,
       });
 
       // Validate if variant exists
       const existingVariant = await this.prisma.productVariant.findUnique({
-        where: { id }
+        where: { id },
       });
 
       if (!existingVariant) {
         this.logger.warn('Variant not found for deletion', {
           variantId: id,
-          traceId
+          traceId,
         });
         throw new Error('Variant not found');
       }
 
       await this.prisma.productVariant.delete({
-        where: { id }
+        where: { id },
       });
-      
+
       this.logger.info('Product variant deleted successfully', {
         variantId: id,
-        traceId
+        traceId,
       });
     } catch (error) {
-      this.logger.error('Failed to delete product variant', error instanceof Error ? error : new Error(String(error)), {
-        variantId: id,
-        traceId
-      });
+      this.logger.error(
+        'Failed to delete product variant',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          variantId: id,
+          traceId,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
@@ -708,22 +761,27 @@ export class PrismaProductRepository implements IProductRepository {
 
       const categories = await this.prisma.category.findMany({
         where: { isActive: true },
-        orderBy: { sortOrder: 'asc' }
+        orderBy: { sortOrder: 'asc' },
       });
-      
+
       this.logger.debug('Categories retrieved successfully', {
-        count: categories.length
+        count: categories.length,
       });
 
       return categories;
     } catch (error) {
-      this.logger.error('Failed to get categories', error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(
+        'Failed to get categories',
+        error instanceof Error ? error : new Error(String(error)),
+      );
 
       throw error;
     }
   }
 
-  private mapToProductEntity(product: Product & { category?: any; variants?: ProductVariant[] }): ProductEntity {
+  private mapToProductEntity(
+    product: Product & { category?: any; variants?: ProductVariant[] },
+  ): ProductEntity {
     return new ProductEntity(
       product.id,
       product.categoryId,
@@ -741,17 +799,19 @@ export class PrismaProductRepository implements IProductRepository {
       product.reviewCount,
       product.createdAt,
       product.updatedAt,
-      product.category ? {
-        id: product.category.id,
-        name: product.category.name,
-        slug: product.category.slug,
-        description: product.category.description,
-        isActive: product.category.isActive,
-        sortOrder: product.category.sortOrder,
-        createdAt: product.category.createdAt,
-        updatedAt: product.category.updatedAt
-      } : undefined,
-      product.variants ? product.variants.map(variant => this.mapToVariantEntity(variant)) : []
+      product.category
+        ? {
+            id: product.category.id,
+            name: product.category.name,
+            slug: product.category.slug,
+            description: product.category.description,
+            isActive: product.category.isActive,
+            sortOrder: product.category.sortOrder,
+            createdAt: product.category.createdAt,
+            updatedAt: product.category.updatedAt,
+          }
+        : undefined,
+      product.variants ? product.variants.map((variant) => this.mapToVariantEntity(variant)) : [],
     );
   }
 
@@ -766,7 +826,7 @@ export class PrismaProductRepository implements IProductRepository {
       variant.stockQuantity,
       variant.isActive,
       variant.createdAt,
-      variant.updatedAt
+      variant.updatedAt,
     );
   }
 }

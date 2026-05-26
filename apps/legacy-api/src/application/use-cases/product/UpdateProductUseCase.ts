@@ -20,9 +20,7 @@ export interface UpdateProductRequest {
 }
 
 export class UpdateProductUseCase {
-  constructor(
-    private readonly productRepository: IProductRepository
-  ) {}
+  constructor(private readonly productRepository: IProductRepository) {}
 
   async execute(request: UpdateProductRequest): Promise<ProductEntity> {
     if (!request.id) {
@@ -52,7 +50,11 @@ export class UpdateProductUseCase {
       throw new Error('Sale price must be non-negative');
     }
 
-    if (request.salePrice !== undefined && request.price !== undefined && request.salePrice >= request.price) {
+    if (
+      request.salePrice !== undefined &&
+      request.price !== undefined &&
+      request.salePrice >= request.price
+    ) {
       throw new Error('Sale price must be less than regular price');
     }
 
@@ -89,7 +91,7 @@ export class UpdateProductUseCase {
       stockQuantity: request.stockQuantity,
       tags: request.tags,
       rating: request.rating,
-      reviewCount: request.reviewCount
+      reviewCount: request.reviewCount,
     };
 
     return await this.productRepository.update(request.id, updateData);
@@ -120,7 +122,7 @@ export class UpdateProductUseCase {
       }
 
       const trimmedUrl = value.trim();
-      
+
       // Si es una URL absoluta, validar con URL constructor
       if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
         try {
@@ -128,7 +130,7 @@ export class UpdateProductUseCase {
         } catch {
           throw new ValidationError(`Field '${field}' has an invalid format`);
         }
-      } 
+      }
       // Si es una ruta relativa, validar que tenga formato válido
       else if (trimmedUrl.startsWith('/')) {
         // Validar que la ruta relativa tenga formato válido
@@ -140,4 +142,4 @@ export class UpdateProductUseCase {
       }
     }
   }
-} 
+}

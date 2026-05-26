@@ -7,4 +7,4 @@ process.env.PORT = '3001';
 // No Supabase variables needed; removed legacy placeholders
 
 // Configurar timeouts
-jest.setTimeout(10000); 
+jest.setTimeout(10000);

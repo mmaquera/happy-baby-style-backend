@@ -21,12 +21,71 @@ export interface AddressValidationResult {
 }
 
 export class AddressValidationService {
-  private readonly countries = ['PE', 'US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'EC', 'PY', 'UY', 'VE'];
+  private readonly countries = [
+    'PE',
+    'US',
+    'CA',
+    'MX',
+    'BR',
+    'AR',
+    'CL',
+    'CO',
+    'EC',
+    'PY',
+    'UY',
+    'VE',
+  ];
   private readonly usStates = [
-    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA',
-    'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT',
-    'VA', 'WA', 'WV', 'WI', 'WY'
+    'AL',
+    'AK',
+    'AZ',
+    'AR',
+    'CA',
+    'CO',
+    'CT',
+    'DE',
+    'FL',
+    'GA',
+    'HI',
+    'ID',
+    'IL',
+    'IN',
+    'IA',
+    'KS',
+    'KY',
+    'LA',
+    'ME',
+    'MD',
+    'MA',
+    'MI',
+    'MN',
+    'MS',
+    'MO',
+    'MT',
+    'NE',
+    'NV',
+    'NH',
+    'NJ',
+    'NM',
+    'NY',
+    'NC',
+    'ND',
+    'OH',
+    'OK',
+    'OR',
+    'PA',
+    'RI',
+    'SC',
+    'SD',
+    'TN',
+    'TX',
+    'UT',
+    'VT',
+    'VA',
+    'WA',
+    'WV',
+    'WI',
+    'WY',
   ];
 
   validateAddressInput(data: AddressValidationData): AddressValidationResult {
@@ -117,7 +176,7 @@ export class AddressValidationService {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -181,19 +240,60 @@ export class AddressValidationService {
         break;
 
       case 'CA':
-        const caProvinces = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'];
+        const caProvinces = [
+          'AB',
+          'BC',
+          'MB',
+          'NB',
+          'NL',
+          'NS',
+          'NT',
+          'NU',
+          'ON',
+          'PE',
+          'QC',
+          'SK',
+          'YT',
+        ];
         if (!caProvinces.includes(state.toUpperCase())) {
-          errors.push(`Invalid Canadian province: ${state}. Use 2-letter province code (e.g., ON, BC, QC)`);
+          errors.push(
+            `Invalid Canadian province: ${state}. Use 2-letter province code (e.g., ON, BC, QC)`,
+          );
         }
         break;
 
       case 'PE':
         const peRegions = [
-          'AMA', 'ANC', 'APU', 'ARE', 'AYA', 'CAJ', 'CAL', 'CUS', 'HUC', 'HUV', 'ICA', 'JUN', 'LAL', 'LAM',
-          'LIM', 'LOR', 'MDD', 'MOQ', 'PAS', 'PIU', 'PUN', 'SAM', 'TAC', 'TUM', 'UCA'
+          'AMA',
+          'ANC',
+          'APU',
+          'ARE',
+          'AYA',
+          'CAJ',
+          'CAL',
+          'CUS',
+          'HUC',
+          'HUV',
+          'ICA',
+          'JUN',
+          'LAL',
+          'LAM',
+          'LIM',
+          'LOR',
+          'MDD',
+          'MOQ',
+          'PAS',
+          'PIU',
+          'PUN',
+          'SAM',
+          'TAC',
+          'TUM',
+          'UCA',
         ];
         if (!peRegions.includes(state.toUpperCase())) {
-          errors.push(`Invalid Peruvian region: ${state}. Use 3-letter region code (e.g., LIM, AYA, CUS)`);
+          errors.push(
+            `Invalid Peruvian region: ${state}. Use 3-letter region code (e.g., LIM, AYA, CUS)`,
+          );
         }
         break;
 
@@ -207,7 +307,7 @@ export class AddressValidationService {
   private validatePhone(phone: string, errors: string[]): void {
     // Remove all non-digit characters for validation
     const digitsOnly = phone.replace(/\D/g, '');
-    
+
     if (digitsOnly.length < 7 || digitsOnly.length > 15) {
       errors.push('Phone number must be between 7 and 15 digits');
     }
@@ -223,7 +323,9 @@ export class AddressValidationService {
     const warnings: string[] = [];
 
     // Check if at least one field is provided
-    const hasUpdates = Object.keys(data).some(key => data[key as keyof AddressValidationData] !== undefined);
+    const hasUpdates = Object.keys(data).some(
+      (key) => data[key as keyof AddressValidationData] !== undefined,
+    );
     if (!hasUpdates) {
       errors.push('At least one field must be provided for update');
     }
@@ -307,7 +409,7 @@ export class AddressValidationService {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -319,7 +421,8 @@ export class AddressValidationService {
       errors.push('Address ID is required');
     } else {
       // Validate UUID format
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(id)) {
         errors.push('Invalid address ID format. Must be a valid UUID');
       }
@@ -328,7 +431,7 @@ export class AddressValidationService {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 }

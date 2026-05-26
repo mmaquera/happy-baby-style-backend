@@ -1,10 +1,18 @@
 import { Container } from '@shared/container';
-import { RefreshTokenUseCase, RefreshTokenResponse } from '@application/use-cases/user/RefreshTokenUseCase';
+import {
+  RefreshTokenUseCase,
+  RefreshTokenResponse,
+} from '@application/use-cases/user/RefreshTokenUseCase';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { ILogger } from '@hbs/logging';
 import { AuthResult, AuthProvider } from '@domain/entities/Auth';
 import { UserRole } from '@domain/entities/User';
-import { ValidationError, NotFoundError, UnauthorizedError, InfrastructureError } from '@domain/errors/DomainError';
+import {
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  InfrastructureError,
+} from '@domain/errors/DomainError';
 
 // Mock del container
 jest.mock('@shared/container');
@@ -27,41 +35,41 @@ describe('RefreshToken Mutation Integration', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       addresses: [],
-      favoriteProductIds: []
+      favoriteProductIds: [],
     },
     tokens: {
       accessToken: 'new-access-token-456',
-      refreshToken: 'new-refresh-token-789'
+      refreshToken: 'new-refresh-token-789',
     },
     isNewUser: false,
     provider: 'email',
     session: {
       id: 'session-123',
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas en el futuro
-      isActive: true
-    }
+      isActive: true,
+    },
   };
 
   beforeEach(() => {
     // Mock del container
     container = {
-      get: jest.fn()
+      get: jest.fn(),
     } as any;
 
     // Mock del use case
     mockRefreshTokenUseCase = {
-      execute: jest.fn()
+      execute: jest.fn(),
     } as any;
 
     // Mock del repositorio
     mockAuthRepository = {
-      refreshUserSession: jest.fn()
+      refreshUserSession: jest.fn(),
     } as any;
 
     // Mock del logger
     mockLogger = {
       info: jest.fn(),
-      error: jest.fn()
+      error: jest.fn(),
     } as any;
 
     // Configurar mocks del container
@@ -90,10 +98,10 @@ describe('RefreshToken Mutation Integration', () => {
         req: {
           headers: {
             'x-request-id': 'req-123',
-            'user-agent': 'Mozilla/5.0 (Test Browser)'
+            'user-agent': 'Mozilla/5.0 (Test Browser)',
           },
-          ip: '192.168.1.1'
-        }
+          ip: '192.168.1.1',
+        },
       };
 
       mockRefreshTokenUseCase.execute.mockResolvedValue(mockAuthResult);
@@ -103,16 +111,16 @@ describe('RefreshToken Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `refresh-token-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           const result = await mockRefreshTokenUseCase.execute({
             refreshToken,
             userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-            ipAddress: context?.req?.ip || 'unknown'
+            ipAddress: context?.req?.ip || 'unknown',
           });
 
           const duration = Date.now() - startTime;
-          
+
           // Simular logging de éxito
           mockLogger.info('RefreshToken resolver success', {
             operation: 'refreshToken',
@@ -124,8 +132,8 @@ describe('RefreshToken Mutation Integration', () => {
             isNewUser: result.isNewUser,
             context: {
               userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-              ipAddress: context?.req?.ip || 'unknown'
-            }
+              ipAddress: context?.req?.ip || 'unknown',
+            },
           });
 
           // Simular ResponseFactory.createSuccessResponse
@@ -138,18 +146,17 @@ describe('RefreshToken Mutation Integration', () => {
               user: result.user,
               accessToken: result.tokens.accessToken,
               refreshToken: result.tokens.refreshToken,
-              session: result.session
+              session: result.session,
             },
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
-
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           mockLogger.error('RefreshToken resolver error', error, {
             operation: 'refreshToken',
             requestId,
@@ -158,14 +165,14 @@ describe('RefreshToken Mutation Integration', () => {
             errorDetails: {
               message: error.message,
               type: error.constructor.name,
-              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
             },
             context: {
               userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-              ipAddress: context?.req?.ip || 'unknown'
-            }
+              ipAddress: context?.req?.ip || 'unknown',
+            },
           });
-          
+
           throw error;
         }
       };
@@ -183,19 +190,19 @@ describe('RefreshToken Mutation Integration', () => {
           user: mockAuthResult.user,
           accessToken: mockAuthResult.tokens.accessToken,
           refreshToken: mockAuthResult.tokens.refreshToken,
-          session: mockAuthResult.session
+          session: mockAuthResult.session,
         },
         metadata: {
           requestId: 'req-123',
           traceId: expect.stringMatching(/refresh-token-\d+/),
-          duration: expect.any(Number)
-        }
+          duration: expect.any(Number),
+        },
       });
 
       expect(mockRefreshTokenUseCase.execute).toHaveBeenCalledWith({
         refreshToken,
         userAgent: 'Mozilla/5.0 (Test Browser)',
-        ipAddress: '192.168.1.1'
+        ipAddress: '192.168.1.1',
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -207,8 +214,8 @@ describe('RefreshToken Mutation Integration', () => {
           duration: expect.any(Number),
           userId: 'user-123',
           provider: 'email',
-          isNewUser: false
-        })
+          isNewUser: false,
+        }),
       );
     });
 
@@ -224,15 +231,15 @@ describe('RefreshToken Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `refresh-token-${Date.now()}`;
         const requestId = `req-${Date.now()}`;
-        
+
         const result = await mockRefreshTokenUseCase.execute({
           refreshToken,
           userAgent: 'unknown',
-          ipAddress: 'unknown'
+          ipAddress: 'unknown',
         });
 
         const duration = Date.now() - startTime;
-        
+
         return {
           success: true,
           message: 'Token refreshed successfully',
@@ -242,13 +249,13 @@ describe('RefreshToken Mutation Integration', () => {
             user: result.user,
             accessToken: result.tokens.accessToken,
             refreshToken: result.tokens.refreshToken,
-            session: result.session
+            session: result.session,
           },
           metadata: {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
         };
       };
 
@@ -260,7 +267,7 @@ describe('RefreshToken Mutation Integration', () => {
       expect(mockRefreshTokenUseCase.execute).toHaveBeenCalledWith({
         refreshToken,
         userAgent: 'unknown',
-        ipAddress: 'unknown'
+        ipAddress: 'unknown',
       });
     });
   });
@@ -272,8 +279,8 @@ describe('RefreshToken Mutation Integration', () => {
       const context = {
         req: {
           headers: { 'x-request-id': 'req-456' },
-          ip: '192.168.1.2'
-        }
+          ip: '192.168.1.2',
+        },
       };
 
       const validationError = new ValidationError('Refresh token is required');
@@ -284,16 +291,16 @@ describe('RefreshToken Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `refresh-token-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           await mockRefreshTokenUseCase.execute({
             refreshToken,
             userAgent: 'unknown',
-            ipAddress: context?.req?.ip || 'unknown'
+            ipAddress: context?.req?.ip || 'unknown',
           });
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           mockLogger.error('RefreshToken resolver error', error, {
             operation: 'refreshToken',
             requestId,
@@ -301,14 +308,14 @@ describe('RefreshToken Mutation Integration', () => {
             duration,
             errorDetails: {
               message: error.message,
-              type: error.constructor.name
+              type: error.constructor.name,
             },
             context: {
               userAgent: 'unknown',
-              ipAddress: context?.req?.ip || 'unknown'
-            }
+              ipAddress: context?.req?.ip || 'unknown',
+            },
           });
-          
+
           // Simular ResponseFactory.createErrorResponse
           return {
             success: false,
@@ -319,8 +326,8 @@ describe('RefreshToken Mutation Integration', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
@@ -338,8 +345,8 @@ describe('RefreshToken Mutation Integration', () => {
         metadata: {
           requestId: 'req-456',
           traceId: expect.stringMatching(/refresh-token-\d+/),
-          duration: expect.any(Number)
-        }
+          duration: expect.any(Number),
+        },
       });
 
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -352,9 +359,9 @@ describe('RefreshToken Mutation Integration', () => {
           duration: expect.any(Number),
           errorDetails: {
             message: 'Refresh token is required',
-            type: 'ValidationError'
-          }
-        })
+            type: 'ValidationError',
+          },
+        }),
       );
     });
 
@@ -364,8 +371,8 @@ describe('RefreshToken Mutation Integration', () => {
       const context = {
         req: {
           headers: { 'x-request-id': 'req-789' },
-          ip: '192.168.1.3'
-        }
+          ip: '192.168.1.3',
+        },
       };
 
       const unauthorizedError = new UnauthorizedError('Invalid or expired refresh token');
@@ -376,16 +383,16 @@ describe('RefreshToken Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `refresh-token-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           await mockRefreshTokenUseCase.execute({
             refreshToken,
             userAgent: 'unknown',
-            ipAddress: context?.req?.ip || 'unknown'
+            ipAddress: context?.req?.ip || 'unknown',
           });
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           mockLogger.error('RefreshToken resolver error', error, {
             operation: 'refreshToken',
             requestId,
@@ -393,14 +400,14 @@ describe('RefreshToken Mutation Integration', () => {
             duration,
             errorDetails: {
               message: error.message,
-              type: error.constructor.name
+              type: error.constructor.name,
             },
             context: {
               userAgent: 'unknown',
-              ipAddress: context?.req?.ip || 'unknown'
-            }
+              ipAddress: context?.req?.ip || 'unknown',
+            },
           });
-          
+
           return {
             success: false,
             message: error.message,
@@ -410,8 +417,8 @@ describe('RefreshToken Mutation Integration', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
@@ -429,8 +436,8 @@ describe('RefreshToken Mutation Integration', () => {
         metadata: {
           requestId: 'req-789',
           traceId: expect.stringMatching(/refresh-token-\d+/),
-          duration: expect.any(Number)
-        }
+          duration: expect.any(Number),
+        },
       });
     });
 
@@ -440,8 +447,8 @@ describe('RefreshToken Mutation Integration', () => {
       const context = {
         req: {
           headers: { 'x-request-id': 'req-999' },
-          ip: '192.168.1.4'
-        }
+          ip: '192.168.1.4',
+        },
       };
 
       const infrastructureError = new InfrastructureError('Database connection failed');
@@ -452,16 +459,16 @@ describe('RefreshToken Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `refresh-token-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         try {
           await mockRefreshTokenUseCase.execute({
             refreshToken,
             userAgent: 'unknown',
-            ipAddress: context?.req?.ip || 'unknown'
+            ipAddress: context?.req?.ip || 'unknown',
           });
         } catch (error: any) {
           const duration = Date.now() - startTime;
-          
+
           mockLogger.error('RefreshToken resolver error', error, {
             operation: 'refreshToken',
             requestId,
@@ -469,14 +476,14 @@ describe('RefreshToken Mutation Integration', () => {
             duration,
             errorDetails: {
               message: error.message,
-              type: error.constructor.name
+              type: error.constructor.name,
             },
             context: {
               userAgent: 'unknown',
-              ipAddress: context?.req?.ip || 'unknown'
-            }
+              ipAddress: context?.req?.ip || 'unknown',
+            },
           });
-          
+
           return {
             success: false,
             message: error.message,
@@ -486,8 +493,8 @@ describe('RefreshToken Mutation Integration', () => {
             metadata: {
               requestId,
               traceId,
-              duration
-            }
+              duration,
+            },
           };
         }
       };
@@ -505,8 +512,8 @@ describe('RefreshToken Mutation Integration', () => {
         metadata: {
           requestId: 'req-999',
           traceId: expect.stringMatching(/refresh-token-\d+/),
-          duration: expect.any(Number)
-        }
+          duration: expect.any(Number),
+        },
       });
     });
   });
@@ -518,13 +525,13 @@ describe('RefreshToken Mutation Integration', () => {
       const context = {
         req: {
           headers: { 'x-request-id': 'req-perf' },
-          ip: '192.168.1.5'
-        }
+          ip: '192.168.1.5',
+        },
       };
 
       // Simular delay en el use case
       mockRefreshTokenUseCase.execute.mockImplementation(async () => {
-        await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay
+        await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms delay
         return mockAuthResult;
       });
 
@@ -533,85 +540,15 @@ describe('RefreshToken Mutation Integration', () => {
         const startTime = Date.now();
         const traceId = `refresh-token-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
+
         const result = await mockRefreshTokenUseCase.execute({
           refreshToken,
           userAgent: 'unknown',
-          ipAddress: context?.req?.ip || 'unknown'
+          ipAddress: context?.req?.ip || 'unknown',
         });
 
         const duration = Date.now() - startTime;
-        
-        mockLogger.info('RefreshToken resolver success', {
-          operation: 'refreshToken',
-          requestId,
-          traceId,
-          duration,
-          userId: result.user?.id,
-          provider: result.provider,
-          isNewUser: result.isNewUser
-        });
 
-        return {
-          success: true,
-          message: 'Token refreshed successfully',
-          code: 'SUCCESS',
-          timestamp: expect.any(String),
-          data: {
-            user: result.user,
-            accessToken: result.tokens.accessToken,
-            refreshToken: result.tokens.refreshToken
-          },
-          metadata: {
-            requestId,
-            traceId,
-            duration
-          }
-        };
-      };
-
-      // Act
-      const result = await resolver();
-
-      // Assert
-      expect(result.metadata.duration).toBeGreaterThanOrEqual(50);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'RefreshToken resolver success',
-        expect.objectContaining({
-          duration: expect.any(Number)
-        })
-      );
-    });
-
-    it('should include all required metadata in logs', async () => {
-      // Arrange
-      const refreshToken = 'metadata-test-token';
-      const context = {
-        req: {
-          headers: {
-            'x-request-id': 'req-metadata',
-            'user-agent': 'TestAgent/1.0'
-          },
-          ip: '192.168.1.6'
-        }
-      };
-
-      mockRefreshTokenUseCase.execute.mockResolvedValue(mockAuthResult);
-
-      // Simular resolver con logging completo
-      const resolver = async () => {
-        const startTime = Date.now();
-        const traceId = `refresh-token-${Date.now()}`;
-        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        
-        const result = await mockRefreshTokenUseCase.execute({
-          refreshToken,
-          userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-          ipAddress: context?.req?.ip || 'unknown'
-        });
-
-        const duration = Date.now() - startTime;
-        
         mockLogger.info('RefreshToken resolver success', {
           operation: 'refreshToken',
           requestId,
@@ -620,10 +557,6 @@ describe('RefreshToken Mutation Integration', () => {
           userId: result.user?.id,
           provider: result.provider,
           isNewUser: result.isNewUser,
-          context: {
-            userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
-            ipAddress: context?.req?.ip || 'unknown'
-          }
         });
 
         return {
@@ -635,13 +568,87 @@ describe('RefreshToken Mutation Integration', () => {
             user: result.user,
             accessToken: result.tokens.accessToken,
             refreshToken: result.tokens.refreshToken,
-            session: result.session
           },
           metadata: {
             requestId,
             traceId,
-            duration
-          }
+            duration,
+          },
+        };
+      };
+
+      // Act
+      const result = await resolver();
+
+      // Assert
+      expect(result.metadata.duration).toBeGreaterThanOrEqual(50);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'RefreshToken resolver success',
+        expect.objectContaining({
+          duration: expect.any(Number),
+        }),
+      );
+    });
+
+    it('should include all required metadata in logs', async () => {
+      // Arrange
+      const refreshToken = 'metadata-test-token';
+      const context = {
+        req: {
+          headers: {
+            'x-request-id': 'req-metadata',
+            'user-agent': 'TestAgent/1.0',
+          },
+          ip: '192.168.1.6',
+        },
+      };
+
+      mockRefreshTokenUseCase.execute.mockResolvedValue(mockAuthResult);
+
+      // Simular resolver con logging completo
+      const resolver = async () => {
+        const startTime = Date.now();
+        const traceId = `refresh-token-${Date.now()}`;
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+
+        const result = await mockRefreshTokenUseCase.execute({
+          refreshToken,
+          userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+          ipAddress: context?.req?.ip || 'unknown',
+        });
+
+        const duration = Date.now() - startTime;
+
+        mockLogger.info('RefreshToken resolver success', {
+          operation: 'refreshToken',
+          requestId,
+          traceId,
+          duration,
+          userId: result.user?.id,
+          provider: result.provider,
+          isNewUser: result.isNewUser,
+          context: {
+            userAgent: context?.req?.headers?.['user-agent'] || 'unknown',
+            ipAddress: context?.req?.ip || 'unknown',
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Token refreshed successfully',
+          code: 'SUCCESS',
+          timestamp: expect.any(String),
+          data: {
+            user: result.user,
+            accessToken: result.tokens.accessToken,
+            refreshToken: result.tokens.refreshToken,
+            session: result.session,
+          },
+          metadata: {
+            requestId,
+            traceId,
+            duration,
+          },
         };
       };
 
@@ -661,9 +668,9 @@ describe('RefreshToken Mutation Integration', () => {
           isNewUser: false,
           context: {
             userAgent: 'TestAgent/1.0',
-            ipAddress: '192.168.1.6'
-          }
-        })
+            ipAddress: '192.168.1.6',
+          },
+        }),
       );
     });
   });

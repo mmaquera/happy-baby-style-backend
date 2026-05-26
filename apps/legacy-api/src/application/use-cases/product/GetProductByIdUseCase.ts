@@ -6,9 +6,7 @@ export interface GetProductByIdRequest {
 }
 
 export class GetProductByIdUseCase {
-  constructor(
-    private readonly productRepository: IProductRepository
-  ) {}
+  constructor(private readonly productRepository: IProductRepository) {}
 
   async execute(request: GetProductByIdRequest): Promise<ProductEntity | null> {
     if (!request.id) {
@@ -17,4 +15,4 @@ export class GetProductByIdUseCase {
 
     return await this.productRepository.findById(request.id);
   }
-} 
+}

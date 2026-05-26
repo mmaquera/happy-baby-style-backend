@@ -1,4 +1,10 @@
-import { Order, CreateOrderRequest, UpdateOrderRequest, OrderItem, ShippingAddress } from '../entities/Order';
+import {
+  Order,
+  CreateOrderRequest,
+  UpdateOrderRequest,
+  OrderItem,
+  ShippingAddress,
+} from '../entities/Order';
 
 export interface IOrderRepository {
   create(orderData: CreateOrderRequest, total: number, userId?: string): Promise<Order>;
@@ -9,7 +15,10 @@ export interface IOrderRepository {
   findByStatus(status: string): Promise<Order[]>;
   findByCustomerEmail(email: string): Promise<Order[]>;
   updateStatus(id: string, status: string): Promise<Order>;
-  addOrderItem(orderId: string, item: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>): Promise<OrderItem>;
+  addOrderItem(
+    orderId: string,
+    item: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>,
+  ): Promise<OrderItem>;
   removeOrderItem(orderId: string, itemId: string): Promise<boolean>;
   getOrderItems(orderId: string): Promise<OrderItem[]>;
   createShippingAddress(addressData: Omit<ShippingAddress, 'id'>): Promise<ShippingAddress>;

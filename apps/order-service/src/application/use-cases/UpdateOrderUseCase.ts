@@ -24,7 +24,7 @@ export class UpdateOrderUseCase {
       processing: ['shipped', 'cancelled'],
       shipped: ['delivered'],
       delivered: [],
-      cancelled: []
+      cancelled: [],
     };
 
     if (!(valid[current] || []).includes(next)) {

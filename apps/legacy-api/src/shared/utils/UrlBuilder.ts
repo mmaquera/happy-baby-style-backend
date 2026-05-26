@@ -17,12 +17,12 @@ export class UrlBuilder {
 
     // Remove leading slash if present to avoid double slashes
     const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
-    
+
     // Ensure baseUrl doesn't end with slash to avoid double slashes
-    const cleanBaseUrl = storageConfig.baseUrl.endsWith('/') 
-      ? storageConfig.baseUrl.slice(0, -1) 
+    const cleanBaseUrl = storageConfig.baseUrl.endsWith('/')
+      ? storageConfig.baseUrl.slice(0, -1)
       : storageConfig.baseUrl;
-    
+
     return `${cleanBaseUrl}/${cleanPath}`;
   }
 
@@ -65,11 +65,3 @@ export class UrlBuilder {
     return this.buildPublicUrl(url);
   }
 }
-
-
-
-
-
-
-
-

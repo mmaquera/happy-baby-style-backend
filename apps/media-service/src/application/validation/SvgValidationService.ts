@@ -1,4 +1,8 @@
-import { ValidationError, RequiredFieldError, InvalidFormatError } from '../../domain/errors/DomainError';
+import {
+  ValidationError,
+  RequiredFieldError,
+  InvalidFormatError,
+} from '../../domain/errors/DomainError';
 import { SvgEntityType } from '../../domain/entities/Svg';
 
 export interface SvgValidationRule {
@@ -8,10 +12,7 @@ export interface SvgValidationRule {
 }
 
 export class SvgValidationService {
-  private static readonly SVG_MIME_TYPES = [
-    'image/svg+xml',
-    'application/svg+xml'
-  ];
+  private static readonly SVG_MIME_TYPES = ['image/svg+xml', 'application/svg+xml'];
 
   private static readonly MAX_SVG_SIZE = 2 * 1024 * 1024; // 2MB
   private static readonly MIN_SVG_SIZE = 10; // 10 bytes
@@ -36,12 +37,14 @@ export class SvgValidationService {
 
     if (!Object.values(SvgEntityType).includes(request.entityType)) {
       throw new InvalidFormatError(
-        `Invalid entity type: ${request.entityType}. Must be one of: ${Object.values(SvgEntityType).join(', ')}`
+        `Invalid entity type: ${request.entityType}. Must be one of: ${Object.values(SvgEntityType).join(', ')}`,
       );
     }
 
     if (!/^[a-zA-Z0-9-_]+$/.test(request.entityId)) {
-      throw new InvalidFormatError('Entity ID must contain only alphanumeric characters, hyphens, and underscores');
+      throw new InvalidFormatError(
+        'Entity ID must contain only alphanumeric characters, hyphens, and underscores',
+      );
     }
 
     this.validateSvgFileBasic(request.file);
@@ -56,14 +59,14 @@ export class SvgValidationService {
 
     if (!this.SVG_MIME_TYPES.includes(fileInfo.mimetype)) {
       throw new InvalidFormatError(
-        `Invalid MIME type: ${fileInfo.mimetype}. SVG files must be ${this.SVG_MIME_TYPES.join(' or ')}`
+        `Invalid MIME type: ${fileInfo.mimetype}. SVG files must be ${this.SVG_MIME_TYPES.join(' or ')}`,
       );
     }
 
     const extension = this.getFileExtension(fileInfo.filename);
     if (!this.ALLOWED_EXTENSIONS.includes(extension.toLowerCase())) {
       throw new InvalidFormatError(
-        `Invalid file extension: ${extension}. SVG files must have .svg extension`
+        `Invalid file extension: ${extension}. SVG files must have .svg extension`,
       );
     }
 
@@ -89,19 +92,21 @@ export class SvgValidationService {
     }
 
     if (actualSize > this.MAX_SVG_SIZE) {
-      throw new InvalidFormatError(`SVG file is too large (maximum ${this.MAX_SVG_SIZE / (1024 * 1024)}MB)`);
+      throw new InvalidFormatError(
+        `SVG file is too large (maximum ${this.MAX_SVG_SIZE / (1024 * 1024)}MB)`,
+      );
     }
 
     if (!this.SVG_MIME_TYPES.includes(fileInfo.mimetype)) {
       throw new InvalidFormatError(
-        `Invalid MIME type: ${fileInfo.mimetype}. SVG files must be ${this.SVG_MIME_TYPES.join(' or ')}`
+        `Invalid MIME type: ${fileInfo.mimetype}. SVG files must be ${this.SVG_MIME_TYPES.join(' or ')}`,
       );
     }
 
     const extension = this.getFileExtension(fileInfo.filename);
     if (!this.ALLOWED_EXTENSIONS.includes(extension.toLowerCase())) {
       throw new InvalidFormatError(
-        `Invalid file extension: ${extension}. SVG files must have .svg extension`
+        `Invalid file extension: ${extension}. SVG files must have .svg extension`,
       );
     }
 
@@ -114,7 +119,9 @@ export class SvgValidationService {
     }
 
     if (!/^[a-zA-Z0-9._-]+$/.test(fileInfo.filename)) {
-      throw new InvalidFormatError('SVG filename contains invalid characters. Only alphanumeric, dots, hyphens, and underscores are allowed');
+      throw new InvalidFormatError(
+        'SVG filename contains invalid characters. Only alphanumeric, dots, hyphens, and underscores are allowed',
+      );
     }
   }
 
@@ -145,14 +152,32 @@ export class SvgValidationService {
 
   private static validateSvgSecurity(svgContent: string): void {
     const securityChecks = [
-      { pattern: /<script/i, message: 'SVG content cannot contain <script> tags for security reasons' },
-      { pattern: /javascript:/i, message: 'SVG content cannot contain javascript: URLs for security reasons' },
-      { pattern: /on\w+\s*=/i, message: 'SVG content cannot contain event handlers (on*) for security reasons' },
-      { pattern: /<iframe/i, message: 'SVG content cannot contain <iframe> tags for security reasons' },
-      { pattern: /<object/i, message: 'SVG content cannot contain <object> tags for security reasons' },
-      { pattern: /<embed/i, message: 'SVG content cannot contain <embed> tags for security reasons' },
+      {
+        pattern: /<script/i,
+        message: 'SVG content cannot contain <script> tags for security reasons',
+      },
+      {
+        pattern: /javascript:/i,
+        message: 'SVG content cannot contain javascript: URLs for security reasons',
+      },
+      {
+        pattern: /on\w+\s*=/i,
+        message: 'SVG content cannot contain event handlers (on*) for security reasons',
+      },
+      {
+        pattern: /<iframe/i,
+        message: 'SVG content cannot contain <iframe> tags for security reasons',
+      },
+      {
+        pattern: /<object/i,
+        message: 'SVG content cannot contain <object> tags for security reasons',
+      },
+      {
+        pattern: /<embed/i,
+        message: 'SVG content cannot contain <embed> tags for security reasons',
+      },
       { pattern: /<link/i, message: 'SVG content cannot contain <link> tags for security reasons' },
-      { pattern: /<meta/i, message: 'SVG content cannot contain <meta> tags for security reasons' }
+      { pattern: /<meta/i, message: 'SVG content cannot contain <meta> tags for security reasons' },
     ];
 
     for (const check of securityChecks) {
@@ -214,7 +239,9 @@ export class SvgValidationService {
     const viewBoxPattern = /^-?\d+(\.\d+)?\s+-?\d+(\.\d+)?\s+\d+(\.\d+)?\s+\d+(\.\d+)?$/;
 
     if (!viewBoxPattern.test(viewBox.trim())) {
-      throw new InvalidFormatError('SVG viewBox must be in format "x y width height" with numeric values');
+      throw new InvalidFormatError(
+        'SVG viewBox must be in format "x y width height" with numeric values',
+      );
     }
 
     const values = viewBox.trim().split(/\s+/).map(Number);
@@ -247,7 +274,7 @@ export class SvgValidationService {
       mimetype,
       size: file?.file?.size || file?.size || 0,
       encoding: file?.file?.encoding || file?.encoding || 'unknown',
-      buffer: file?.file?.buffer || file?.buffer
+      buffer: file?.file?.buffer || file?.buffer,
     };
   }
 
@@ -265,7 +292,7 @@ export class SvgValidationService {
     sanitized = sanitized.replace(/javascript:[^"'\s]*/gi, '');
 
     const dangerousTags = ['iframe', 'object', 'embed', 'link', 'meta'];
-    dangerousTags.forEach(tag => {
+    dangerousTags.forEach((tag) => {
       const regex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
       sanitized = sanitized.replace(regex, '');
     });

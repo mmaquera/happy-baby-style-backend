@@ -37,7 +37,7 @@ export const DEFAULT_LOGGER_CONFIG: LoggerConfig = {
   includeRequestId: true,
   includeUserId: true,
   enableErrorStack: true,
-  enablePerformanceLogging: true
+  enablePerformanceLogging: true,
 };
 
 /**
@@ -63,7 +63,7 @@ export class LoggerConfigManager {
    */
   private loadConfig(): LoggerConfig {
     const env = process.env;
-    
+
     return {
       level: (env.LOG_LEVEL as LogLevel) || DEFAULT_LOGGER_CONFIG.level,
       enableConsole: env.LOG_ENABLE_CONSOLE !== 'false',
@@ -78,7 +78,7 @@ export class LoggerConfigManager {
       includeRequestId: env.LOG_INCLUDE_REQUEST_ID !== 'false',
       includeUserId: env.LOG_INCLUDE_USER_ID !== 'false',
       enableErrorStack: env.LOG_ENABLE_ERROR_STACK !== 'false',
-      enablePerformanceLogging: env.LOG_ENABLE_PERFORMANCE !== 'false'
+      enablePerformanceLogging: env.LOG_ENABLE_PERFORMANCE !== 'false',
     };
   }
 
@@ -144,4 +144,4 @@ export class LoggerConfigManager {
   getLogFormat(): 'json' | 'simple' {
     return this.config.format;
   }
-} 
+}

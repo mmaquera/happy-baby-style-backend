@@ -23,7 +23,7 @@ export function transformCategory(category: CategoryEntity): GraphQLCategory {
     isActive: category.isActive,
     sortOrder: category.sortOrder,
     createdAt: category.createdAt.toISOString(),
-    updatedAt: category.updatedAt.toISOString()
+    updatedAt: category.updatedAt.toISOString(),
   };
 }
 

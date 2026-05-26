@@ -12,7 +12,9 @@ export class GetOrderByIdUseCase {
 
       return await this.orderRepository.findById(id);
     } catch (error) {
-      throw new Error(`Failed to get order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get order: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
-} 
+}

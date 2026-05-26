@@ -2,7 +2,12 @@ import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { UserAddress } from '../../../domain/entities/User';
 import { ILogger } from '@hbs/logging';
 import { LoggerFactory } from '@hbs/logging';
-import { DomainError, ValidationError, NotFoundError, InfrastructureError } from '../../../domain/errors/DomainError';
+import {
+  DomainError,
+  ValidationError,
+  NotFoundError,
+  InfrastructureError,
+} from '../../../domain/errors/DomainError';
 
 export class GetUserAddressByIdUseCase {
   private readonly logger: ILogger;
@@ -13,10 +18,10 @@ export class GetUserAddressByIdUseCase {
 
   async execute(id: string): Promise<UserAddress> {
     const traceId = `get-address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     this.logger.info('Starting address retrieval by ID', {
       traceId,
-      addressId: id
+      addressId: id,
     });
 
     try {
@@ -25,7 +30,7 @@ export class GetUserAddressByIdUseCase {
 
       // Get the address
       const address = await this.userRepository.getUserAddressById(id);
-      
+
       if (!address) {
         throw new NotFoundError('Address not found', 'ADDRESS_NOT_FOUND');
       }
@@ -33,22 +38,28 @@ export class GetUserAddressByIdUseCase {
       this.logger.info('Address retrieved successfully', {
         traceId,
         addressId: id,
-        userId: address.userId
+        userId: address.userId,
       });
 
       return address;
-
     } catch (error) {
-      this.logger.error('Error retrieving address', error instanceof Error ? error : new Error(String(error)), {
-        traceId,
-        addressId: id
-      });
+      this.logger.error(
+        'Error retrieving address',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          traceId,
+          addressId: id,
+        },
+      );
 
       if (error instanceof DomainError) {
         throw error;
       }
 
-      throw new InfrastructureError('Failed to retrieve address', error instanceof Error ? error : undefined);
+      throw new InfrastructureError(
+        'Failed to retrieve address',
+        error instanceof Error ? error : undefined,
+      );
     }
   }
 

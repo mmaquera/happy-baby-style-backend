@@ -1,4 +1,8 @@
-import { GetCategoriesUseCase, GetCategoriesRequest, GetCategoriesResponse } from '@application/use-cases/category/GetCategoriesUseCase';
+import {
+  GetCategoriesUseCase,
+  GetCategoriesRequest,
+  GetCategoriesResponse,
+} from '@application/use-cases/category/GetCategoriesUseCase';
 import { ICategoryRepository, CategoryFilters } from '@domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '@domain/entities/Product';
 
@@ -12,7 +16,7 @@ const mockCategoryRepository: jest.Mocked<ICategoryRepository> = {
   update: jest.fn(),
   delete: jest.fn(),
   findActive: jest.fn(),
-  updateSortOrder: jest.fn()
+  updateSortOrder: jest.fn(),
 };
 
 // Mock del logger
@@ -23,17 +27,19 @@ jest.mock('@hbs/logging', () => ({
         info: jest.fn(),
         debug: jest.fn(),
         error: jest.fn(),
-        warn: jest.fn()
-      })
-    })
-  }
+        warn: jest.fn(),
+      }),
+    }),
+  },
 }));
 
 // Mock del decorador
 jest.mock('@hbs/logging', () => ({
   LoggingDecorator: {
-    logUseCase: jest.fn(() => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => descriptor)
-  }
+    logUseCase: jest.fn(
+      () => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => descriptor,
+    ),
+  },
 }));
 
 describe('GetCategoriesUseCase', () => {
@@ -55,7 +61,7 @@ describe('GetCategoriesUseCase', () => {
         true,
         1,
         new Date('2024-01-01'),
-        new Date('2024-01-01')
+        new Date('2024-01-01'),
       ),
       new CategoryEntity(
         'cat-2',
@@ -66,8 +72,8 @@ describe('GetCategoriesUseCase', () => {
         true,
         2,
         new Date('2024-01-01'),
-        new Date('2024-01-01')
-      )
+        new Date('2024-01-01'),
+      ),
     ];
   });
 
@@ -84,20 +90,20 @@ describe('GetCategoriesUseCase', () => {
       expect(result).toEqual({
         categories: mockCategories,
         total: 2,
-        hasMore: false
+        hasMore: false,
       });
       expect(mockCategoryRepository.findAll).toHaveBeenCalledWith({
         isActive: undefined,
         search: undefined,
         limit: 50,
-        offset: 0
+        offset: 0,
       });
     });
 
     it('should return categories with custom pagination', async () => {
       // Arrange
       const request: GetCategoriesRequest = {
-        pagination: { limit: 5, offset: 10 }
+        pagination: { limit: 5, offset: 10 },
       };
       mockCategoryRepository.findAll.mockResolvedValue(mockCategories);
 
@@ -108,13 +114,13 @@ describe('GetCategoriesUseCase', () => {
       expect(result).toEqual({
         categories: mockCategories,
         total: 12,
-        hasMore: false
+        hasMore: false,
       });
       expect(mockCategoryRepository.findAll).toHaveBeenCalledWith({
         isActive: undefined,
         search: undefined,
         limit: 5,
-        offset: 10
+        offset: 10,
       });
     });
 
@@ -122,7 +128,7 @@ describe('GetCategoriesUseCase', () => {
       // Arrange
       const request: GetCategoriesRequest = {
         filters: { isActive: true, search: 'baby' },
-        pagination: { limit: 10, offset: 0 }
+        pagination: { limit: 10, offset: 0 },
       };
       mockCategoryRepository.findAll.mockResolvedValue(mockCategories);
 
@@ -133,13 +139,13 @@ describe('GetCategoriesUseCase', () => {
       expect(result).toEqual({
         categories: mockCategories,
         total: 2,
-        hasMore: false
+        hasMore: false,
       });
       expect(mockCategoryRepository.findAll).toHaveBeenCalledWith({
         isActive: true,
         search: 'baby',
         limit: 10,
-        offset: 0
+        offset: 0,
       });
     });
 
@@ -147,7 +153,7 @@ describe('GetCategoriesUseCase', () => {
       // Arrange
       const request: GetCategoriesRequest = {
         filters: { search: '  baby  ' },
-        pagination: { limit: 10, offset: 0 }
+        pagination: { limit: 10, offset: 0 },
       };
       mockCategoryRepository.findAll.mockResolvedValue(mockCategories);
 
@@ -159,14 +165,14 @@ describe('GetCategoriesUseCase', () => {
         isActive: undefined,
         search: 'baby',
         limit: 10,
-        offset: 0
+        offset: 0,
       });
     });
 
     it('should indicate hasMore when results match limit', async () => {
       // Arrange
       const request: GetCategoriesRequest = {
-        pagination: { limit: 2, offset: 0 }
+        pagination: { limit: 2, offset: 0 },
       };
       mockCategoryRepository.findAll.mockResolvedValue(mockCategories);
 
@@ -190,7 +196,7 @@ describe('GetCategoriesUseCase', () => {
       expect(result).toEqual({
         categories: [],
         total: 0,
-        hasMore: false
+        hasMore: false,
       });
     });
 
@@ -206,14 +212,14 @@ describe('GetCategoriesUseCase', () => {
         isActive: undefined,
         search: undefined,
         limit: 50,
-        offset: 0
+        offset: 0,
       });
     });
 
     it('should handle large pagination limits', async () => {
       // Arrange
       const request: GetCategoriesRequest = {
-        pagination: { limit: 1000, offset: 0 }
+        pagination: { limit: 1000, offset: 0 },
       };
       mockCategoryRepository.findAll.mockResolvedValue(mockCategories);
 
@@ -225,14 +231,14 @@ describe('GetCategoriesUseCase', () => {
         isActive: undefined,
         search: undefined,
         limit: 1000,
-        offset: 0
+        offset: 0,
       });
     });
 
     it('should handle negative offset', async () => {
       // Arrange
       const request: GetCategoriesRequest = {
-        pagination: { limit: 10, offset: -5 }
+        pagination: { limit: 10, offset: -5 },
       };
       mockCategoryRepository.findAll.mockResolvedValue(mockCategories);
 
@@ -244,7 +250,7 @@ describe('GetCategoriesUseCase', () => {
         isActive: undefined,
         search: undefined,
         limit: 10,
-        offset: -5
+        offset: -5,
       });
     });
   });

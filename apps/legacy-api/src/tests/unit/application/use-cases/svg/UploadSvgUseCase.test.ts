@@ -2,7 +2,11 @@ import { UploadSvgUseCase } from '@application/use-cases/svg/UploadSvgUseCase';
 import { ISvgRepository } from '@domain/repositories/ISvgRepository';
 import { IStorageService } from '@domain/interfaces/IStorageService';
 import { SvgEntity, SvgEntityType } from '@domain/entities/Svg';
-import { ValidationError, RequiredFieldError, InvalidFormatError } from '@domain/errors/DomainError';
+import {
+  ValidationError,
+  RequiredFieldError,
+  InvalidFormatError,
+} from '@domain/errors/DomainError';
 
 // Mock implementations
 const mockSvgRepository: jest.Mocked<ISvgRepository> = {
@@ -14,14 +18,14 @@ const mockSvgRepository: jest.Mocked<ISvgRepository> = {
   delete: jest.fn(),
   findAll: jest.fn(),
   count: jest.fn(),
-  findByEntityType: jest.fn()
+  findByEntityType: jest.fn(),
 };
 
 const mockStorageService: jest.Mocked<IStorageService> = {
   uploadFile: jest.fn(),
   deleteFile: jest.fn(),
   getPublicUrl: jest.fn(),
-  validateFile: jest.fn()
+  validateFile: jest.fn(),
 };
 
 describe('UploadSvgUseCase', () => {
@@ -54,9 +58,9 @@ describe('UploadSvgUseCase', () => {
             if (event === 'end') {
               callback();
             }
-          })
-        })
-      }
+          }),
+        }),
+      },
     };
 
     const mockSvgEntity = SvgEntity.create({
@@ -71,12 +75,14 @@ describe('UploadSvgUseCase', () => {
       entityId: 'test-123',
       dimensions: { width: 100, height: 100 },
       viewBox: '0 0 100 100',
-      optimized: true
+      optimized: true,
     });
 
     it('should successfully upload a valid SVG file', async () => {
       // Arrange
-      mockStorageService.uploadFile.mockResolvedValue('http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg');
+      mockStorageService.uploadFile.mockResolvedValue(
+        'http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg',
+      );
       mockSvgRepository.create.mockResolvedValue(mockSvgEntity);
 
       const request = {
@@ -84,7 +90,7 @@ describe('UploadSvgUseCase', () => {
         entityType: SvgEntityType.PRODUCT,
         entityId: 'test-123',
         optimize: true,
-        sanitize: true
+        sanitize: true,
       };
 
       // Act
@@ -96,7 +102,7 @@ describe('UploadSvgUseCase', () => {
         expect.any(Buffer),
         expect.stringMatching(/product_test-123_\d+\.svg/),
         'image/svg+xml',
-        'products/test-123'
+        'products/test-123',
       );
       expect(mockSvgRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -107,8 +113,8 @@ describe('UploadSvgUseCase', () => {
           entityId: 'test-123',
           dimensions: { width: 100, height: 100 },
           viewBox: '0 0 100 100',
-          optimized: true
-        })
+          optimized: true,
+        }),
       );
     });
 
@@ -117,7 +123,7 @@ describe('UploadSvgUseCase', () => {
       const request = {
         file: null,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
@@ -131,7 +137,7 @@ describe('UploadSvgUseCase', () => {
       const request = {
         file: mockFile,
         entityType: null as any,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
@@ -145,7 +151,7 @@ describe('UploadSvgUseCase', () => {
       const request = {
         file: mockFile,
         entityType: SvgEntityType.PRODUCT,
-        entityId: ''
+        entityId: '',
       };
 
       // Act & Assert
@@ -160,14 +166,14 @@ describe('UploadSvgUseCase', () => {
         ...mockFile,
         file: {
           ...mockFile.file,
-          mimetype: 'image/png'
-        }
+          mimetype: 'image/png',
+        },
       };
 
       const request = {
         file: invalidFile,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
@@ -182,14 +188,14 @@ describe('UploadSvgUseCase', () => {
         ...mockFile,
         file: {
           ...mockFile.file,
-          size: 3 * 1024 * 1024 // 3MB, exceeds 2MB limit
-        }
+          size: 3 * 1024 * 1024, // 3MB, exceeds 2MB limit
+        },
       };
 
       const request = {
         file: largeFile,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
@@ -214,15 +220,15 @@ describe('UploadSvgUseCase', () => {
               if (event === 'end') {
                 callback();
               }
-            })
-          })
-        }
+            }),
+          }),
+        },
       };
 
       const request = {
         file: invalidFile,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
@@ -252,15 +258,15 @@ describe('UploadSvgUseCase', () => {
               if (event === 'end') {
                 callback();
               }
-            })
-          })
-        }
+            }),
+          }),
+        },
       };
 
       const request = {
         file: maliciousFile,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
@@ -276,23 +282,27 @@ describe('UploadSvgUseCase', () => {
       const request = {
         file: mockFile,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
-      await expect(uploadSvgUseCase.execute(request)).rejects.toThrow('Storage service unavailable');
+      await expect(uploadSvgUseCase.execute(request)).rejects.toThrow(
+        'Storage service unavailable',
+      );
       expect(mockSvgRepository.create).not.toHaveBeenCalled();
     });
 
     it('should handle repository failure', async () => {
       // Arrange
-      mockStorageService.uploadFile.mockResolvedValue('http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg');
+      mockStorageService.uploadFile.mockResolvedValue(
+        'http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg',
+      );
       mockSvgRepository.create.mockRejectedValue(new Error('Database error'));
 
       const request = {
         file: mockFile,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act & Assert
@@ -301,17 +311,19 @@ describe('UploadSvgUseCase', () => {
 
     it('should work with different entity types', async () => {
       // Arrange
-      mockStorageService.uploadFile.mockResolvedValue('http://localhost:3000/uploads/users/test-user/user_test-user_1234567890.svg');
+      mockStorageService.uploadFile.mockResolvedValue(
+        'http://localhost:3000/uploads/users/test-user/user_test-user_1234567890.svg',
+      );
       mockSvgRepository.create.mockResolvedValue({
         ...mockSvgEntity,
         entityType: SvgEntityType.USER,
-        entityId: 'test-user'
+        entityId: 'test-user',
       } as SvgEntity);
 
       const request = {
         file: mockFile,
         entityType: SvgEntityType.USER,
-        entityId: 'test-user'
+        entityId: 'test-user',
       };
 
       // Act
@@ -324,7 +336,7 @@ describe('UploadSvgUseCase', () => {
         expect.any(Buffer),
         expect.stringMatching(/user_test-user_\d+\.svg/),
         'image/svg+xml',
-        'users/test-user'
+        'users/test-user',
       );
     });
 
@@ -348,21 +360,23 @@ describe('UploadSvgUseCase', () => {
               if (event === 'end') {
                 callback();
               }
-            })
-          })
-        }
+            }),
+          }),
+        },
       };
 
-      mockStorageService.uploadFile.mockResolvedValue('http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg');
+      mockStorageService.uploadFile.mockResolvedValue(
+        'http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg',
+      );
       mockSvgRepository.create.mockResolvedValue({
         ...mockSvgEntity,
-        dimensions: undefined
+        dimensions: undefined,
       } as SvgEntity);
 
       const request = {
         file: fileWithoutDimensions,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act
@@ -375,10 +389,12 @@ describe('UploadSvgUseCase', () => {
 
     it('should respect optimize and sanitize parameters', async () => {
       // Arrange
-      mockStorageService.uploadFile.mockResolvedValue('http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg');
+      mockStorageService.uploadFile.mockResolvedValue(
+        'http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg',
+      );
       mockSvgRepository.create.mockResolvedValue({
         ...mockSvgEntity,
-        optimized: false
+        optimized: false,
       } as SvgEntity);
 
       const request = {
@@ -386,7 +402,7 @@ describe('UploadSvgUseCase', () => {
         entityType: SvgEntityType.PRODUCT,
         entityId: 'test-123',
         optimize: false,
-        sanitize: false
+        sanitize: false,
       };
 
       // Act
@@ -404,16 +420,18 @@ describe('UploadSvgUseCase', () => {
         buffer: Buffer.from(validSvgContent, 'utf8'),
         filename: 'test.svg',
         mimetype: 'image/svg+xml',
-        size: 200
+        size: 200,
       };
 
-      mockStorageService.uploadFile.mockResolvedValue('http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg');
+      mockStorageService.uploadFile.mockResolvedValue(
+        'http://localhost:3000/uploads/products/test-123/product_test-123_1234567890.svg',
+      );
       mockSvgRepository.create.mockResolvedValue(mockSvgEntity);
 
       const request = {
         file: fileWithBuffer,
         entityType: SvgEntityType.PRODUCT,
-        entityId: 'test-123'
+        entityId: 'test-123',
       };
 
       // Act

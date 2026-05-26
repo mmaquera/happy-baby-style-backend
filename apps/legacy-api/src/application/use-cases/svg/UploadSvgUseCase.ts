@@ -6,7 +6,11 @@ import { LoggerFactory } from '@hbs/logging';
 import { LoggingDecorator } from '@hbs/logging';
 import { PerformanceLogger } from '@hbs/logging';
 import { SvgValidationService } from '@application/validation/SvgValidationService';
-import { ValidationError, RequiredFieldError, InvalidFormatError } from '@domain/errors/DomainError';
+import {
+  ValidationError,
+  RequiredFieldError,
+  InvalidFormatError,
+} from '@domain/errors/DomainError';
 import { storageConfig } from '@config/storage';
 
 export interface UploadSvgRequest {
@@ -23,7 +27,7 @@ export class UploadSvgUseCase {
 
   constructor(
     private readonly svgRepository: ISvgRepository,
-    private readonly storageService: IStorageService
+    private readonly storageService: IStorageService,
   ) {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('UploadSvgUseCase');
     this.performanceLogger = new PerformanceLogger();
@@ -33,105 +37,145 @@ export class UploadSvgUseCase {
     includeArgs: true,
     includeResult: true,
     includeDuration: true,
-    context: { useCase: 'UploadSvg' }
+    context: { useCase: 'UploadSvg' },
   })
   async execute(request: UploadSvgRequest): Promise<SvgEntity> {
     const { file, entityType, entityId, optimize = true, sanitize = true } = request;
     const traceId = `upload-svg-${Date.now()}-${entityId}`;
 
-    this.logger.info('Starting SVG upload process', {
-      entityType,
-      entityId,
-      optimize,
-      sanitize,
-      context: 'UploadSvgUseCase.execute'
-    }, traceId);
+    this.logger.info(
+      'Starting SVG upload process',
+      {
+        entityType,
+        entityId,
+        optimize,
+        sanitize,
+        context: 'UploadSvgUseCase.execute',
+      },
+      traceId,
+    );
 
     // Extract file information
     const fileInfo = this.extractFileInfo(file);
 
-    this.logger.debug('File information extracted', {
-      fileName: fileInfo.filename,
-      fileSize: fileInfo.size,
-      mimeType: fileInfo.mimetype,
-      encoding: fileInfo.encoding,
-      context: 'UploadSvgUseCase.extractFileInfo'
-    }, traceId);
+    this.logger.debug(
+      'File information extracted',
+      {
+        fileName: fileInfo.filename,
+        fileSize: fileInfo.size,
+        mimeType: fileInfo.mimetype,
+        encoding: fileInfo.encoding,
+        context: 'UploadSvgUseCase.extractFileInfo',
+      },
+      traceId,
+    );
 
     // Start performance measurement
     const operationId = this.performanceLogger.startTimer('uploadSvgProcess', {
       entityType,
       entityId,
       fileSize: fileInfo.size,
-      mimeType: fileInfo.mimetype
+      mimeType: fileInfo.mimetype,
     });
 
     try {
       // Validate upload request
-      this.logger.debug('Validating SVG upload request', {
-        fileName: fileInfo.filename,
-        fileSize: fileInfo.size,
-        mimeType: fileInfo.mimetype,
-        encoding: fileInfo.encoding,
-        context: 'UploadSvgUseCase.validateRequest'
-      }, traceId);
+      this.logger.debug(
+        'Validating SVG upload request',
+        {
+          fileName: fileInfo.filename,
+          fileSize: fileInfo.size,
+          mimeType: fileInfo.mimetype,
+          encoding: fileInfo.encoding,
+          context: 'UploadSvgUseCase.validateRequest',
+        },
+        traceId,
+      );
 
       SvgValidationService.validateSvgUploadRequest({ file, entityType, entityId });
 
-      this.logger.debug('SVG upload request validation successful', {
-        fileName: fileInfo.filename,
-        context: 'UploadSvgUseCase.validateRequest'
-      }, traceId);
+      this.logger.debug(
+        'SVG upload request validation successful',
+        {
+          fileName: fileInfo.filename,
+          context: 'UploadSvgUseCase.validateRequest',
+        },
+        traceId,
+      );
 
       // Read SVG content first to get actual size
       const svgContent = await this.readSvgContent(file);
-      
-      this.logger.debug('SVG content read', {
-        contentLength: svgContent.length,
-        context: 'UploadSvgUseCase.readSvgContent'
-      }, traceId);
+
+      this.logger.debug(
+        'SVG content read',
+        {
+          contentLength: svgContent.length,
+          context: 'UploadSvgUseCase.readSvgContent',
+        },
+        traceId,
+      );
 
       // Validate SVG file with actual content size
       SvgValidationService.validateSvgFile(file, svgContent.length);
 
       // Validate SVG content
-      this.logger.debug('Validating SVG content', {
-        contentLength: svgContent.length,
-        context: 'UploadSvgUseCase.validateSvgContent'
-      }, traceId);
+      this.logger.debug(
+        'Validating SVG content',
+        {
+          contentLength: svgContent.length,
+          context: 'UploadSvgUseCase.validateSvgContent',
+        },
+        traceId,
+      );
 
       SvgValidationService.validateSvgContent(svgContent);
 
-      this.logger.debug('SVG content validation successful', {
-        contentLength: svgContent.length,
-        context: 'UploadSvgUseCase.validateSvgContent'
-      }, traceId);
+      this.logger.debug(
+        'SVG content validation successful',
+        {
+          contentLength: svgContent.length,
+          context: 'UploadSvgUseCase.validateSvgContent',
+        },
+        traceId,
+      );
 
       // Sanitize SVG content if requested
       let processedContent = svgContent;
       if (sanitize && storageConfig.svgConfig.enableSanitization) {
-        this.logger.debug('Sanitizing SVG content', {
-          originalLength: svgContent.length,
-          context: 'UploadSvgUseCase.sanitizeContent'
-        }, traceId);
+        this.logger.debug(
+          'Sanitizing SVG content',
+          {
+            originalLength: svgContent.length,
+            context: 'UploadSvgUseCase.sanitizeContent',
+          },
+          traceId,
+        );
 
         processedContent = SvgValidationService.sanitizeSvgContent(svgContent);
 
-        this.logger.debug('SVG content sanitized', {
-          originalLength: svgContent.length,
-          sanitizedLength: processedContent.length,
-          context: 'UploadSvgUseCase.sanitizeContent'
-        }, traceId);
+        this.logger.debug(
+          'SVG content sanitized',
+          {
+            originalLength: svgContent.length,
+            sanitizedLength: processedContent.length,
+            context: 'UploadSvgUseCase.sanitizeContent',
+          },
+          traceId,
+        );
       }
 
       // Extract SVG metadata
       const metadata = SvgEntity.extractSvgMetadata(processedContent);
-      
-      this.logger.debug('SVG metadata extracted', {
-        dimensions: metadata.dimensions,
-        viewBox: metadata.viewBox,
-        context: 'UploadSvgUseCase.extractMetadata'
-      }, traceId);
+
+      this.logger.debug(
+        'SVG metadata extracted',
+        {
+          dimensions: metadata.dimensions,
+          viewBox: metadata.viewBox,
+          context: 'UploadSvgUseCase.extractMetadata',
+        },
+        traceId,
+      );
 
       // Validate metadata
       SvgValidationService.validateSvgDimensions(metadata.dimensions);
@@ -143,37 +187,49 @@ export class UploadSvgUseCase {
       const fileName = `${entityType}_${entityId}_${timestamp}.${extension}`;
       const path = `${entityType}s/${entityId}/${fileName}`;
 
-      this.logger.debug('Generated unique filename', {
-        originalName: fileInfo.filename,
-        fileName,
-        path,
-        context: 'UploadSvgUseCase.generateFileName'
-      }, traceId);
+      this.logger.debug(
+        'Generated unique filename',
+        {
+          originalName: fileInfo.filename,
+          fileName,
+          path,
+          context: 'UploadSvgUseCase.generateFileName',
+        },
+        traceId,
+      );
 
       // Convert processed content to buffer
       const buffer = Buffer.from(processedContent, 'utf8');
 
       // Upload file to storage
-      this.logger.info('Uploading SVG to storage', {
-        fileName,
-        path,
-        fileSize: buffer.length,
-        context: 'UploadSvgUseCase.storageUpload'
-      }, traceId);
+      this.logger.info(
+        'Uploading SVG to storage',
+        {
+          fileName,
+          path,
+          fileSize: buffer.length,
+          context: 'UploadSvgUseCase.storageUpload',
+        },
+        traceId,
+      );
 
       // Upload file and get relative path (without baseUrl for flexibility)
       const url = await this.storageService.uploadFile(
         buffer,
         fileName,
         fileInfo.mimetype,
-        `${entityType}s/${entityId}`
+        `${entityType}s/${entityId}`,
       );
 
-      this.logger.info('SVG uploaded to storage successfully', {
-        fileName,
-        relativePath: url, // Now contains relative path instead of full URL
-        context: 'UploadSvgUseCase.storageUpload'
-      }, traceId);
+      this.logger.info(
+        'SVG uploaded to storage successfully',
+        {
+          fileName,
+          relativePath: url, // Now contains relative path instead of full URL
+          context: 'UploadSvgUseCase.storageUpload',
+        },
+        traceId,
+      );
 
       // Create SVG entity
       const svg = SvgEntity.create({
@@ -188,52 +244,64 @@ export class UploadSvgUseCase {
         entityId,
         dimensions: metadata.dimensions,
         viewBox: metadata.viewBox,
-        optimized: optimize && storageConfig.svgConfig.enableOptimization
+        optimized: optimize && storageConfig.svgConfig.enableOptimization,
       });
 
       // Save to repository
-      this.logger.info('Saving SVG entity to repository', {
-        svgId: svg.id,
-        fileName: svg.fileName,
-        context: 'UploadSvgUseCase.saveToRepository'
-      }, traceId);
+      this.logger.info(
+        'Saving SVG entity to repository',
+        {
+          svgId: svg.id,
+          fileName: svg.fileName,
+          context: 'UploadSvgUseCase.saveToRepository',
+        },
+        traceId,
+      );
 
       const savedSvg = await this.svgRepository.create(svg);
 
       const duration = Date.now() - Date.now();
-      this.performanceLogger.endTimer(operationId, { 
+      this.performanceLogger.endTimer(operationId, {
         success: true,
         svgId: savedSvg.id,
         fileName: savedSvg.fileName,
-        fileSize: savedSvg.size
+        fileSize: savedSvg.size,
       });
 
-      this.logger.info('SVG upload process completed successfully', {
-        svgId: savedSvg.id,
-        fileName: savedSvg.fileName,
-        relativePath: savedSvg.url, // Now contains relative path instead of full URL
-        fileSize: savedSvg.size,
-        duration,
-        context: 'UploadSvgUseCase.execute'
-      }, traceId);
+      this.logger.info(
+        'SVG upload process completed successfully',
+        {
+          svgId: savedSvg.id,
+          fileName: savedSvg.fileName,
+          relativePath: savedSvg.url, // Now contains relative path instead of full URL
+          fileSize: savedSvg.size,
+          duration,
+          context: 'UploadSvgUseCase.execute',
+        },
+        traceId,
+      );
 
       return savedSvg;
-
     } catch (error) {
       const duration = Date.now() - Date.now();
-      this.performanceLogger.endTimer(operationId, { 
-        success: false, 
-        error: error instanceof Error ? error.message : String(error)
+      this.performanceLogger.endTimer(operationId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
       });
 
-      this.logger.error('SVG upload process failed', error instanceof Error ? error : new Error(String(error)), {
-        entityType,
-        entityId,
-        fileName: fileInfo.filename,
-        fileSize: fileInfo.size,
-        duration,
-        context: 'UploadSvgUseCase.execute'
-      }, traceId);
+      this.logger.error(
+        'SVG upload process failed',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          entityType,
+          entityId,
+          fileName: fileInfo.filename,
+          fileSize: fileInfo.size,
+          duration,
+          context: 'UploadSvgUseCase.execute',
+        },
+        traceId,
+      );
 
       throw error;
     }
@@ -254,7 +322,7 @@ export class UploadSvgUseCase {
       mimetype: file?.file?.mimetype || file?.mimetype || 'unknown',
       size: file?.file?.size || file?.size || 0,
       encoding: file?.file?.encoding || file?.encoding || 'unknown',
-      buffer: file?.file?.buffer || file?.buffer
+      buffer: file?.file?.buffer || file?.buffer,
     };
   }
 
@@ -280,10 +348,16 @@ export class UploadSvgUseCase {
         throw new InvalidFormatError('Unable to read SVG content from file object');
       }
     } catch (error) {
-      this.logger.error('Failed to read SVG content', error instanceof Error ? error : new Error(String(error)), {
-        context: 'UploadSvgUseCase.readSvgContent'
-      });
-      throw new InvalidFormatError(`Failed to read SVG content: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        'Failed to read SVG content',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          context: 'UploadSvgUseCase.readSvgContent',
+        },
+      );
+      throw new InvalidFormatError(
+        `Failed to read SVG content: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -293,16 +367,16 @@ export class UploadSvgUseCase {
   private async readStreamContent(stream: any): Promise<string> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      
+
       stream.on('data', (chunk: Buffer) => {
         chunks.push(chunk);
       });
-      
+
       stream.on('end', () => {
         const buffer = Buffer.concat(chunks);
         resolve(buffer.toString('utf8'));
       });
-      
+
       stream.on('error', (error: Error) => {
         reject(error);
       });
@@ -341,14 +415,14 @@ export class UploadSvgUseCase {
 
     if (fileInfo.size > storageConfig.svgConfig.maxFileSize) {
       throw new InvalidFormatError(
-        `File size exceeds maximum allowed size of ${storageConfig.svgConfig.maxFileSize / (1024 * 1024)}MB`
+        `File size exceeds maximum allowed size of ${storageConfig.svgConfig.maxFileSize / (1024 * 1024)}MB`,
       );
     }
 
     // Validate MIME type
     if (!storageConfig.svgConfig.allowedMimeTypes.includes(fileInfo.mimetype as any)) {
       throw new InvalidFormatError(
-        `Invalid MIME type: ${fileInfo.mimetype}. Allowed types: ${storageConfig.svgConfig.allowedMimeTypes.join(', ')}`
+        `Invalid MIME type: ${fileInfo.mimetype}. Allowed types: ${storageConfig.svgConfig.allowedMimeTypes.join(', ')}`,
       );
     }
   }

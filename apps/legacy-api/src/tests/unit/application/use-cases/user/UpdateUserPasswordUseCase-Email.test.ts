@@ -2,11 +2,11 @@ import { UpdateUserPasswordUseCase } from '@application/use-cases/user/UpdateUse
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IEmailService } from '@domain/interfaces/IEmailService';
 import { ILogger } from '@hbs/logging';
-import { 
-  ValidationError, 
-  NotFoundError, 
-  UnauthorizedError, 
-  BusinessLogicError 
+import {
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  BusinessLogicError,
 } from '@domain/errors/DomainError';
 
 // Mock the LoggingDecorator to avoid issues in tests
@@ -14,8 +14,8 @@ jest.mock('@hbs/logging', () => ({
   LoggingDecorator: {
     logUseCase: () => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
       return descriptor; // Return the original descriptor without modification
-    }
-  }
+    },
+  },
 }));
 
 // Mock del servicio de email
@@ -23,7 +23,7 @@ const mockEmailService: jest.Mocked<IEmailService> = {
   sendPasswordResetEmail: jest.fn(),
   sendWelcomeEmail: jest.fn(),
   sendOrderConfirmationEmail: jest.fn(),
-  verifyConfiguration: jest.fn()
+  verifyConfiguration: jest.fn(),
 };
 
 // Mock del logger
@@ -34,7 +34,7 @@ const mockLogger: jest.Mocked<ILogger> = {
   error: jest.fn(),
   fatal: jest.fn(),
   child: jest.fn(),
-  setTraceId: jest.fn()
+  setTraceId: jest.fn(),
 };
 
 describe('UpdateUserPasswordUseCase - Email Implementation', () => {
@@ -49,7 +49,7 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
       findUserAccountsByUserId: jest.fn(),
       updateUserAccount: jest.fn(),
       deleteUserAccount: jest.fn(),
-      
+
       // Session Management
       createSession: jest.fn(),
       findSessionByToken: jest.fn(),
@@ -58,35 +58,35 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
       deleteSession: jest.fn(),
       deleteExpiredSessions: jest.fn(),
       invalidateUserSessions: jest.fn(),
-      
+
       // Password Management
       createUserPassword: jest.fn(),
       findUserPasswordByUserId: jest.fn(),
       updateUserPassword: jest.fn(),
       deleteUserPassword: jest.fn(),
-      
+
       // Additional methods for UpdateUserPasswordUseCase
       verifyPassword: jest.fn(),
       updatePassword: jest.fn(),
       getUserById: jest.fn(),
       getUserByEmail: jest.fn(),
-      
+
       // Authentication Methods
       authenticateWithEmail: jest.fn(),
       authenticateWithGoogle: jest.fn(),
       registerWithEmail: jest.fn(),
-      
+
       // User Utilities
       findOrCreateUserFromGoogle: jest.fn(),
       updateUserLastLogin: jest.fn(),
-      
+
       // Session Validation
       validateSession: jest.fn(),
       refreshUserSession: jest.fn(),
-      
+
       // Logout Management
       logoutUser: jest.fn(),
-      
+
       // Session Analytics Management
       createSessionAnalytics: jest.fn(),
       findSessionAnalyticsById: jest.fn(),
@@ -95,7 +95,7 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
       updateSessionAnalytics: jest.fn(),
       deleteSessionAnalytics: jest.fn(),
       deleteSessionAnalyticsByUserId: jest.fn(),
-      deleteSessionAnalyticsBySessionId: jest.fn()
+      deleteSessionAnalyticsBySessionId: jest.fn(),
     };
 
     const mockAuditRepository = {
@@ -103,7 +103,7 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
       findByUserId: jest.fn(),
       findByAction: jest.fn(),
       findById: jest.fn(),
-      findByTableAndRecord: jest.fn()
+      findByTableAndRecord: jest.fn(),
     };
 
     const mockSecurityEventRepository = {
@@ -111,15 +111,15 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
       findByUserId: jest.fn(),
       findByEventType: jest.fn(),
       findById: jest.fn(),
-      findRecent: jest.fn()
+      findRecent: jest.fn(),
     };
 
     updateUserPasswordUseCase = new UpdateUserPasswordUseCase(
-      mockAuthRepository, 
+      mockAuthRepository,
       mockAuditRepository,
       mockSecurityEventRepository,
-      mockEmailService, 
-      mockLogger
+      mockEmailService,
+      mockLogger,
     );
   });
 
@@ -135,13 +135,13 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         email: validEmail,
         currentPassword: validCurrentPassword,
         newPassword: validNewPassword,
-        confirmPassword: validNewPassword
+        confirmPassword: validNewPassword,
       };
 
       mockAuthRepository.getUserByEmail.mockResolvedValue({
         id: validUserId,
         email: validEmail,
-        isActive: true
+        isActive: true,
       });
       mockAuthRepository.verifyPassword.mockResolvedValue(true);
       mockAuthRepository.updatePassword.mockResolvedValue();
@@ -151,7 +151,10 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
 
       // Assert
       expect(mockAuthRepository.getUserByEmail).toHaveBeenCalledWith(validEmail);
-      expect(mockAuthRepository.verifyPassword).toHaveBeenCalledWith(validUserId, validCurrentPassword);
+      expect(mockAuthRepository.verifyPassword).toHaveBeenCalledWith(
+        validUserId,
+        validCurrentPassword,
+      );
       expect(mockAuthRepository.updatePassword).toHaveBeenCalledWith(validUserId, validNewPassword);
     });
 
@@ -161,13 +164,11 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         email: '',
         currentPassword: validCurrentPassword,
         newPassword: validNewPassword,
-        confirmPassword: validNewPassword
+        confirmPassword: validNewPassword,
       };
 
       // Act & Assert
-      await expect(updateUserPasswordUseCase.execute(request))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(updateUserPasswordUseCase.execute(request)).rejects.toThrow(ValidationError);
     });
 
     it('should throw ValidationError when email format is invalid', async () => {
@@ -176,13 +177,11 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         email: 'invalid-email',
         currentPassword: validCurrentPassword,
         newPassword: validNewPassword,
-        confirmPassword: validNewPassword
+        confirmPassword: validNewPassword,
       };
 
       // Act & Assert
-      await expect(updateUserPasswordUseCase.execute(request))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(updateUserPasswordUseCase.execute(request)).rejects.toThrow(ValidationError);
     });
 
     it('should throw NotFoundError when user does not exist', async () => {
@@ -191,15 +190,13 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         email: validEmail,
         currentPassword: validCurrentPassword,
         newPassword: validNewPassword,
-        confirmPassword: validNewPassword
+        confirmPassword: validNewPassword,
       };
 
       mockAuthRepository.getUserByEmail.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(updateUserPasswordUseCase.execute(request))
-        .rejects
-        .toThrow(NotFoundError);
+      await expect(updateUserPasswordUseCase.execute(request)).rejects.toThrow(NotFoundError);
     });
 
     it('should throw UnauthorizedError when user is inactive', async () => {
@@ -208,19 +205,17 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         email: validEmail,
         currentPassword: validCurrentPassword,
         newPassword: validNewPassword,
-        confirmPassword: validNewPassword
+        confirmPassword: validNewPassword,
       };
 
       mockAuthRepository.getUserByEmail.mockResolvedValue({
         id: validUserId,
         email: validEmail,
-        isActive: false // User is inactive
+        isActive: false, // User is inactive
       });
 
       // Act & Assert
-      await expect(updateUserPasswordUseCase.execute(request))
-        .rejects
-        .toThrow(UnauthorizedError);
+      await expect(updateUserPasswordUseCase.execute(request)).rejects.toThrow(UnauthorizedError);
     });
 
     it('should throw UnauthorizedError when current password is incorrect', async () => {
@@ -229,20 +224,18 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         email: validEmail,
         currentPassword: validCurrentPassword,
         newPassword: validNewPassword,
-        confirmPassword: validNewPassword
+        confirmPassword: validNewPassword,
       };
 
       mockAuthRepository.getUserByEmail.mockResolvedValue({
         id: validUserId,
         email: validEmail,
-        isActive: true
+        isActive: true,
       });
       mockAuthRepository.verifyPassword.mockResolvedValue(false); // Incorrect password
 
       // Act & Assert
-      await expect(updateUserPasswordUseCase.execute(request))
-        .rejects
-        .toThrow(UnauthorizedError);
+      await expect(updateUserPasswordUseCase.execute(request)).rejects.toThrow(UnauthorizedError);
     });
 
     it('should work with different email formats', async () => {
@@ -251,24 +244,24 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         'user@example.com',
         'test.user@domain.co.uk',
         'user+tag@example.org',
-        'user123@test-domain.com'
+        'user123@test-domain.com',
       ];
 
       for (const email of emails) {
         // Reset mocks
         jest.clearAllMocks();
-        
+
         const request = {
           email,
           currentPassword: validCurrentPassword,
           newPassword: validNewPassword,
-          confirmPassword: validNewPassword
+          confirmPassword: validNewPassword,
         };
 
         mockAuthRepository.getUserByEmail.mockResolvedValue({
           id: validUserId,
           email,
-          isActive: true
+          isActive: true,
         });
         mockAuthRepository.verifyPassword.mockResolvedValue(true);
         mockAuthRepository.updatePassword.mockResolvedValue();
@@ -278,8 +271,14 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
 
         // Assert
         expect(mockAuthRepository.getUserByEmail).toHaveBeenCalledWith(email);
-        expect(mockAuthRepository.verifyPassword).toHaveBeenCalledWith(validUserId, validCurrentPassword);
-        expect(mockAuthRepository.updatePassword).toHaveBeenCalledWith(validUserId, validNewPassword);
+        expect(mockAuthRepository.verifyPassword).toHaveBeenCalledWith(
+          validUserId,
+          validCurrentPassword,
+        );
+        expect(mockAuthRepository.updatePassword).toHaveBeenCalledWith(
+          validUserId,
+          validNewPassword,
+        );
       }
     });
 
@@ -289,13 +288,13 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
         email: validEmail,
         currentPassword: validCurrentPassword,
         newPassword: validNewPassword,
-        confirmPassword: validNewPassword
+        confirmPassword: validNewPassword,
       };
 
       const userData = {
         id: validUserId,
         email: validEmail,
-        isActive: true
+        isActive: true,
       };
 
       mockAuthRepository.getUserByEmail.mockResolvedValue(userData);
@@ -307,14 +306,17 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
 
       // Assert - Verify that the same userId is used throughout
       expect(mockAuthRepository.getUserByEmail).toHaveBeenCalledWith(validEmail);
-      expect(mockAuthRepository.verifyPassword).toHaveBeenCalledWith(validUserId, validCurrentPassword);
+      expect(mockAuthRepository.verifyPassword).toHaveBeenCalledWith(
+        validUserId,
+        validCurrentPassword,
+      );
       expect(mockAuthRepository.updatePassword).toHaveBeenCalledWith(validUserId, validNewPassword);
-      
+
       // Verify the user ID from getUserByEmail is used consistently
       const getUserByEmailCall = mockAuthRepository.getUserByEmail.mock.calls[0];
       const verifyPasswordCall = mockAuthRepository.verifyPassword.mock.calls[0];
       const updatePasswordCall = mockAuthRepository.updatePassword.mock.calls[0];
-      
+
       expect(verifyPasswordCall[0]).toBe(validUserId);
       expect(updatePasswordCall[0]).toBe(validUserId);
     });
@@ -365,9 +367,9 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
       const invalidEmail = 'invalid-email';
 
       // Act & Assert
-      await expect(updateUserPasswordUseCase.generatePasswordResetToken(invalidEmail))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(
+        updateUserPasswordUseCase.generatePasswordResetToken(invalidEmail),
+      ).rejects.toThrow(ValidationError);
     });
   });
 
@@ -390,9 +392,9 @@ describe('UpdateUserPasswordUseCase - Email Implementation', () => {
       const weakPassword = '123';
 
       // Act & Assert
-      await expect(updateUserPasswordUseCase.resetPasswordWithToken(token, weakPassword))
-        .rejects
-        .toThrow(ValidationError);
+      await expect(
+        updateUserPasswordUseCase.resetPasswordWithToken(token, weakPassword),
+      ).rejects.toThrow(ValidationError);
     });
   });
 });

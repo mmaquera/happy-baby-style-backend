@@ -45,7 +45,9 @@ export class JwtAuthService {
     this.refreshTokenExpiration = process.env.REFRESH_TOKEN_EXPIRATION || '7d';
 
     if (this.jwtSecret === 'your-super-secret-jwt-key') {
-      console.warn('⚠️  Using default JWT secret. Please set JWT_SECRET in environment variables for production!');
+      console.warn(
+        '⚠️  Using default JWT secret. Please set JWT_SECRET in environment variables for production!',
+      );
     }
   }
 
@@ -60,7 +62,7 @@ export class JwtAuthService {
 
       // Verify password using the repository method to get password hash
       const isValidPassword = await this.verifyPassword(credentials.password, user.id);
-      
+
       if (!isValidPassword) {
         throw new Error('Invalid credentials');
       }
@@ -70,7 +72,7 @@ export class JwtAuthService {
         id: user.id,
         email: user.email,
         role: user.role as 'admin' | 'customer',
-        emailVerified: user.emailVerified || false
+        emailVerified: user.emailVerified || false,
       };
 
       // Generate tokens
@@ -80,7 +82,7 @@ export class JwtAuthService {
       return {
         accessToken,
         refreshToken,
-        user: authUser
+        user: authUser,
       };
     } catch (error) {
       console.error('Login error:', error);
@@ -102,16 +104,16 @@ export class JwtAuthService {
           firstName: data.firstName,
           lastName: data.lastName,
           phone: undefined,
-          birthDate: undefined
+          birthDate: undefined,
         },
-        isActive: true
+        isActive: true,
       });
 
       const authUser: AuthUser = {
         id: user.id,
         email: user.email,
         role: user.role as 'admin' | 'customer',
-        emailVerified: user.emailVerified || false
+        emailVerified: user.emailVerified || false,
       };
 
       const accessToken = this.generateAccessToken(authUser);
@@ -120,7 +122,7 @@ export class JwtAuthService {
       return {
         accessToken,
         refreshToken,
-        user: authUser
+        user: authUser,
       };
     } catch (error) {
       console.error('Register error:', error);
@@ -131,7 +133,7 @@ export class JwtAuthService {
   async validateToken(token: string): Promise<AuthUser | null> {
     try {
       const decoded = jwt.verify(token, this.jwtSecret) as any;
-      
+
       // Verify user still exists using the correct repository method
       const user = await this.userRepository.getUserById(decoded.id);
       if (!user) {
@@ -142,7 +144,7 @@ export class JwtAuthService {
         id: decoded.id,
         email: decoded.email,
         role: decoded.role,
-        emailVerified: decoded.emailVerified
+        emailVerified: decoded.emailVerified,
       };
     } catch (error) {
       console.error('Token validation error:', error);
@@ -153,7 +155,7 @@ export class JwtAuthService {
   async refreshToken(refreshToken: string): Promise<AuthTokens> {
     try {
       const decoded = jwt.verify(refreshToken, this.jwtSecret) as any;
-      
+
       // Verify user still exists using the correct repository method
       const user = await this.userRepository.getUserById(decoded.id);
       if (!user) {
@@ -164,7 +166,7 @@ export class JwtAuthService {
         id: user.id,
         email: user.email,
         role: user.role as 'admin' | 'customer',
-        emailVerified: user.emailVerified || false
+        emailVerified: user.emailVerified || false,
       };
 
       const newAccessToken = this.generateAccessToken(authUser);
@@ -173,7 +175,7 @@ export class JwtAuthService {
       return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        user: authUser
+        user: authUser,
       };
     } catch (error) {
       console.error('Refresh token error:', error);
@@ -187,10 +189,10 @@ export class JwtAuthService {
         id: user.id,
         email: user.email,
         role: user.role,
-        emailVerified: user.emailVerified
+        emailVerified: user.emailVerified,
       },
       this.jwtSecret as jwt.Secret,
-      { expiresIn: this.jwtExpiration } as jwt.SignOptions
+      { expiresIn: this.jwtExpiration } as jwt.SignOptions,
     );
   }
 
@@ -200,10 +202,10 @@ export class JwtAuthService {
         id: user.id,
         email: user.email,
         role: user.role,
-        emailVerified: user.emailVerified
+        emailVerified: user.emailVerified,
       },
       this.jwtSecret as jwt.Secret,
-      { expiresIn: this.refreshTokenExpiration } as jwt.SignOptions
+      { expiresIn: this.refreshTokenExpiration } as jwt.SignOptions,
     );
   }
 
@@ -211,13 +213,13 @@ export class JwtAuthService {
     try {
       // Get the actual password hash from the repository
       const passwordHash = await this.userRepository.getUserPasswordHash(userId);
-      
+
       if (!passwordHash) {
         // Fallback to default password for demo purposes
         const defaultPassword = 'password123';
         return password === defaultPassword;
       }
-      
+
       // Compare with the actual stored hash
       return await bcrypt.compare(password, passwordHash);
     } catch (error) {
@@ -235,21 +237,21 @@ export class JwtAuthService {
 
   async createAuthContext(authHeader: string | undefined): Promise<AuthContext> {
     const token = this.extractTokenFromAuthHeader(authHeader);
-    
+
     if (!token) {
       return {
         user: null,
         isAuthenticated: false,
-        token: null
+        token: null,
       };
     }
 
     const user = await this.validateToken(token);
-    
+
     return {
       user,
       isAuthenticated: !!user,
-      token
+      token,
     };
   }
 }

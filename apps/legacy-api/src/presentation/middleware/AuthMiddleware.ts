@@ -12,7 +12,7 @@ export class AuthMiddleware {
   async authenticateUser(context: Context): Promise<AuthUser | null> {
     try {
       const authHeader = context.req?.headers.authorization;
-      
+
       if (!authHeader) {
         return null; // No authentication attempted
       }
@@ -24,7 +24,7 @@ export class AuthMiddleware {
         id: payload.userId,
         email: payload.email,
         role: payload.role,
-        permissions: payload.permissions
+        permissions: payload.permissions,
       };
     } catch (error) {
       // Authentication failed, but we don't throw here
@@ -67,7 +67,7 @@ export class AuthMiddleware {
       permissions?: Permission[];
       role?: UserRole;
       requireAuth?: boolean;
-    }
+    },
   ) {
     return async (parent: any, args: TArgs, context: Context, info: any): Promise<TResult> => {
       const { permission, permissions, role, requireAuth = true } = options || {};
@@ -105,27 +105,27 @@ export class AuthMiddleware {
 
   // Wrapper for admin-only operations
   withAdminAuth<TArgs = any, TResult = any>(
-    resolver: (parent: any, args: TArgs, context: Context, info: any) => TResult
+    resolver: (parent: any, args: TArgs, context: Context, info: any) => TResult,
   ) {
     return this.withAuth(resolver, { role: UserRole.ADMIN });
   }
 
   // Wrapper for staff+ operations (staff or admin)
   withStaffAuth<TArgs = any, TResult = any>(
-    resolver: (parent: any, args: TArgs, context: Context, info: any) => TResult
+    resolver: (parent: any, args: TArgs, context: Context, info: any) => TResult,
   ) {
-    return this.withAuth(resolver, { 
-      permissions: [Permission.MANAGE_USERS, Permission.UPDATE_PRODUCT] 
+    return this.withAuth(resolver, {
+      permissions: [Permission.MANAGE_USERS, Permission.UPDATE_PRODUCT],
     });
   }
 
   // Check if user owns resource or has admin/staff privileges
   requireOwnershipOrStaff(user: AuthUser, resourceUserId: string): void {
     const isOwner = user.id === resourceUserId;
-    const hasStaffPrivileges = this.authService.hasAnyPermission(
-      user.permissions, 
-      [Permission.MANAGE_USERS, Permission.READ_USER]
-    );
+    const hasStaffPrivileges = this.authService.hasAnyPermission(user.permissions, [
+      Permission.MANAGE_USERS,
+      Permission.READ_USER,
+    ]);
 
     if (!isOwner && !hasStaffPrivileges) {
       throw new ForbiddenError('Access denied: insufficient privileges');
@@ -135,10 +135,10 @@ export class AuthMiddleware {
   // Create context with authenticated user
   async createAuthContext(req: any): Promise<{ user: AuthUser | null; isAuthenticated: boolean }> {
     const user = await this.authenticateUser({ req } as Context);
-    
+
     return {
       user,
-      isAuthenticated: !!user
+      isAuthenticated: !!user,
     };
   }
 }

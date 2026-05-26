@@ -52,7 +52,9 @@ export class AuthService {
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
 
     if (!process.env.JWT_SECRET) {
-      console.warn('JWT_SECRET not set in environment variables. Using default (not secure for production)');
+      console.warn(
+        'JWT_SECRET not set in environment variables. Using default (not secure for production)',
+      );
     }
   }
 
@@ -117,7 +119,7 @@ export class AuthService {
   }
 
   hasAnyPermission(userPermissions: Permission[], requiredPermissions: Permission[]): boolean {
-    return requiredPermissions.some(p => this.hasPermission(userPermissions, p));
+    return requiredPermissions.some((p) => this.hasPermission(userPermissions, p));
   }
 
   requirePermission(userPermissions: Permission[], requiredPermission: Permission): void {
@@ -134,7 +136,9 @@ export class AuthService {
 
   requireAnyPermission(userPermissions: Permission[], requiredPermissions: Permission[]): void {
     if (!this.hasAnyPermission(userPermissions, requiredPermissions)) {
-      throw new ForbiddenError(`Missing any of required permissions: ${requiredPermissions.join(', ')}`);
+      throw new ForbiddenError(
+        `Missing any of required permissions: ${requiredPermissions.join(', ')}`,
+      );
     }
   }
 
