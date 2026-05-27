@@ -141,17 +141,17 @@ Objetivo alcanzado: migración completa (patrón Strangler) a microservicios en 
 - [x] **7.10** `apps/legacy-api/` eliminado del repo. Servicio `legacy-api` y `LEGACY_API_URL` eliminados del `docker-compose.yml`. Gateway actualizado (5 subgraphs, sin `legacy`). `Dockerfile` raíz eliminado.
 - [x] **7.11** Dockerfiles movidos de la raíz a `apps/<servicio>/Dockerfile`. `docker-compose.yml` actualizado con `dockerfile: apps/<servicio>/Dockerfile`. Build verificado con nuevo path.
 - [ ] **7.12** Limpiar `package.json` raíz: scripts obsoletos eliminados, scripts Nx multi-servicio añadidos. *(Parcialmente hecho: `start`, `build`, `test` actualizados; revisar el resto.)*
-- [ ] **7.13** Actualizar `libs/prisma/schema.prisma` (schema canónico) para reflejar todas las tablas nuevas añadidas a los servicios en Fase 7.
-- [ ] **7.14** Verificación final: `docker compose up` → todos los contenedores healthy (sin legacy-api); gateway compone sin errores; `nx run-many --target=lint --all` → 0 errores; `nx run-many --target=build --all` → 0 errores.
+- [x] **7.13** Actualizar `libs/prisma/schema.prisma` (schema canónico) para reflejar todas las tablas nuevas añadidas a los servicios en Fase 7.
+- [x] **7.14** Verificación final: `docker compose up` → todos los contenedores healthy (sin legacy-api); gateway compone sin errores; `nx run-many --target=lint --all` → 0 errores; `nx run-many --target=build --all` → 0 errores.
 
 ---
 
 ## 5. Lo que está pendiente (priorizado)
 
 ### Inmediato — Fase 7 (cierre)
-1. **7.12** — Revisar y limpiar scripts restantes en `package.json` raíz.
-2. **7.13** — Sincronizar `libs/prisma/schema.prisma` con las tablas nuevas de Fase 7.
-3. **7.14** — Verificación final completa (docker, lint, build).
+1. ~~**7.12**~~ ✅ Scripts de `package.json` raíz limpios.
+2. ~~**7.13**~~ ✅ `libs/prisma/schema.prisma` sincronizado con Fase 7.
+3. ~~**7.14**~~ ✅ Verificación final: 8/8 contenedores healthy, 5 subgraphs resolviendo, lint 0 errores, build 0 errores.
 
 ### Siguiente — Fase 6 (CI sin dependencias cloud)
 4. **6.1** — Workflow `ci.yml` con lint + type-check + `nx affected` build.

@@ -43,8 +43,6 @@ model UserProfile {
   savedPaymentMethods SavedPaymentMethod[]
   securityEvents SecurityEvent[]
   transactions  Transaction[]
-  productReviews ProductReview[]
-  reviewVotes   ReviewVote[]
 
   @@map("user_profiles")
 }
@@ -195,8 +193,6 @@ model Product {
   orderItems    OrderItem[]
   variants      ProductVariant[]
   category      Category           @relation(fields: [categoryId], references: [id])
-  cartItems     ShoppingCartItem[]
-  favorites     UserFavorite[]
   reviews       ProductReview[]
   appEvents     AppEvent[]
   inventoryTransactions InventoryTransaction[]
@@ -244,16 +240,14 @@ model ShoppingCartItem {
   id        String       @id @default(uuid())
   cartId    String       @map("cart_id")
   productId String       @map("product_id")
-  quantity  Int          @default(1)
+  quantity  Int
   price     Decimal      @db.Decimal(10, 2)
   createdAt DateTime     @default(now()) @map("created_at")
   updatedAt DateTime     @updatedAt @map("updated_at")
-  
+
   // Relations
   cart      ShoppingCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product   Product      @relation(fields: [productId], references: [id])
 
-  @@unique([cartId, productId])
   @@map("shopping_cart_items")
 }
 
@@ -264,7 +258,6 @@ model UserFavorite {
   createdAt DateTime    @default(now()) @map("created_at")
   
   // Relations
-  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
@@ -475,11 +468,9 @@ model ProductReview {
   
   // Relations
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
   photos      ReviewPhoto[]
   votes       ReviewVote[]
 
-  @@unique([productId, userId])
   @@map("product_reviews")
 }
 
@@ -506,7 +497,6 @@ model ReviewVote {
   
   // Relations
   review    ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([reviewId, userId])
   @@map("review_votes")
@@ -621,9 +611,9 @@ model LoyaltyProgram {
   id              String    @id @default(uuid())
   name            String
   description     String?
-  pointsPerDollar Decimal   @map("points_per_dollar") @db.Decimal(5, 2)
-  redemptionRate  Decimal   @map("redemption_rate") @db.Decimal(5, 2)
-  expiryMonths    Int       @map("expiry_months")
+  pointsPerDollar Decimal   @default(1) @map("points_per_dollar") @db.Decimal(10, 4)
+  redemptionRate  Decimal   @default(0.01) @map("redemption_rate") @db.Decimal(10, 4)
+  expiryMonths    Int       @default(12) @map("expiry_months")
   isActive        Boolean   @default(true) @map("is_active")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
@@ -673,11 +663,11 @@ model PushNotification {
 
 model NotificationTemplate {
   id          String    @id @default(uuid())
-  name        String    @unique
+  name        String
   type        NotificationType
   title       String
   body        String
-  variables   String[]
+  variables   Json      @default("[]")
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -687,10 +677,10 @@ model NotificationTemplate {
 
 model EmailTemplate {
   id          String    @id @default(uuid())
-  name        String    @unique
+  name        String
   subject     String
   body        String
-  variables   String[]
+  variables   Json      @default("[]")
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -791,7 +781,7 @@ model StoreSettings {
 model TaxRate {
   id          String    @id @default(uuid())
   name        String
-  rate        Decimal   @db.Decimal(5, 2)
+  rate        Decimal   @db.Decimal(5, 4)
   country     String?
   state       String?
   city        String?
