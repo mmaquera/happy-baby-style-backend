@@ -1,596 +1,217 @@
 # Happy Baby Style Backend
 
-Backend API GraphQL para el panel de administración de Happy Baby Style, implementado con Clean Architecture, TypeScript, Prisma, y Apollo Server.
+Backend en arquitectura de **microservicios** con **Apollo Federation v2** sobre un **monorepo Nx**. Cinco servicios autónomos (cada uno con su propia base de datos PostgreSQL) componen un supergraph único expuesto al frontend a través de un gateway en `:4000`.
 
-## 🚀 Características
+## Stack
 
-- **GraphQL API** con Apollo Server 4
-- **Clean Architecture** siguiendo principios SOLID
-- **TypeScript** con configuración estricta
-- **Prisma ORM** con PostgreSQL
-- **Sistema de autenticación** con JWT y Google OAuth
-- **Sistema de logging** avanzado con Winston
-- **Validación** robusta de datos
-- **Tests unitarios** con Jest
-- **Docker** ready para despliegue
+| Capa | Tecnología |
+|---|---|
+| Lenguaje / runtime | TypeScript · Node.js 22 (fijado en `.nvmrc`) |
+| Package manager | pnpm 11 (workspace hoisted) |
+| Monorepo | Nx 22 |
+| API | Apollo Federation v2 (5 subgraphs + gateway) |
+| HTTP | Express |
+| ORM / DB | Prisma 6 · PostgreSQL 16 (1 DB por servicio) |
+| Mensajería | Redis 7 (pub/sub para validación de stock Order→Product) |
+| Auth | JWT · bcrypt · Google OAuth |
+| Logging | Winston (`@hbs/logging`) |
+| Contenedores | Docker · Docker Compose |
+| Lint / format | ESLint 9 (flat config) · Prettier |
+| CI | GitHub Actions (`nx affected` lint + type-check + build) |
 
-## 🏗️ Arquitectura
+## Arquitectura
 
 ```
-src/
-├── application/          # Casos de uso y servicios de aplicación
-├── domain/              # Entidades, interfaces y reglas de negocio
-├── infrastructure/      # Implementaciones concretas (DB, logging, etc.)
-├── presentation/        # Controladores y middleware
-├── graphql/            # Schema, resolvers y configuración GraphQL
-└── shared/             # Utilidades y tipos compartidos
+┌─────────────────────────────────────────────────────────────┐
+│              Apollo Gateway (Federation v2)                 │
+│                  :4000 /graphql, /health                    │
+└──────┬──────┬──────┬──────┬──────┬──────────────────────────┘
+       │      │      │      │      │
+   ┌───▼──┐ ┌─▼───┐ ┌▼────┐ ┌▼───┐ ┌▼─────┐
+   │ cat. │ │prod.│ │media│ │ord.│ │ user │
+   │ :3002│ │:3003│ │:3004│ │:3005│ │:3006│
+   └──┬───┘ └──┬──┘ └──┬──┘ └─┬──┘ └─┬───┘
+      │        │       │      │      │
+      ▼        ▼       ▼      ▼      ▼
+  ┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐
+  │  cat   ││  prod  ││ media  ││ order  ││  user  │
+  │  DB    ││  DB    ││  DB    ││  DB    ││  DB    │
+  └────────┘└────────┘└────────┘└────────┘└────────┘
+                          │
+                          └── /uploads servido por media-service
 ```
 
-## 📋 Prerrequisitos
+### Servicios
 
-- Node.js 18+ 
-- PostgreSQL 13+
-- npm o yarn
-- PM2 (para producción)
+| Servicio | Puerto | DB | Dominio |
+|---|---|---|---|
+| **gateway** | 4000 | — | Composición Federation (5 subgraphs) + forwarding de `Authorization` |
+| **category-service** | 3002 | `happy_baby_category` | Categorías |
+| **product-service** | 3003 | `happy_baby_product` | Productos, variantes, inventario, stock alerts, reviews |
+| **media-service** | 3004 | `happy_baby_media` | Imágenes/SVG + archivos estáticos (`/uploads`) |
+| **order-service** | 3005 | `happy_baby_order` | Órdenes, cupones, carriers, shipping, carrito, store config |
+| **user-service** | 3006 | `happy_baby_user` | Auth, usuarios, favoritos, loyalty, notificaciones, newsletter, sesiones |
 
-## 🛠️ Instalación
+### Librerías compartidas (`libs/`)
 
-### Desarrollo
+- **`@hbs/shared-kernel`** — `BaseResponse`, `ResponseCodes`, `ResponseFactory`, `UrlBuilder`
+- **`@hbs/logging`** — wrapper de Winston con `ILogger`
+- **`@hbs/auth`** — tipos de auth + `extractTokenFromAuthHeader`
+- **`@hbs/prisma`** — schema canónico de referencia + `PrismaService`
+
+### Decisiones arquitecturales clave
+
+- **DB-por-servicio:** cada microservicio tiene su propia PostgreSQL; al arrancar ejecuta `prisma db push --skip-generate` contra su DB. Sin FKs cross-domain.
+- **Denormalización en Order:** `customerEmail`, `customerName` y dirección de envío inline evitan FKs hacia `user-service`.
+- **Redis pub/sub:** Order publica eventos de creación → Product valida stock async (patrón Outbox formal pendiente — ver Fase 5.3 del plan).
+- **Auth forwarding:** el gateway reenvía el header `Authorization` a cada subgraph (`AuthenticatedDataSource`).
+- **Archivos estáticos:** `media-service` sirve `/uploads` con `express.static` (`STORAGE_BASE_URL=http://localhost:3004`).
+
+## Quick start (Docker)
 
 ```bash
-# Clonar el repositorio
+# 1. Clonar y entrar al repo
 git clone <repository-url>
 cd happy-baby-style-backend
 
-# Instalar dependencias
-npm install
+# 2. Copiar variables de entorno
+cp .env.template .env
+# Editar .env con tus credenciales (DOCKER_DB_PASSWORD, JWT_SECRET, etc.)
 
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tus configuraciones
+# 3. Levantar el stack completo
+pnpm start          # docker compose up -d (atajo)
+# o:
+docker compose up -d
 
-# Generar cliente Prisma
-npm run prisma:generate
-
-# Ejecutar migraciones
-npm run prisma:migrate
-
-# Iniciar servidor de desarrollo
-npm run dev
+# 4. Verificar
+curl http://localhost:4000/health
+# {"status":"OK","service":"Apollo Federation Gateway","port":4000}
 ```
 
-## 🔒 Configuración de Rate Limiting
+`docker compose up -d` levanta 8 contenedores: postgres + redis + db-init + 5 servicios + gateway. Cada servicio aplica `prisma db push` a su DB al arrancar.
 
-El sistema incluye protección contra ataques de fuerza bruta y uso excesivo de la API mediante rate limiting configurable.
+**Explorar la API:** abrir [`http://localhost:4000/graphql`](http://localhost:4000/graphql) en el navegador para Apollo Sandbox (introspección, autocompletado y exploración del supergraph).
 
-### Configuración por Entorno
-
-**Desarrollo (Rate Limiting Desactivado por defecto):**
-```bash
-# .env.development.local
-ENABLE_RATE_LIMIT=false
-```
-
-**Producción (Rate Limiting Activado por defecto):**
-```bash
-# .env.production
-ENABLE_RATE_LIMIT=true
-```
-
-### Límites Configurados
-
-- **Login**: 5 intentos por 15 minutos
-- **Registro**: 3 intentos por 15 minutos  
-- **Refresh Token**: 20 intentos por 15 minutos
-- **API General**: 100 requests por 15 minutos
-- **Uploads**: 10 archivos por 15 minutos
-
-### Desactivar en Desarrollo
-
-Para desactivar completamente el rate limiting durante el desarrollo:
-
-1. Crear archivo `.env.development.local`:
-```bash
-ENABLE_RATE_LIMIT=false
-```
-
-2. Reiniciar el servidor de desarrollo
-
-**⚠️ Importante**: Nunca desactivar el rate limiting en producción.
-
-## 🗄️ Sincronización de Base de Datos
-
-### Problemas Comunes
-
-Si encuentras errores como:
-```
-⚠️ We found changes that cannot be executed:
-  • Added the required column `expiry_months` to the `loyalty_programs` table without a default value
-  • Database schema is not in sync with migration history
-```
-
-Esto indica **desajuste de schema** - tu schema de Prisma no coincide con la estructura real de la base de datos.
-
-### Solución Rápida
-
-**Desarrollo:**
-```bash
-# Copiar archivo de entorno
-cp .env.development .env
-
-# Sincronizar schema
-npx prisma migrate reset --force
-npx prisma db push
-```
-
-**Producción:**
-```bash
-# ⚠️ HACER RESPALDO ANTES
-cp .env.production .env
-npx prisma migrate deploy
-```
-
-### 📚 Documentación Completa
-
-Para una guía detallada de sincronización, incluyendo:
-- Resolución de problemas comunes
-- Configuración de producción
-- Comandos de verificación
-- Mejores prácticas
-
-**Ver:** [`PRISMA_DATABASE_SYNC.md`](./PRISMA_DATABASE_SYNC.md)
-
-### 🚀 Script de Automatización
-
-También dispones de un script automatizado para sincronización:
+## Desarrollo local sin Docker
 
 ```bash
-# Sincronizar desarrollo
-./scripts/sync-database.sh
+nvm use                        # aplica Node 22 desde .nvmrc
+pnpm install --frozen-lockfile
 
-# Sincronizar producción
-./scripts/sync-database.sh production
-
-# Verificar estado
-./scripts/sync-database.sh verify
-
-# Ayuda
-./scripts/sync-database.sh help
+# Levantar un servicio puntual (ejemplo)
+pnpm exec nx serve gateway
+pnpm exec nx serve category-service
 ```
 
-### Producción
+Requiere PostgreSQL local con las 5 DBs creadas (ver `docker/init-databases.sql`) o usar Docker solo para postgres + redis.
+
+## Scripts disponibles
+
+### Stack Docker
+- `pnpm start` — `docker compose up -d`
+- `pnpm stop` — `docker compose down`
+- `pnpm docker:reset` — destruye volúmenes (purga DBs)
+- `pnpm docker:logs` — sigue logs de todos los servicios
+- `pnpm docker:build` — rebuild de imágenes
+
+### Calidad
+- `pnpm lint` — `nx run-many --target=lint --all`
+- `pnpm lint:fix` — ESLint con `--fix` sobre apps/ y libs/
+- `pnpm format` / `pnpm format:check` — Prettier
+- `pnpm type-check` — TypeScript sin emit en todos los proyectos
+
+### Build
+- `pnpm build` — `nx run-many --target=build --all`
+- `pnpm build:affected` — solo proyectos tocados respecto a `origin/main`
+
+### Federation
+- `pnpm gateway:serve` — corre el gateway en modo Nx
+- `pnpm gateway:build` — build del gateway
+- `pnpm rover:compose` — compone el supergraph offline con Rover CLI (requiere Rover instalado)
+
+### Tests
+- `pnpm test` — `nx run-many --target=test --all`
+
+## Variables de entorno
+
+Ver `.env.template` para la lista completa. Las críticas:
 
 ```bash
-# Construir el proyecto
-npm run build:production
+# Postgres (compartido por las 5 DBs en una instancia local)
+DOCKER_DB_USER=postgres
+DOCKER_DB_PASSWORD=<requerido>
+DOCKER_DB_PORT=5432
 
-# Iniciar servidor de producción
-npm run start:production
+# Puertos por servicio (opcional, defaults arriba)
+GATEWAY_PORT=4000
+CATEGORY_SERVICE_PORT=3002
+PRODUCT_SERVICE_PORT=3003
+MEDIA_SERVICE_PORT=3004
+ORDER_SERVICE_PORT=3005
+USER_SERVICE_PORT=3006
+
+# Auth (user-service)
+JWT_SECRET=<requerido>
+GOOGLE_CLIENT_ID=<opcional>
+GOOGLE_CLIENT_SECRET=<opcional>
+
+# SMTP (user-service — emails de welcome / reset password)
+SMTP_HOST=<opcional>
+SMTP_PORT=587
+SMTP_USER=<opcional>
+SMTP_PASSWORD=<opcional>
+SMTP_FROM_EMAIL=noreply@happybabystyle.com
+
+# CORS / frontends permitidos
+FRONTEND_URL=http://localhost:3000
+FRONTEND_URLS=http://localhost:3000
+RESET_PASSWORD_URL=http://localhost:3000/reset-password
+
+# Storage (media-service)
+STORAGE_BASE_URL=http://localhost:3004
 ```
 
-## 🔧 Scripts Disponibles
+## Endpoints útiles
 
-### Desarrollo
-- `npm run dev` - Servidor de desarrollo
-- `npm run dev:development` - Desarrollo con NODE_ENV=development
-- `npm run dev:production` - Desarrollo con NODE_ENV=production
+| URL | Propósito |
+|---|---|
+| `http://localhost:4000/graphql` | Apollo Sandbox + endpoint federado |
+| `http://localhost:4000/health` | Health del gateway |
+| `http://localhost:3002/health` … `http://localhost:3006/health` | Health por servicio |
+| `http://localhost:3004/uploads/...` | Archivos subidos (servidos por media-service) |
 
-### Construcción
-- `npm run build` - Construir proyecto
-- `npm run build:development` - Construir para desarrollo
-- `npm run build:production` - Construir para producción
+## CI
 
-### Producción
-- `npm run start` - Iniciar servidor
-- `npm run start:development` - Iniciar con NODE_ENV=development
-- `npm run start:production` - Iniciar con NODE_ENV=production
+`.github/workflows/ci.yml` corre en cada PR y push a `main`:
 
-### Base de Datos
-- `npm run prisma:generate` - Generar cliente Prisma
-- `npm run prisma:migrate` - Ejecutar migraciones
-- `npm run prisma:studio` - Abrir Prisma Studio
-- `npm run prisma:db:push` - Push directo a la base de datos
+1. Instala dependencias con cache de pnpm store
+2. Calcula `NX_BASE`/`NX_HEAD` según el evento
+3. Ejecuta `nx affected` para `lint`, `type-check` y `build` — solo los proyectos tocados
 
-### Testing
-- `npm run test` - Ejecutar tests
-- `npm run test:watch` - Tests en modo watch
-- `npm run test:coverage` - Tests con cobertura
-- `npm run test:unit` - Solo tests unitarios
+Un PR que solo modifica `category-service` solo dispara el pipeline de ese servicio.
 
-### Utilidades
-- `npm run type-check` - Verificar tipos TypeScript
-- `npm run graphql:codegen` - Generar código GraphQL
-- `npm run docs` - Servir documentación
+## Documentación interna
 
-## 🌍 Variables de Entorno
+- **[`PLAN_MIGRACION_MICROSERVICIOS.md`](./PLAN_MIGRACION_MICROSERVICIOS.md)** — plan vivo de la migración monolito→microservicios. Fases 0–7 y 6.1 completadas.
+- **[`PRISMA_MIGRATIONS_GUIDE.md`](./PRISMA_MIGRATIONS_GUIDE.md)** — workflow de migrations Prisma y schema canónico (`libs/prisma/`).
+- **[`LOGGING_SYSTEM.md`](./LOGGING_SYSTEM.md)** — sistema de logging (`@hbs/logging`) usado por los 5 servicios.
+- **[`RENEW_CERTIFICATE.md`](./RENEW_CERTIFICATE.md)** — runbook para renovar el certificado TLS de producción.
 
-```bash
-# Base de datos
-DATABASE_URL="postgresql://user:password@localhost:5432/happy_baby_style"
+## Despliegue en producción
 
-# JWT
-JWT_SECRET="your-super-secret-jwt-key"
-JWT_EXPIRES_IN="24h"
+> **Estado:** plataforma de despliegue prod **pendiente de decidir** (Fase 6.3–6.5 del plan de migración, bloqueada).
+>
+> Opciones evaluadas: VPS + Docker Compose, AWS ECS/Fargate, Railway, Render. Una vez decidida se añadirá el workflow de CD a `.github/workflows/`, junto con el registry (ECR/GHCR/Docker Hub) y la gestión de secretos.
 
-# Google OAuth
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
+Para el dominio actual (`service.happybabystyle.com`) y renovación de certificados, ver [`RENEW_CERTIFICATE.md`](./RENEW_CERTIFICATE.md).
 
-# Servidor
-PORT=3001
-NODE_ENV=production
+## Contribuir
 
-# Logging
-LOG_LEVEL=info
-LOG_DIRECTORY=./logs
-```
+1. Crear branch desde `main` (`git checkout -b feat/<scope>`)
+2. Hacer cambios + `pnpm lint && pnpm build`
+3. PR — la CI bloquea el merge si lint/type-check/build fallan
+4. Mantener PRs pequeños y enfocados en un solo servicio cuando sea posible (`nx affected` premia eso con builds más rápidos)
 
-## 🚀 Despliegue en Producción
+## Licencia
 
-### Requisitos del Servidor
-
-- **Amazon EC2** con Ubuntu 20.04+ o Amazon Linux 2
-- **Nginx** como proxy reverso (archivo de configuración: `/etc/nginx/conf.d/app.conf`)
-- **PM2** para gestión de procesos Node.js en background
-- **PostgreSQL** configurado y accesible
-
-### Información del Servidor
-
-- **Hosting**: Servidor EC2 de Amazon
-- **Proxy Reverso**: Nginx
-- **Gestor de Procesos**: PM2
-- **Dominio**: service.happybabystyle.com
-
-### Pasos de Despliegue
-
-#### 1. Preparar el Proyecto Localmente
-
-```bash
-# Construir para producción
-npm run build:production
-
-# Verificar que se generó la carpeta dist/
-ls -la dist/
-```
-
-#### 2. Archivos a Copiar al Servidor
-
-Copiar los siguientes archivos y carpetas al servidor:
-
-```bash
-# Estructura de archivos para el servidor
-happy-baby-style/
-├── dist/                    # Código compilado
-├── package.json            # Dependencias del proyecto
-├── package-lock.json       # Versiones exactas de dependencias
-├── logs/                   # Directorio de logs
-├── prisma/                 # Esquemas y migraciones de base de datos
-├── uploads/                # Archivos subidos por usuarios
-├── tsconfig.json           # Configuración TypeScript principal
-├── tsconfig.production.json # Configuración TypeScript para producción
-└── .env.production         # Variables de entorno de producción
-```
-
-#### 3. Configurar el Servidor EC2
-
-```bash
-# Conectarse al servidor
-ssh -i your-key.pem ubuntu@your-ec2-ip
-
-# Instalar Node.js 18+
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Instalar PM2 globalmente
-sudo npm install -g pm2
-
-# Instalar Nginx
-sudo apt install nginx -y
-```
-
-#### 4. Desplegar la Aplicación
-
-```bash
-# Crear directorio de la aplicación
-sudo mkdir -p /opt/happy-baby-style
-sudo chown $USER:$USER /opt/happy-baby-style
-
-# Copiar archivos (desde tu máquina local)
-scp -i your-key.pem -r dist/ ubuntu@your-ec2-ip:/opt/happy-baby-style/
-scp -i your-key.pem package*.json ubuntu@your-ec2-ip:/opt/happy-baby-style/
-scp -i your-key.pem -r logs/ ubuntu@your-ec2-ip:/opt/happy-baby-style/
-scp -i your-key.pem -r prisma/ ubuntu@your-ec2-ip:/opt/happy-baby-style/
-scp -i your-key.pem -r uploads/ ubuntu@your-ec2-ip:/opt/happy-baby-style/
-scp -i your-key.pem tsconfig*.json ubuntu@your-ec2-ip:/opt/happy-baby-style/
-scp -i your-key.pem .env.production ubuntu@your-ec2-ip:/opt/happy-baby-style/
-
-# En el servidor, navegar al directorio
-cd /opt/happy-baby-style
-
-# Instalar dependencias de producción
-npm ci --only=production
-
-# Verificar la configuración
-ls -la
-```
-
-#### 5. Configurar PM2
-
-```bash
-# Iniciar la aplicación con PM2
-pm2 start "npm run start:production" --name "happy-baby-style"
-
-# Guardar configuración PM2
-pm2 save
-```
-
-#### 6. Configurar Nginx
-
-```bash
-# Crear configuración del sitio en /etc/nginx/conf.d/app.conf
-sudo tee /etc/nginx/conf.d/app.conf << 'EOF'
-server {
-    listen 80;
-    server_name service.happybabystyle.com;
-
-    # Redirigir HTTP a HTTPS
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name service.happybabystyle.com;
-
-    # SSL Configuration
-    ssl_certificate /etc/letsencrypt/live/service.happybabystyle.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/service.happybabystyle.com/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-
-    # Logs
-    access_log /var/log/nginx/happy-baby-style.access.log;
-    error_log /var/log/nginx/happy-baby-style.error.log;
-
-    # GraphQL API
-    location /graphql {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 86400;
-    }
-
-    # Health Check
-    location /health {
-        proxy_pass http://localhost:3001;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # GraphQL Playground (solo en desarrollo)
-    location /playground {
-        proxy_pass http://localhost:3001;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Archivos estáticos (uploads)
-    location /uploads/ {
-        alias /opt/happy-baby-style/uploads/;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # Gzip compression
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_proxied expired no-cache no-store private must-revalidate auth;
-    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/javascript;
-}
-EOF
-
-# Verificar configuración Nginx
-sudo nginx -t
-
-# Recargar Nginx
-sudo systemctl reload nginx
-```
-
-
-
-#### 7. Configurar SSL con Let's Encrypt
-
-```bash
-# Instalar Certbot
-sudo apt install certbot python3-certbot-nginx -y
-
-# Detener Nginx para obtener certificados
-sudo systemctl stop nginx
-
-# Obtener certificados SSL usando standalone
-sudo certbot certonly --standalone -d service.happybabystyle.com
-
-# Reiniciar Nginx
-sudo systemctl start nginx
-```
-
-### Comandos de Gestión PM2
-
-#### Iniciar la Aplicación
-```bash
-# Iniciar con PM2
-pm2 start "npm run start:production" --name "happy-baby-style"
-```
-
-#### Detener la Aplicación
-```bash
-# Detener la aplicación
-pm2 stop happy-baby-style
-
-# O detener todas las aplicaciones
-pm2 stop all
-```
-
-#### Reiniciar la Aplicación
-```bash
-# Reiniciar la aplicación
-pm2 restart happy-baby-style
-
-# Reiniciar todas las aplicaciones
-pm2 restart all
-```
-
-#### Ver Estado y Logs
-```bash
-# Ver estado de las aplicaciones
-pm2 status
-
-# Ver logs en tiempo real
-pm2 logs happy-baby-style
-
-# Ver logs específicos
-pm2 logs happy-baby-style --lines 100
-```
-
-#### Actualizar la Aplicación
-```bash
-# Detener la aplicación
-pm2 stop happy-baby-style
-
-# Copiar nuevos archivos
-# ... (copiar dist/, package.json, etc.)
-
-# Reiniciar la aplicación
-pm2 start "npm run start:production" --name "happy-baby-style"
-```
-
-### Monitoreo y Mantenimiento
-
-#### Verificar Logs
-```bash
-# Logs de PM2
-pm2 logs happy-baby-style
-
-# Logs de Nginx
-sudo tail -f /var/log/nginx/happy-baby-style.access.log
-sudo tail -f /var/log/nginx/happy-baby-style.error.log
-```
-
-#### Verificar Estado del Servicio
-```bash
-# Estado de PM2
-pm2 status
-
-# Estado de Nginx
-sudo systemctl status nginx
-
-# Verificar puertos abiertos
-sudo netstat -tlnp | grep :3001
-sudo netstat -tlnp | grep :80
-sudo netstat -tlnp | grep :443
-```
-
-### Comandos de Gestión Nginx
-
-```bash
-# Ver estado del servicio
-sudo systemctl status nginx
-
-# Iniciar Nginx
-sudo systemctl start nginx
-
-# Detener Nginx
-sudo systemctl stop nginx
-
-# Reiniciar Nginx
-sudo systemctl restart nginx
-
-# Recargar configuración (sin detener)
-sudo systemctl reload nginx
-
-# Verificar configuración
-sudo nginx -t
-
-# Ver logs en tiempo real
-sudo tail -f /var/log/nginx/error.log
-sudo tail -f /var/log/nginx/access.log
-```
-
-
-
-## 🧪 Testing
-
-```bash
-# Ejecutar todos los tests
-npm run test
-
-# Tests con cobertura
-npm run test:coverage
-
-# Tests unitarios
-npm run test:unit
-
-# Tests en modo watch
-npm run test:watch
-```
-
-## 📚 Documentación
-
-- **GraphQL API**: Disponible en `/graphql` cuando el servidor esté corriendo
-- **GraphQL Playground**: Disponible en `/playground` (solo en desarrollo)
-- **Health Check**: Disponible en `/health`
-
-## 🔧 Troubleshooting
-
-### Problemas Comunes
-
-#### Error de Resolución de Módulos
-```bash
-# Verificar que tsconfig.production.json esté presente
-ls -la tsconfig.production.json
-
-# Verificar que la variable TS_NODE_PROJECT esté configurada
-echo $TS_NODE_PROJECT
-```
-
-
-
-#### Error de Permisos
-```bash
-# Verificar permisos de archivos
-ls -la /opt/happy-baby-style/
-
-# Corregir permisos si es necesario
-sudo chown -R $USER:$USER /opt/happy-baby-style/
-```
-
-## 📝 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
-
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📞 Soporte
-
-Para soporte técnico o preguntas sobre el despliegue, contacta al equipo de desarrollo.
-
----
-
-**Happy Baby Style Backend** - Desarrollado con ❤️ siguiendo principios de Clean Architecture
+MIT. Ver `LICENSE`.

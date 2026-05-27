@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@hbs/logging": ["../../libs/logging/dist/index"],
+      "@hbs/prisma": ["../../libs/prisma/dist/index"],
+      "@hbs/shared-kernel": ["../../libs/shared-kernel/dist/index"]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "@domain/*": ["dist/src/domain/*"],
+      "@application/*": ["dist/src/application/*"],
+      "@infrastructure/*": ["dist/src/infrastructure/*"],
+      "@hbs/auth": ["../../libs/auth/dist/index"],
+      "@hbs/logging": ["../../libs/logging/dist/index"],
+      "@hbs/prisma": ["../../libs/prisma/dist/index"],
+      "@hbs/shared-kernel": ["../../libs/shared-kernel/dist/index"]
+    }
+  },
+  "include": ["dist/**/*"],
+  "exclude": ["src/**/*", "node_modules"]
+}

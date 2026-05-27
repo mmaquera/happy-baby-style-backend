@@ -1,0 +1,521 @@
+import { GraphQLScalarType, Kind } from 'graphql';
+import { PrismaClient } from '@prisma/client';
+import { IProductRepository } from '../domain/repositories/IProductRepository';
+import { GetProductsUseCase } from '../application/use-cases/GetProductsUseCase';
+import { GetProductByIdUseCase } from '../application/use-cases/GetProductByIdUseCase';
+import { CreateProductUseCase } from '../application/use-cases/CreateProductUseCase';
+import { UpdateProductUseCase } from '../application/use-cases/UpdateProductUseCase';
+import { DeleteProductUseCase } from '../application/use-cases/DeleteProductUseCase';
+import { transformProduct, transformVariant } from './transformers/productTransformer';
+import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+
+const DateTimeScalar = new GraphQLScalarType({
+  name: 'DateTime',
+  serialize: (value: any) => (value instanceof Date ? value.toISOString() : String(value)),
+  parseValue: (value: any) => new Date(String(value)),
+  parseLiteral: (ast) => (ast.kind === Kind.STRING ? new Date(ast.value) : null),
+});
+
+const JsonScalar = new GraphQLScalarType({
+  name: 'JSON',
+  serialize: (value: any) => value,
+  parseValue: (value: any) => value,
+  parseLiteral: (ast) => {
+    if (ast.kind === Kind.STRING) {
+      try {
+        return JSON.parse(ast.value);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  },
+});
+
+export function createResolvers(productRepository: IProductRepository, prisma: PrismaClient) {
+  const getProductsUseCase = new GetProductsUseCase(productRepository);
+  const getProductByIdUseCase = new GetProductByIdUseCase(productRepository);
+  const createProductUseCase = new CreateProductUseCase(productRepository);
+  const updateProductUseCase = new UpdateProductUseCase(productRepository);
+  const deleteProductUseCase = new DeleteProductUseCase(productRepository);
+
+  return {
+    DateTime: DateTimeScalar,
+    JSON: JsonScalar,
+
+    Product: {
+      __resolveReference: async (ref: { id: string }) => {
+        const product = await productRepository.findById(ref.id);
+        return product ? transformProduct(product) : null;
+      },
+      category: (parent: any) =>
+        parent.categoryId ? { __typename: 'Category', id: parent.categoryId } : null,
+    },
+
+    ProductVariant: {
+      product: async (parent: any) => {
+        const product = await productRepository.findById(parent.productId);
+        return product ? transformProduct(product) : null;
+      },
+      isInStock: (parent: any) => parent.stockQuantity > 0,
+    },
+
+    Query: {
+      products: async (_: any, { filter, pagination }: any) => {
+        const limit = pagination?.limit ?? 10;
+        const offset = pagination?.offset ?? 0;
+        const result = await getProductsUseCase.execute({
+          filters: filter,
+          pagination: { limit, offset },
+        });
+        const items = result.products.map(transformProduct);
+        const currentPage = Math.floor(offset / limit) + 1;
+        const totalPages = Math.ceil(result.total / limit);
+        return ResponseFactory.createSuccessResponse(
+          {
+            items,
+            pagination: {
+              total: result.total,
+              limit,
+              offset,
+              hasMore: result.hasMore,
+              currentPage,
+              totalPages,
+            },
+          },
+          'Products retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+        );
+      },
+
+      product: async (_: any, { id }: { id: string }) => {
+        if (!id) {
+          return ResponseFactory.createErrorResponse(
+            'Product ID is required',
+            RESPONSE_CODES.VALIDATION_ERROR,
+          );
+        }
+        const product = await productRepository.findById(id);
+        if (!product) {
+          return ResponseFactory.createErrorResponse(
+            'Product not found',
+            RESPONSE_CODES.RESOURCE_NOT_FOUND,
+          );
+        }
+        return ResponseFactory.createSuccessResponse(
+          { entity: transformProduct(product) },
+          'Product retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+        );
+      },
+
+      productBySku: async (_: any, { sku }: { sku: string }) => {
+        if (!sku) {
+          return ResponseFactory.createErrorResponse(
+            'SKU is required',
+            RESPONSE_CODES.VALIDATION_ERROR,
+          );
+        }
+        const product = await productRepository.findBySku(sku);
+        if (!product) {
+          return ResponseFactory.createErrorResponse(
+            'Product not found',
+            RESPONSE_CODES.RESOURCE_NOT_FOUND,
+          );
+        }
+        return ResponseFactory.createSuccessResponse(
+          { entity: transformProduct(product) },
+          'Product retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+        );
+      },
+
+      productsByCategory: async (_: any, { categoryId, pagination }: any) => {
+        const limit = pagination?.limit ?? 10;
+        const offset = pagination?.offset ?? 0;
+        const result = await getProductsUseCase.execute({
+          filters: { categoryId },
+          pagination: { limit, offset },
+        });
+        return {
+          products: result.products.map(transformProduct),
+          total: result.total,
+          hasMore: result.hasMore,
+        };
+      },
+
+      searchProducts: async (_: any, { query, filter, pagination }: any) => {
+        const limit = pagination?.limit ?? 10;
+        const offset = pagination?.offset ?? 0;
+        const result = await getProductsUseCase.execute({
+          filters: { ...filter, search: query },
+          pagination: { limit, offset },
+        });
+        return {
+          products: result.products.map(transformProduct),
+          total: result.total,
+          hasMore: result.hasMore,
+        };
+      },
+
+      productVariants: async (_: any, { productId }: { productId: string }) => {
+        const variants = await productRepository.getProductVariants(productId);
+        return variants.map(transformVariant);
+      },
+
+      productVariant: async (_: any, { id }: { id: string }) => {
+        const variants = await productRepository.getProductVariants(id);
+        return variants.length > 0 ? transformVariant(variants[0]) : null;
+      },
+
+      productStats: async () => {
+        const [totalProducts, activeProducts, lowStockCount, outOfStockCount] = await Promise.all([
+          prisma.product.count(),
+          prisma.product.count({ where: { isActive: true } }),
+          prisma.product.count({ where: { isActive: true, stockQuantity: { gt: 0, lte: 10 } } }),
+          prisma.product.count({ where: { isActive: true, stockQuantity: 0 } }),
+        ]);
+        return ResponseFactory.createSuccessResponse(
+          { totalProducts, activeProducts, lowStockCount, outOfStockCount },
+          'Product stats retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+        );
+      },
+
+      lowStockProducts: async () => {
+        const result = await getProductsUseCase.execute({
+          filters: { isActive: true },
+          pagination: { limit: 10000, offset: 0 },
+        });
+        return result.products
+          .filter((p) => p.stockQuantity > 0 && p.stockQuantity <= 10)
+          .map(transformProduct);
+      },
+
+      outOfStockProducts: async () => {
+        const result = await getProductsUseCase.execute({
+          filters: { isActive: true },
+          pagination: { limit: 10000, offset: 0 },
+        });
+        return result.products.filter((p) => p.stockQuantity === 0).map(transformProduct);
+      },
+
+      inventoryTransactions: async (_: any, { productId }: { productId: string }) => {
+        const txs = await prisma.inventoryTransaction.findMany({
+          where: { productId },
+          orderBy: { createdAt: 'desc' },
+        });
+        return txs.map((tx) => ({ ...tx, createdAt: tx.createdAt.toISOString() }));
+      },
+
+      stockAlerts: async () => {
+        const alerts = await prisma.stockAlert.findMany({ orderBy: { createdAt: 'desc' } });
+        return alerts.map((a) => ({
+          ...a,
+          createdAt: a.createdAt.toISOString(),
+          updatedAt: a.updatedAt.toISOString(),
+        }));
+      },
+
+      // ── Review queries ───────────────────────────────────────────────────
+
+      productReviews: async (_: any, { productId, pagination }: any) => {
+        try {
+          const limit = pagination?.limit ?? 10;
+          const offset = pagination?.offset ?? 0;
+          const [reviews, total] = await Promise.all([
+            prisma.productReview.findMany({
+              where: { productId, isApproved: true },
+              include: { photos: true, votes: true },
+              orderBy: { createdAt: 'desc' },
+              take: limit,
+              skip: offset,
+            }),
+            prisma.productReview.count({ where: { productId, isApproved: true } }),
+          ]);
+          return {
+            reviews: reviews.map((r) => ({
+              ...r,
+              product: { __typename: 'Product', id: r.productId },
+              user: { __typename: 'UserProfile', id: r.userId },
+              photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+              votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+            })),
+            total,
+            hasMore: offset + limit < total,
+          };
+        } catch {
+          return { reviews: [], total: 0, hasMore: false };
+        }
+      },
+
+      userReviews: async (_: any, { userId }: any) => {
+        try {
+          const reviews = await prisma.productReview.findMany({
+            where: { userId },
+            include: { photos: true, votes: true },
+            orderBy: { createdAt: 'desc' },
+          });
+          return reviews.map((r) => ({
+            ...r,
+            product: { __typename: 'Product', id: r.productId },
+            user: { __typename: 'UserProfile', id: r.userId },
+            photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+            votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      review: async (_: any, { id }: any) => {
+        try {
+          const r = await prisma.productReview.findUnique({ where: { id }, include: { photos: true, votes: true } });
+          if (!r) return null;
+          return {
+            ...r,
+            product: { __typename: 'Product', id: r.productId },
+            user: { __typename: 'UserProfile', id: r.userId },
+            photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+            votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+          };
+        } catch {
+          return null;
+        }
+      },
+
+      reviewVotes: async (_: any, { reviewId }: any) => {
+        try {
+          const votes = await prisma.reviewVote.findMany({ where: { reviewId } });
+          return votes.map((v) => ({
+            ...v,
+            review: { __typename: 'ProductReview', id: v.reviewId },
+            user: { __typename: 'UserProfile', id: v.userId },
+          }));
+        } catch {
+          return [];
+        }
+      },
+    },
+
+    Mutation: {
+      createProduct: async (_: any, { input }: any) => {
+        try {
+          const product = await createProductUseCase.execute({
+            categoryId: input.categoryId,
+            name: input.name,
+            description: input.description || '',
+            price: input.price,
+            salePrice: input.salePrice,
+            sku: input.sku,
+            images: input.images,
+            attributes: input.attributes,
+            isActive: input.isActive,
+            stockQuantity: input.stockQuantity,
+            tags: input.tags,
+          });
+          const transformed = transformProduct(product);
+          return ResponseFactory.createSuccessResponse(
+            { entity: transformed, id: product.id, createdAt: product.createdAt.toISOString() },
+            'Product created successfully',
+            RESPONSE_CODES.CREATED,
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            error.message || 'Failed to create product',
+            RESPONSE_CODES.INTERNAL_ERROR,
+          );
+        }
+      },
+
+      updateProduct: async (_: any, { id, input }: any) => {
+        try {
+          const product = await updateProductUseCase.execute({ id, ...input });
+          const transformed = transformProduct(product);
+          const changes = Object.keys(input).filter((k) => input[k] !== undefined);
+          return ResponseFactory.createSuccessResponse(
+            {
+              entity: transformed,
+              id: product.id,
+              updatedAt: product.updatedAt.toISOString(),
+              changes,
+            },
+            'Product updated successfully',
+            RESPONSE_CODES.SUCCESS,
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            error.message || 'Failed to update product',
+            RESPONSE_CODES.INTERNAL_ERROR,
+          );
+        }
+      },
+
+      deleteProduct: async (_: any, { id }: { id: string }) => {
+        try {
+          await deleteProductUseCase.execute(id);
+          return ResponseFactory.createSuccessResponse(
+            { id, deletedAt: new Date().toISOString(), softDelete: false },
+            'Product deleted successfully',
+            RESPONSE_CODES.SUCCESS,
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            error.message || 'Failed to delete product',
+            RESPONSE_CODES.INTERNAL_ERROR,
+          );
+        }
+      },
+
+      createProductVariant: async (_: any, { input }: any) => {
+        const variant = await productRepository.createVariant(input);
+        return transformVariant(variant);
+      },
+
+      updateProductVariant: async (_: any, { id, input }: any) => {
+        const variant = await productRepository.updateVariant(id, input);
+        return transformVariant(variant);
+      },
+
+      deleteProductVariant: async (_: any, { id }: { id: string }) => {
+        await productRepository.deleteVariant(id);
+        return { success: true, message: 'Product variant deleted successfully' };
+      },
+
+      bulkUpdateProducts: async (_: any, { ids, input }: any) => {
+        const updated = await Promise.all(
+          ids.map((id: string) => updateProductUseCase.execute({ id, ...input })),
+        );
+        return updated.map(transformProduct);
+      },
+
+      // ── Inventory transactions ───────────────────────────────────────────
+      createInventoryTransaction: async (_: any, { input }: any) => {
+        const tx = await prisma.inventoryTransaction.create({
+          data: {
+            productId: input.productId,
+            type: input.type,
+            quantity: input.quantity,
+            reference: input.reference,
+            notes: input.notes,
+          },
+        });
+        return { ...tx, createdAt: tx.createdAt.toISOString() };
+      },
+
+      // ── Stock alerts ─────────────────────────────────────────────────────
+      createStockAlert: async (_: any, { input }: any) => {
+        const alert = await prisma.stockAlert.create({
+          data: {
+            productId: input.productId,
+            type: input.type,
+            threshold: input.threshold,
+            currentStock: input.currentStock,
+            isActive: input.isActive ?? true,
+          },
+        });
+        return {
+          ...alert,
+          createdAt: alert.createdAt.toISOString(),
+          updatedAt: alert.updatedAt.toISOString(),
+        };
+      },
+
+      updateStockAlert: async (_: any, { id, isActive }: any) => {
+        const alert = await prisma.stockAlert.update({
+          where: { id },
+          data: { isActive },
+        });
+        return {
+          ...alert,
+          createdAt: alert.createdAt.toISOString(),
+          updatedAt: alert.updatedAt.toISOString(),
+        };
+      },
+
+      deleteStockAlert: async (_: any, { id }: { id: string }) => {
+        await prisma.stockAlert.delete({ where: { id } });
+        return { success: true, message: 'Stock alert deleted successfully' };
+      },
+
+      // ── Review mutations ─────────────────────────────────────────────────
+
+      createProductReview: async (_: any, { input }: any) => {
+        const review = await prisma.productReview.create({
+          data: {
+            productId: input.productId,
+            userId: input.userId,
+            rating: input.rating,
+            title: input.title,
+            comment: input.comment,
+          },
+          include: { photos: true, votes: true },
+        });
+        return {
+          ...review,
+          product: { __typename: 'Product', id: review.productId },
+          user: { __typename: 'UserProfile', id: review.userId },
+          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+          votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+        };
+      },
+
+      updateProductReview: async (_: any, { id, input }: any) => {
+        const review = await prisma.productReview.update({
+          where: { id },
+          data: { rating: input.rating, title: input.title, comment: input.comment, isApproved: input.isApproved },
+          include: { photos: true, votes: true },
+        });
+        return {
+          ...review,
+          product: { __typename: 'Product', id: review.productId },
+          user: { __typename: 'UserProfile', id: review.userId },
+          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+          votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+        };
+      },
+
+      deleteProductReview: async (_: any, { id }: any) => {
+        await prisma.productReview.delete({ where: { id } });
+        return { success: true, message: 'Review deleted' };
+      },
+
+      approveReview: async (_: any, { id }: any) => {
+        const review = await prisma.productReview.update({
+          where: { id },
+          data: { isApproved: true },
+          include: { photos: true, votes: true },
+        });
+        return {
+          ...review,
+          product: { __typename: 'Product', id: review.productId },
+          user: { __typename: 'UserProfile', id: review.userId },
+          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+          votes: [],
+        };
+      },
+
+      createReviewVote: async (_: any, { input }: any) => {
+        const vote = await prisma.reviewVote.upsert({
+          where: { reviewId_userId: { reviewId: input.reviewId, userId: input.userId } },
+          create: { reviewId: input.reviewId, userId: input.userId, isHelpful: input.isHelpful },
+          update: { isHelpful: input.isHelpful },
+        });
+        return {
+          ...vote,
+          review: { __typename: 'ProductReview', id: vote.reviewId },
+          user: { __typename: 'UserProfile', id: vote.userId },
+        };
+      },
+
+      deleteReviewVote: async (_: any, { reviewId, userId }: any) => {
+        try {
+          await prisma.reviewVote.delete({ where: { reviewId_userId: { reviewId, userId } } });
+          return { success: true, message: 'Vote deleted' };
+        } catch (e: any) {
+          return { success: false, message: e.message };
+        }
+      },
+    },
+  };
+}

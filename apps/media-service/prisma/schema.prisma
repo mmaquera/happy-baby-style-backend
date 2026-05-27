@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Image {
+  id           String   @id @default(uuid())
+  fileName     String   @map("file_name")
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  url          String
+  bucket       String?
+  path         String?
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  dimensions   String?
+  viewBox      String?  @map("view_box")
+  optimized    Boolean  @default(false)
+
+  @@map("images")
+}

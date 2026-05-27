@@ -1,0 +1,27 @@
+federation_version: =2.0.0
+
+subgraphs:
+  legacy:
+    routing_url: http://legacy-api:3001/graphql
+    schema:
+      subgraph_url: http://localhost:3001/graphql
+  category:
+    routing_url: http://category-service:3002/graphql
+    schema:
+      subgraph_url: http://localhost:3002/graphql
+  product:
+    routing_url: http://product-service:3003/graphql
+    schema:
+      subgraph_url: http://localhost:3003/graphql
+  media:
+    routing_url: http://media-service:3004/graphql
+    schema:
+      subgraph_url: http://localhost:3004/graphql
+  order:
+    routing_url: http://order-service:3005/graphql
+    schema:
+      subgraph_url: http://localhost:3005/graphql
+  user:
+    routing_url: http://user-service:3006/graphql
+    schema:
+      subgraph_url: http://localhost:3006/graphql

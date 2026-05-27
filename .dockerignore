@@ -1,0 +1,31 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt inside Docker)
+**/dist
+.nx/cache
+.nx/workspace-data
+
+# Environment files (injected at runtime via Docker Compose)
+.env
+.env.*
+!.env.template
+
+# Dev / editor artifacts
+.git
+.gitignore
+*.log
+logs/
+uploads/
+coverage/
+*.md
+
+# Docker itself
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Scripts and docs not needed at runtime
+scripts/
+docs/

@@ -1,0 +1,301 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// customerEmail, customerName and inline shipping fields avoid any cross-domain
+// FK to user-service's user_profiles / user_addresses tables.
+model Order {
+  id                String      @id @default(uuid())
+  userId            String      @map("user_id")
+  orderNumber       String      @unique @map("order_number")
+  customerEmail     String      @default("") @map("customer_email")
+  customerName      String      @default("") @map("customer_name")
+  status            OrderStatus @default(pending)
+  subtotal          Decimal     @db.Decimal(10, 2)
+  taxAmount         Decimal     @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  shippingAmount    Decimal     @default(0) @map("shipping_amount") @db.Decimal(10, 2)
+  discountAmount    Decimal     @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  totalAmount       Decimal     @map("total_amount") @db.Decimal(10, 2)
+  currency          String      @default("PEN")
+  shippingAddressId String?     @map("shipping_address_id")
+  shippingStreet    String?     @map("shipping_street")
+  shippingCity      String?     @map("shipping_city")
+  shippingState     String?     @map("shipping_state")
+  shippingZipCode   String?     @map("shipping_zip_code")
+  shippingCountry   String?     @default("PE") @map("shipping_country")
+  notes             String?
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  deliveredAt       DateTime?   @map("delivered_at")
+
+  items          OrderItem[]
+  paymentMethods PaymentMethod[]
+  tracking       OrderTracking[]
+  transactions   Transaction[]
+  couponUsage    CouponUsage[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String   @map("order_id")
+  productId  String   @map("product_id")
+  quantity   Int
+  unitPrice  Decimal  @map("unit_price") @db.Decimal(10, 2)
+  totalPrice Decimal  @map("total_price") @db.Decimal(10, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model OrderTracking {
+  id                String    @id @default(uuid())
+  orderId           String    @map("order_id")
+  status            String
+  location          String?
+  description       String?
+  trackingNumber    String?   @map("tracking_number")
+  carrierId         String?   @map("carrier_id")
+  estimatedDelivery DateTime? @map("estimated_delivery")
+  actualDelivery    DateTime? @map("actual_delivery")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier Carrier? @relation(fields: [carrierId], references: [id])
+
+  @@map("order_tracking")
+}
+
+model PaymentMethod {
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  type          PaymentMethodType
+  amount        Decimal           @db.Decimal(10, 2)
+  status        String            @default("pending")
+  transactionId String?           @map("transaction_id")
+  metadata      Json              @default("{}")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payment_methods")
+}
+
+model Transaction {
+  id                   String            @id @default(uuid())
+  orderId              String            @map("order_id")
+  userId               String            @map("user_id")
+  type                 TransactionType
+  amount               Decimal           @db.Decimal(10, 2)
+  currency             String            @default("PEN")
+  status               TransactionStatus @default(pending)
+  gateway              String?
+  gatewayTransactionId String?           @map("gateway_transaction_id")
+  metadata             Json              @default("{}")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+model Carrier {
+  id                  String   @id @default(uuid())
+  name                String
+  code                String   @unique
+  trackingUrlTemplate String?  @map("tracking_url_template")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tracking OrderTracking[]
+
+  @@map("carriers")
+}
+
+model ShippingZone {
+  id          String   @id @default(uuid())
+  name        String
+  countries   String[]
+  states      String[]
+  cities      String[]
+  postalCodes String[] @map("postal_codes")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  rates ShippingRate[]
+
+  @@map("shipping_zones")
+}
+
+model ShippingRate {
+  id        String   @id @default(uuid())
+  zoneId    String   @map("zone_id")
+  name      String
+  minWeight Decimal? @map("min_weight") @db.Decimal(10, 2)
+  maxWeight Decimal? @map("max_weight") @db.Decimal(10, 2)
+  price     Decimal  @db.Decimal(10, 2)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  zone ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_rates")
+}
+
+model DeliverySlot {
+  id        String   @id @default(uuid())
+  dayOfWeek Int      @map("day_of_week")
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  maxOrders Int      @map("max_orders")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("delivery_slots")
+}
+
+model Coupon {
+  id                   String       @id @default(uuid())
+  code                 String       @unique
+  name                 String
+  description          String?
+  discountType         DiscountType @map("discount_type")
+  discountValue        Decimal      @map("discount_value") @db.Decimal(10, 2)
+  minimumAmount        Decimal?     @map("minimum_amount") @db.Decimal(10, 2)
+  maximumDiscount      Decimal?     @map("maximum_discount") @db.Decimal(10, 2)
+  usageLimit           Int?         @map("usage_limit")
+  usedCount            Int          @default(0) @map("used_count")
+  validFrom            DateTime     @map("valid_from")
+  validUntil           DateTime     @map("valid_until")
+  isActive             Boolean      @default(true) @map("is_active")
+  isFirstTimeOnly      Boolean      @default(false) @map("is_first_time_only")
+  applicableCategories String[]     @map("applicable_categories")
+  applicableProducts   String[]     @map("applicable_products")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  usage CouponUsage[]
+
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id             String   @id @default(uuid())
+  couponId       String   @map("coupon_id")
+  userId         String   @map("user_id")
+  orderId        String   @map("order_id")
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(10, 2)
+  usedAt         DateTime @map("used_at")
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("coupon_usage")
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  processing
+  shipped
+  delivered
+  cancelled
+  refunded
+}
+
+enum PaymentMethodType {
+  credit_card
+  debit_card
+  paypal
+  bank_transfer
+  cash_on_delivery
+}
+
+enum TransactionType {
+  payment
+  refund
+  chargeback
+  adjustment
+}
+
+enum TransactionStatus {
+  pending
+  completed
+  failed
+  cancelled
+  refunded
+}
+
+enum DiscountType {
+  percentage
+  fixed_amount
+  free_shipping
+}
+
+model ShoppingCart {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  sessionId String?  @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items ShoppingCartItem[]
+
+  @@map("shopping_carts")
+}
+
+model ShoppingCartItem {
+  id        String   @id @default(uuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cart ShoppingCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@map("shopping_cart_items")
+}
+
+model StoreSettings {
+  id           String   @id @default(uuid())
+  settingKey   String   @unique @map("setting_key")
+  settingValue String   @map("setting_value")
+  description  String?
+  category     String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("store_settings")
+}
+
+model TaxRate {
+  id        String   @id @default(uuid())
+  name      String
+  rate      Decimal  @db.Decimal(5, 4)
+  country   String?
+  state     String?
+  city      String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tax_rates")
+}

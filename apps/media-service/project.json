@@ -1,0 +1,40 @@
+{
+  "name": "media-service",
+  "projectType": "application",
+  "sourceRoot": "apps/media-service/src",
+  "implicitDependencies": [
+    "logging",
+    "prisma",
+    "shared-kernel"
+  ],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": [
+        "{projectRoot}/dist"
+      ],
+      "dependsOn": [
+        "^build"
+      ],
+      "options": {
+        "command": "rm -rf apps/media-service/dist && tsc -p apps/media-service/tsconfig.json"
+      }
+    },
+    "type-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit -p apps/media-service/tsconfig.json"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ts-node-dev --respawn --transpile-only apps/media-service/src/index.ts",
+        "env": {
+          "TS_NODE_PROJECT": "apps/media-service/tsconfig.json"
+        }
+      }
+    },
+    "lint": {}
+  }
+}
