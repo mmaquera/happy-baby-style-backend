@@ -49,3 +49,6 @@ docker-compose.override.yaml
 .vscode/
 *.swp
 *.swo
+
+## Claude (local del developer, no del proyecto)
+.claude/
