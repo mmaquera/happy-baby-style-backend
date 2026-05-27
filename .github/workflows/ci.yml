@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Lint · Type-check · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11'
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set NX base/head for affected
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "NX_BASE=origin/${{ github.base_ref }}" >> $GITHUB_ENV
+            echo "NX_HEAD=${{ github.sha }}"             >> $GITHUB_ENV
+          else
+            echo "NX_BASE=${{ github.event.before }}"   >> $GITHUB_ENV
+            echo "NX_HEAD=${{ github.sha }}"             >> $GITHUB_ENV
+          fi
+
+      - name: Lint (affected)
+        run: pnpm exec nx affected --target=lint --base=$NX_BASE --head=$NX_HEAD
+
+      - name: Type-check (affected)
+        run: pnpm exec nx affected --target=type-check --base=$NX_BASE --head=$NX_HEAD
+
+      - name: Build (affected)
+        run: pnpm exec nx affected --target=build --base=$NX_BASE --head=$NX_HEAD

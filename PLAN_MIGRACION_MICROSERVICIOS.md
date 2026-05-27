@@ -37,7 +37,7 @@ Objetivo alcanzado: migración completa (patrón Strangler) a microservicios en 
 | Testing | Jest + ts-jest + supertest | Sin cambios |
 | Lint/Format | ESLint 9 (flat config) + Prettier | ✅ Configurado |
 | Contenedores | Docker + Docker Compose | ✅ Implementado |
-| CI/CD | GitHub Actions CI (pendiente) | ⏳ Fase 6.1 |
+| CI/CD | GitHub Actions CI (`ci.yml` con `nx affected`) | ✅ Fase 6.1 |
 | Infra prod | Sin definir | 🔒 Pendiente decisión |
 
 **Servicios y sus bases de datos:**
@@ -120,7 +120,7 @@ Objetivo alcanzado: migración completa (patrón Strangler) a microservicios en 
 
 ### FASE 6 — CI y despliegue
 > **Bloque A — CI de calidad (sin dependencias de cloud)**
-- [ ] **6.1** Workflow `ci.yml`: lint + type-check + `nx affected --target=build --base=origin/main` en cada PR y push a `main`.
+- [x] **6.1** Workflow `ci.yml`: lint + type-check + `nx affected --target=build --base=origin/main` en cada PR y push a `main`.
 - [ ] **6.2** (opcional) Rover CLI en CI para validar el supergraph schema antes de mergear.
 
 > **Bloque B — CD y despliegue (bloqueado: sin infraestructura prod definida)**
@@ -154,7 +154,7 @@ Objetivo alcanzado: migración completa (patrón Strangler) a microservicios en 
 3. ~~**7.14**~~ ✅ Verificación final: 8/8 contenedores healthy, 5 subgraphs resolviendo, lint 0 errores, build 0 errores.
 
 ### Siguiente — Fase 6 (CI sin dependencias cloud)
-4. **6.1** — Workflow `ci.yml` con lint + type-check + `nx affected` build.
+4. ~~**6.1**~~ ✅ `.github/workflows/ci.yml` con lint + type-check + build `nx affected`.
 
 ### Bloqueado hasta decidir infraestructura prod
 5. **6.3–6.5** — Registry, plataforma de despliegue y gestión de secretos.
