@@ -289,7 +289,10 @@ export class PrismaOrderRepository implements IOrderRepository {
 
   async getOrderStats(): Promise<OrderStats> {
     try {
-      const [total, pending, processing, shipped, delivered, cancelled, revenue, avg] =
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const [total, pending, processing, shipped, delivered, cancelled, revenue, avg, todayCount, todayRevenue, activeCoupons] =
         await Promise.all([
           this.prisma.order.count(),
           this.prisma.order.count({ where: { status: 'pending' } }),
@@ -299,6 +302,9 @@ export class PrismaOrderRepository implements IOrderRepository {
           this.prisma.order.count({ where: { status: 'cancelled' } }),
           this.prisma.order.aggregate({ _sum: { totalAmount: true } }),
           this.prisma.order.aggregate({ _avg: { totalAmount: true } }),
+          this.prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
+          this.prisma.order.aggregate({ where: { createdAt: { gte: startOfToday } }, _sum: { totalAmount: true } }),
+          this.prisma.coupon.count({ where: { isActive: true, validUntil: { gte: new Date() } } }),
         ]);
 
       return {
@@ -310,6 +316,9 @@ export class PrismaOrderRepository implements IOrderRepository {
         cancelledOrders: cancelled,
         totalRevenue: Number(revenue._sum.totalAmount) || 0,
         averageOrderValue: Number(avg._avg.totalAmount) || 0,
+        todayOrders: todayCount,
+        todayRevenue: Number(todayRevenue._sum.totalAmount) || 0,
+        activeCoupons,
       };
     } catch (error) {
       this.logger.error(

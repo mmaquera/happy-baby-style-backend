@@ -29,6 +29,7 @@ model UserProfile {
   sessionsAnalytics   UserSessionAnalytics[]
   appEvents           AppEvent[]
   auditLogs           AuditLog[]
+  favorites           UserFavorite[]
   newsletterSubs      NewsletterSubscription[]
   pushNotifications   PushNotification[]
   rewardPoints        RewardPoint[]
@@ -287,4 +288,57 @@ enum PaymentMethodType {
   paypal
   bank_transfer
   cash_on_delivery
+}
+
+model UserFavorite {
+  id        String      @id @default(uuid())
+  userId    String      @map("user_id")
+  productId String      @map("product_id")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("user_favorites")
+}
+
+model LoyaltyProgram {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  pointsPerDollar Decimal  @default(1) @map("points_per_dollar") @db.Decimal(10, 4)
+  redemptionRate  Decimal  @default(0.01) @map("redemption_rate") @db.Decimal(10, 4)
+  expiryMonths    Int      @default(12) @map("expiry_months")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("loyalty_programs")
+}
+
+model NotificationTemplate {
+  id        String           @id @default(uuid())
+  name      String
+  type      NotificationType
+  title     String
+  body      String
+  variables Json             @default("[]")
+  isActive  Boolean          @default(true) @map("is_active")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String
+  subject   String
+  body      String
+  variables Json     @default("[]")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("email_templates")
 }

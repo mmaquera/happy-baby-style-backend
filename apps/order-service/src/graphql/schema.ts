@@ -94,6 +94,11 @@ export const typeDefs = gql`
     country: String!
   }
 
+  type SuccessResponse @shareable {
+    success: Boolean!
+    message: String!
+  }
+
   type OrderStats @shareable {
     totalOrders: Int!
     pendingOrders: Int!
@@ -103,6 +108,9 @@ export const typeDefs = gql`
     cancelledOrders: Int!
     totalRevenue: Decimal!
     averageOrderValue: Decimal!
+    todayOrders: Int!
+    todayRevenue: Decimal!
+    activeCoupons: Int!
   }
 
   type PaginatedOrders {
@@ -349,6 +357,54 @@ export const typeDefs = gql`
     metadata: JSON
   }
 
+  # ── Shopping cart types ────────────────────────────────────────────────────
+
+  type ShoppingCart {
+    id: ID!
+    userId: String
+    sessionId: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    items: [ShoppingCartItem!]!
+  }
+
+  type ShoppingCartItem {
+    id: ID!
+    cartId: ID!
+    productId: ID!
+    quantity: Int!
+    price: Decimal!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    cart: ShoppingCart!
+    product: Product!
+  }
+
+  # ── Store config types ─────────────────────────────────────────────────────
+
+  type StoreSettings {
+    id: ID!
+    settingKey: String!
+    settingValue: String!
+    description: String
+    category: String
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type TaxRate {
+    id: ID!
+    name: String!
+    rate: Decimal!
+    country: String
+    state: String
+    city: String
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
   # ── Queries ────────────────────────────────────────────────────────────────
 
   type Query {
@@ -378,6 +434,16 @@ export const typeDefs = gql`
     shippingZone(id: ID!): ShippingZone
     shippingRates(zoneId: ID!): [ShippingRate!]!
     deliverySlots: [DeliverySlot!]!
+
+    # Shopping cart
+    userCart(userId: ID!): [ShoppingCart!]!
+    cartItem(id: ID!): ShoppingCartItem
+
+    # Store config
+    storeSettings: [StoreSettings!]!
+    storeSetting(key: String!): StoreSettings
+    taxRates: [TaxRate!]!
+    taxRate(id: ID!): TaxRate
   }
 
   # ── Mutations ──────────────────────────────────────────────────────────────
@@ -412,5 +478,11 @@ export const typeDefs = gql`
     deleteCarrier(id: ID!): Boolean!
     createShippingZone(input: CreateShippingZoneInput!): ShippingZone!
     createShippingRate(input: CreateShippingRateInput!): ShippingRate!
+
+    # Shopping cart
+    addToCart(userId: ID!, productId: ID!, quantity: Int!): ShoppingCartItem!
+    updateCartItem(id: ID!, quantity: Int!): ShoppingCartItem!
+    removeFromCart(id: ID!): SuccessResponse!
+    clearUserCart(userId: ID!): SuccessResponse!
   }
 `;

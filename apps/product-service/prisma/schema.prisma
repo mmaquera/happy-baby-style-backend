@@ -28,6 +28,7 @@ model Product {
   variants              ProductVariant[]
   inventoryTransactions InventoryTransaction[]
   stockAlerts           StockAlert[]
+  reviews               ProductReview[]
 
   @@map("products")
 }
@@ -90,4 +91,50 @@ enum StockAlertType {
   low_stock
   out_of_stock
   overstock
+}
+
+model ProductReview {
+  id           String        @id @default(uuid())
+  productId    String        @map("product_id")
+  userId       String        @map("user_id")
+  rating       Int
+  title        String?
+  comment      String?
+  isApproved   Boolean       @default(false) @map("is_approved")
+  isVerified   Boolean       @default(false) @map("is_verified")
+  helpfulCount Int           @default(0) @map("helpful_count")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  photos  ReviewPhoto[]
+  votes   ReviewVote[]
+
+  @@map("product_reviews")
+}
+
+model ReviewPhoto {
+  id        String        @id @default(uuid())
+  reviewId  String        @map("review_id")
+  imageUrl  String        @map("image_url")
+  caption   String?
+  sortOrder Int           @default(0) @map("sort_order")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_photos")
+}
+
+model ReviewVote {
+  id        String        @id @default(uuid())
+  reviewId  String        @map("review_id")
+  userId    String        @map("user_id")
+  isHelpful Boolean       @map("is_helpful")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@map("review_votes")
 }

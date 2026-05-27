@@ -222,6 +222,79 @@ export function createResolvers(
         });
         return items.map(transformDeliverySlot);
       },
+
+      // ── Shopping cart queries ────────────────────────────────────────────
+
+      userCart: async (_: any, { userId }: any) => {
+        try {
+          const carts = await prisma.shoppingCart.findMany({
+            where: { userId },
+            include: { items: true },
+          });
+          return carts.map((c) => ({
+            ...c,
+            items: c.items.map((i) => ({
+              ...i,
+              price: Number(i.price),
+              cart: { __typename: 'ShoppingCart', id: i.cartId },
+              product: { __typename: 'Product', id: i.productId },
+            })),
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      cartItem: async (_: any, { id }: any) => {
+        try {
+          const item = await prisma.shoppingCartItem.findUnique({ where: { id } });
+          if (!item) return null;
+          return {
+            ...item,
+            price: Number(item.price),
+            cart: { __typename: 'ShoppingCart', id: item.cartId },
+            product: { __typename: 'Product', id: item.productId },
+          };
+        } catch {
+          return null;
+        }
+      },
+
+      // ── Store settings & tax rates queries ───────────────────────────────
+
+      storeSettings: async () => {
+        try {
+          return await prisma.storeSettings.findMany({ where: { isActive: true } });
+        } catch {
+          return [];
+        }
+      },
+
+      storeSetting: async (_: any, { key }: any) => {
+        try {
+          return await prisma.storeSettings.findUnique({ where: { settingKey: key } });
+        } catch {
+          return null;
+        }
+      },
+
+      taxRates: async () => {
+        try {
+          const rates = await prisma.taxRate.findMany({ where: { isActive: true } });
+          return rates.map((r) => ({ ...r, rate: Number(r.rate) }));
+        } catch {
+          return [];
+        }
+      },
+
+      taxRate: async (_: any, { id }: any) => {
+        try {
+          const r = await prisma.taxRate.findUnique({ where: { id } });
+          return r ? { ...r, rate: Number(r.rate) } : null;
+        } catch {
+          return null;
+        }
+      },
     },
 
     Mutation: {
@@ -397,6 +470,55 @@ export function createResolvers(
           },
         });
         return transformShippingRate(r);
+      },
+
+      // ── Shopping cart mutations ──────────────────────────────────────────
+
+      addToCart: async (_: any, { userId, productId, quantity }: any) => {
+        let cart = await prisma.shoppingCart.findFirst({ where: { userId } });
+        if (!cart) {
+          cart = await prisma.shoppingCart.create({ data: { userId } });
+        }
+        const existing = await prisma.shoppingCartItem.findFirst({
+          where: { cartId: cart.id, productId },
+        });
+        if (existing) {
+          const item = await prisma.shoppingCartItem.update({
+            where: { id: existing.id },
+            data: { quantity: existing.quantity + quantity },
+          });
+          return { ...item, cart: { __typename: 'ShoppingCart', id: item.cartId }, product: { __typename: 'Product', id: item.productId } };
+        }
+        const item = await prisma.shoppingCartItem.create({
+          data: { cartId: cart.id, productId, quantity, price: 0 },
+        });
+        return { ...item, cart: { __typename: 'ShoppingCart', id: item.cartId }, product: { __typename: 'Product', id: item.productId } };
+      },
+
+      updateCartItem: async (_: any, { id, quantity }: any) => {
+        const item = await prisma.shoppingCartItem.update({ where: { id }, data: { quantity } });
+        return { ...item, cart: { __typename: 'ShoppingCart', id: item.cartId }, product: { __typename: 'Product', id: item.productId } };
+      },
+
+      removeFromCart: async (_: any, { id }: any) => {
+        try {
+          await prisma.shoppingCartItem.delete({ where: { id } });
+          return { success: true, message: 'Item removed from cart' };
+        } catch (e: any) {
+          return { success: false, message: e.message };
+        }
+      },
+
+      clearUserCart: async (_: any, { userId }: any) => {
+        try {
+          const carts = await prisma.shoppingCart.findMany({ where: { userId } });
+          for (const cart of carts) {
+            await prisma.shoppingCartItem.deleteMany({ where: { cartId: cart.id } });
+          }
+          return { success: true, message: 'Cart cleared' };
+        } catch (e: any) {
+          return { success: false, message: e.message };
+        }
       },
     },
 

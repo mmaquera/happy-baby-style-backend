@@ -31,6 +31,26 @@ export const typeDefs = gql`
     cancelled
     refunded
   }
+  enum PaymentMethodType {
+    credit_card
+    debit_card
+    paypal
+    bank_transfer
+    cash_on_delivery
+  }
+  enum NotificationType {
+    order_status
+    payment
+    shipping
+    marketing
+    system
+  }
+  enum RewardPointType {
+    earned
+    redeemed
+    expired
+    bonus
+  }
 
   # ── Federation-owned types ───────────────────────────────────────────────────
 
@@ -220,6 +240,157 @@ export const typeDefs = gql`
     createdAt: DateTime!
     user: UserProfile!
     product: Product!
+  }
+
+  # ── Saved payment methods ────────────────────────────────────────────────────
+
+  type SavedPaymentMethod {
+    id: ID!
+    userId: ID!
+    type: PaymentMethodType!
+    provider: String!
+    lastFour: String
+    expiryMonth: Int
+    expiryYear: Int
+    cardholderName: String
+    isDefault: Boolean!
+    isActive: Boolean!
+    metadata: JSON!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    user: UserProfile!
+  }
+
+  input CreateSavedPaymentMethodInput {
+    userId: ID!
+    type: PaymentMethodType!
+    provider: String!
+    lastFour: String
+    expiryMonth: Int
+    expiryYear: Int
+    cardholderName: String
+    isDefault: Boolean
+    metadata: JSON
+  }
+
+  input UpdateSavedPaymentMethodInput {
+    isDefault: Boolean
+    isActive: Boolean
+    metadata: JSON
+  }
+
+  # ── Loyalty & rewards ────────────────────────────────────────────────────────
+
+  type LoyaltyProgram {
+    id: ID!
+    name: String!
+    description: String
+    pointsPerDollar: Decimal!
+    redemptionRate: Decimal!
+    expiryMonths: Int!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type RewardPoint {
+    id: ID!
+    userId: ID!
+    points: Int!
+    type: RewardPointType!
+    expiresAt: DateTime
+    createdAt: DateTime!
+    user: UserProfile!
+  }
+
+  # ── Notifications ────────────────────────────────────────────────────────────
+
+  type PushNotification {
+    id: ID!
+    userId: ID!
+    title: String!
+    body: String!
+    type: NotificationType!
+    data: JSON!
+    isRead: Boolean!
+    readAt: DateTime
+    sentAt: DateTime
+    deliveredAt: DateTime
+    failedAt: DateTime
+    errorMessage: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    user: UserProfile!
+  }
+
+  type NotificationTemplate {
+    id: ID!
+    name: String!
+    type: NotificationType!
+    title: String!
+    body: String!
+    variables: [String!]!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type EmailTemplate {
+    id: ID!
+    name: String!
+    subject: String!
+    body: String!
+    variables: [String!]!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  input CreatePushNotificationInput {
+    userId: ID!
+    title: String!
+    body: String!
+    type: NotificationType!
+    data: JSON
+  }
+
+  input CreateNotificationTemplateInput {
+    name: String!
+    type: NotificationType!
+    title: String!
+    body: String!
+    variables: [String!]!
+    isActive: Boolean
+  }
+
+  # ── Newsletter ───────────────────────────────────────────────────────────────
+
+  type NewsletterSubscription {
+    id: ID!
+    email: String!
+    userId: String
+    isActive: Boolean!
+    subscribedAt: DateTime!
+    unsubscribedAt: DateTime
+    user: UserProfile
+  }
+
+  # ── App events ───────────────────────────────────────────────────────────────
+
+  type AppEvent {
+    id: ID!
+    userId: String
+    sessionId: String
+    eventType: String!
+    eventData: JSON
+    productId: String
+    categoryId: String
+    deviceInfo: JSON
+    location: JSON
+    userAgent: String
+    ipAddress: String
+    createdAt: DateTime!
+    user: UserProfile
   }
 
   type UserActivitySummary {
@@ -705,6 +876,32 @@ export const typeDefs = gql`
     userFavoriteStats(userId: ID!): UserFavoriteStats!
     userActivitySummary(userId: ID!): UserActivitySummary!
 
+    # Favorites
+    userFavorites(userId: ID!): [UserFavorite!]!
+    isProductFavorited(userId: ID!, productId: ID!): Boolean!
+
+    # Saved payment methods
+    savedPaymentMethods(userId: ID!): [SavedPaymentMethod!]!
+
+    # Loyalty & rewards
+    loyaltyPrograms: [LoyaltyProgram!]!
+    userRewardPoints(userId: ID!): [RewardPoint!]!
+    userRewardBalance(userId: ID!): Int!
+
+    # Notifications
+    userNotifications(userId: ID!): [PushNotification!]!
+    unreadNotifications(userId: ID!): [PushNotification!]!
+    notificationTemplates: [NotificationTemplate!]!
+    emailTemplates: [EmailTemplate!]!
+
+    # Newsletter
+    newsletterSubscriptions: [NewsletterSubscription!]!
+    isSubscribedToNewsletter(email: String!): Boolean!
+
+    # App events
+    userAppEvents(userId: ID!): [AppEvent!]!
+    productAppEvents(productId: ID!): [AppEvent!]!
+
     # Audit & security queries
     userAuditLogs(userId: ID!): GetUserAuditLogsResponse!
     userSecurityEvents(userId: ID!): GetUserSecurityEventsResponse!
@@ -766,5 +963,25 @@ export const typeDefs = gql`
       input: UpdateUserSessionAnalyticsInput!
     ): UpdateUserSessionAnalyticsResponse!
     deleteUserSessionAnalytics(id: ID!): DeleteUserSessionAnalyticsResponse!
+
+    # Favorites mutations
+    addToFavorites(userId: ID!, productId: ID!): UserFavorite!
+    removeFromFavorites(userId: ID!, productId: ID!): SuccessResponse!
+    toggleFavorite(userId: ID!, productId: ID!): UserFavorite
+
+    # Saved payment methods mutations
+    createSavedPaymentMethod(input: CreateSavedPaymentMethodInput!): SavedPaymentMethod!
+    updateSavedPaymentMethod(id: ID!, input: UpdateSavedPaymentMethodInput!): SavedPaymentMethod!
+    deleteSavedPaymentMethod(id: ID!): SuccessResponse!
+
+    # Notification mutations
+    createPushNotification(input: CreatePushNotificationInput!): PushNotification!
+    markNotificationAsRead(id: ID!): PushNotification!
+    markAllNotificationsAsRead(userId: ID!): SuccessResponse!
+    createNotificationTemplate(input: CreateNotificationTemplateInput!): NotificationTemplate!
+
+    # Newsletter mutations
+    subscribeToNewsletter(email: String!, userId: String): NewsletterSubscription!
+    unsubscribeFromNewsletter(email: String!): SuccessResponse!
   }
 `;

@@ -169,14 +169,14 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       productStats: async () => {
-        const result = await getProductsUseCase.execute({
-          filters: {},
-          pagination: { limit: 10000, offset: 0 },
-        });
-        const products = result.products;
-        const activeProducts = products.filter((p) => p.isActive).length;
+        const [totalProducts, activeProducts, lowStockCount, outOfStockCount] = await Promise.all([
+          prisma.product.count(),
+          prisma.product.count({ where: { isActive: true } }),
+          prisma.product.count({ where: { isActive: true, stockQuantity: { gt: 0, lte: 10 } } }),
+          prisma.product.count({ where: { isActive: true, stockQuantity: 0 } }),
+        ]);
         return ResponseFactory.createSuccessResponse(
-          { totalProducts: products.length, activeProducts },
+          { totalProducts, activeProducts, lowStockCount, outOfStockCount },
           'Product stats retrieved successfully',
           RESPONSE_CODES.SUCCESS,
         );
@@ -215,6 +215,86 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
           createdAt: a.createdAt.toISOString(),
           updatedAt: a.updatedAt.toISOString(),
         }));
+      },
+
+      // ── Review queries ───────────────────────────────────────────────────
+
+      productReviews: async (_: any, { productId, pagination }: any) => {
+        try {
+          const limit = pagination?.limit ?? 10;
+          const offset = pagination?.offset ?? 0;
+          const [reviews, total] = await Promise.all([
+            prisma.productReview.findMany({
+              where: { productId, isApproved: true },
+              include: { photos: true, votes: true },
+              orderBy: { createdAt: 'desc' },
+              take: limit,
+              skip: offset,
+            }),
+            prisma.productReview.count({ where: { productId, isApproved: true } }),
+          ]);
+          return {
+            reviews: reviews.map((r) => ({
+              ...r,
+              product: { __typename: 'Product', id: r.productId },
+              user: { __typename: 'UserProfile', id: r.userId },
+              photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+              votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+            })),
+            total,
+            hasMore: offset + limit < total,
+          };
+        } catch {
+          return { reviews: [], total: 0, hasMore: false };
+        }
+      },
+
+      userReviews: async (_: any, { userId }: any) => {
+        try {
+          const reviews = await prisma.productReview.findMany({
+            where: { userId },
+            include: { photos: true, votes: true },
+            orderBy: { createdAt: 'desc' },
+          });
+          return reviews.map((r) => ({
+            ...r,
+            product: { __typename: 'Product', id: r.productId },
+            user: { __typename: 'UserProfile', id: r.userId },
+            photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+            votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      review: async (_: any, { id }: any) => {
+        try {
+          const r = await prisma.productReview.findUnique({ where: { id }, include: { photos: true, votes: true } });
+          if (!r) return null;
+          return {
+            ...r,
+            product: { __typename: 'Product', id: r.productId },
+            user: { __typename: 'UserProfile', id: r.userId },
+            photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+            votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+          };
+        } catch {
+          return null;
+        }
+      },
+
+      reviewVotes: async (_: any, { reviewId }: any) => {
+        try {
+          const votes = await prisma.reviewVote.findMany({ where: { reviewId } });
+          return votes.map((v) => ({
+            ...v,
+            review: { __typename: 'ProductReview', id: v.reviewId },
+            user: { __typename: 'UserProfile', id: v.userId },
+          }));
+        } catch {
+          return [];
+        }
       },
     },
 
@@ -356,6 +436,85 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       deleteStockAlert: async (_: any, { id }: { id: string }) => {
         await prisma.stockAlert.delete({ where: { id } });
         return { success: true, message: 'Stock alert deleted successfully' };
+      },
+
+      // ── Review mutations ─────────────────────────────────────────────────
+
+      createProductReview: async (_: any, { input }: any) => {
+        const review = await prisma.productReview.create({
+          data: {
+            productId: input.productId,
+            userId: input.userId,
+            rating: input.rating,
+            title: input.title,
+            comment: input.comment,
+          },
+          include: { photos: true, votes: true },
+        });
+        return {
+          ...review,
+          product: { __typename: 'Product', id: review.productId },
+          user: { __typename: 'UserProfile', id: review.userId },
+          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+          votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+        };
+      },
+
+      updateProductReview: async (_: any, { id, input }: any) => {
+        const review = await prisma.productReview.update({
+          where: { id },
+          data: { rating: input.rating, title: input.title, comment: input.comment, isApproved: input.isApproved },
+          include: { photos: true, votes: true },
+        });
+        return {
+          ...review,
+          product: { __typename: 'Product', id: review.productId },
+          user: { __typename: 'UserProfile', id: review.userId },
+          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+          votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+        };
+      },
+
+      deleteProductReview: async (_: any, { id }: any) => {
+        await prisma.productReview.delete({ where: { id } });
+        return { success: true, message: 'Review deleted' };
+      },
+
+      approveReview: async (_: any, { id }: any) => {
+        const review = await prisma.productReview.update({
+          where: { id },
+          data: { isApproved: true },
+          include: { photos: true, votes: true },
+        });
+        return {
+          ...review,
+          product: { __typename: 'Product', id: review.productId },
+          user: { __typename: 'UserProfile', id: review.userId },
+          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+          votes: [],
+        };
+      },
+
+      createReviewVote: async (_: any, { input }: any) => {
+        const vote = await prisma.reviewVote.upsert({
+          where: { reviewId_userId: { reviewId: input.reviewId, userId: input.userId } },
+          create: { reviewId: input.reviewId, userId: input.userId, isHelpful: input.isHelpful },
+          update: { isHelpful: input.isHelpful },
+        });
+        return {
+          ...vote,
+          review: { __typename: 'ProductReview', id: vote.reviewId },
+          user: { __typename: 'UserProfile', id: vote.userId },
+        };
+      },
+
+      deleteReviewVote: async (_: any, { reviewId, userId }: any) => {
+        try {
+          await prisma.reviewVote.delete({ where: { reviewId_userId: { reviewId, userId } } });
+          return { success: true, message: 'Vote deleted' };
+        } catch (e: any) {
+          return { success: false, message: e.message };
+        }
       },
     },
   };

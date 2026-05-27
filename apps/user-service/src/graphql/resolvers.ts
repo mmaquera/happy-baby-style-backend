@@ -1,4 +1,5 @@
 import { GraphQLScalarType, Kind } from 'graphql';
+import { PrismaClient } from '@prisma/client';
 import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
 import { CreateUserUseCase } from '@application/use-cases/user/CreateUserUseCase';
 import { GetUsersUseCase } from '@application/use-cases/user/GetUsersUseCase';
@@ -21,6 +22,7 @@ import { UpdateUserSessionAnalyticsUseCase } from '@application/use-cases/user/U
 import { GetUserSessionAnalyticsUseCase } from '@application/use-cases/user/GetUserSessionAnalyticsUseCase';
 import { RevokeUserSessionUseCase } from '@application/use-cases/user/RevokeUserSessionUseCase';
 import { RevokeAllUserSessionsUseCase } from '@application/use-cases/user/RevokeAllUserSessionsUseCase';
+import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUserFavoritesUseCase';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
@@ -149,6 +151,7 @@ const transformUser = (user: any) => ({
 // ── Container interface ──────────────────────────────────────────────────────
 
 export interface UserServiceDeps {
+  prisma: PrismaClient;
   userRepository: IUserRepository;
   authRepository: IAuthRepository;
   auditRepository: IAuditRepository;
@@ -174,12 +177,14 @@ export interface UserServiceDeps {
   getUserSessionAnalyticsUseCase: GetUserSessionAnalyticsUseCase;
   revokeUserSessionUseCase: RevokeUserSessionUseCase;
   revokeAllUserSessionsUseCase: RevokeAllUserSessionsUseCase;
+  manageUserFavoritesUseCase: ManageUserFavoritesUseCase;
 }
 
 // ── Resolver factory ─────────────────────────────────────────────────────────
 
 export function createResolvers(deps: UserServiceDeps) {
   const {
+    prisma,
     authRepository,
     auditRepository,
     securityEventRepository,
@@ -204,6 +209,7 @@ export function createResolvers(deps: UserServiceDeps) {
     getUserSessionAnalyticsUseCase,
     revokeUserSessionUseCase,
     revokeAllUserSessionsUseCase,
+    manageUserFavoritesUseCase,
   } = deps;
 
   return {
@@ -553,7 +559,21 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userFavoriteStats: async (_: any, { userId }: { userId: string }) => {
-        return { totalFavorites: 0, recentFavorites: [], favoriteCategories: [] };
+        try {
+          const stats = await manageUserFavoritesUseCase.getFavoriteStats(userId);
+          const recent = await manageUserFavoritesUseCase.getUserFavorites(userId);
+          return {
+            totalFavorites: stats.totalFavorites,
+            recentFavorites: recent.slice(0, 5).map((f) => ({
+              ...f,
+              user: { __typename: 'UserProfile', id: f.userId },
+              product: { __typename: 'Product', id: f.productId },
+            })),
+            favoriteCategories: [],
+          };
+        } catch {
+          return { totalFavorites: 0, recentFavorites: [], favoriteCategories: [] };
+        }
       },
 
       userActivitySummary: async (_: any, { userId }: { userId: string }) => {
@@ -606,6 +626,202 @@ export function createResolvers(deps: UserServiceDeps) {
             {},
             { requestId, traceId, duration: 0 },
           );
+        }
+      },
+
+      // ── Favorites queries ────────────────────────────────────────────────
+
+      userFavorites: async (_: any, { userId }: { userId: string }) => {
+        try {
+          const favs = await manageUserFavoritesUseCase.getUserFavorites(userId);
+          return favs.map((f) => ({
+            ...f,
+            user: { __typename: 'UserProfile', id: f.userId },
+            product: { __typename: 'Product', id: f.productId },
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      isProductFavorited: async (_: any, { userId, productId }: any) => {
+        try {
+          return await deps.prisma.userFavorite
+            .count({ where: { userId, productId } })
+            .then((c) => c > 0);
+        } catch {
+          return false;
+        }
+      },
+
+      // ── Saved payment methods queries ────────────────────────────────────
+
+      savedPaymentMethods: async (_: any, { userId }: { userId: string }) => {
+        try {
+          const methods = await prisma.savedPaymentMethod.findMany({
+            where: { userId, isActive: true },
+            orderBy: { createdAt: 'desc' },
+          });
+          return methods.map((m) => ({
+            ...m,
+            user: { __typename: 'UserProfile', id: m.userId },
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      // ── Loyalty & rewards queries ────────────────────────────────────────
+
+      loyaltyPrograms: async () => {
+        try {
+          return await prisma.loyaltyProgram.findMany({ where: { isActive: true } });
+        } catch {
+          return [];
+        }
+      },
+
+      userRewardPoints: async (_: any, { userId }: { userId: string }) => {
+        try {
+          const points = await prisma.rewardPoint.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+          });
+          return points.map((p) => ({
+            ...p,
+            user: { __typename: 'UserProfile', id: p.userId },
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      userRewardBalance: async (_: any, { userId }: { userId: string }) => {
+        try {
+          const result = await prisma.rewardPoint.groupBy({
+            by: ['type'],
+            where: { userId },
+            _sum: { points: true },
+          });
+          let balance = 0;
+          for (const r of result) {
+            if (r.type === 'earned' || r.type === 'bonus') balance += r._sum.points ?? 0;
+            else if (r.type === 'redeemed' || r.type === 'expired') balance -= r._sum.points ?? 0;
+          }
+          return Math.max(0, balance);
+        } catch {
+          return 0;
+        }
+      },
+
+      // ── Notification queries ─────────────────────────────────────────────
+
+      userNotifications: async (_: any, { userId }: { userId: string }) => {
+        try {
+          const notifs = await prisma.pushNotification.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+          });
+          return notifs.map((n) => ({
+            ...n,
+            user: { __typename: 'UserProfile', id: n.userId },
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      unreadNotifications: async (_: any, { userId }: { userId: string }) => {
+        try {
+          const notifs = await prisma.pushNotification.findMany({
+            where: { userId, isRead: false },
+            orderBy: { createdAt: 'desc' },
+          });
+          return notifs.map((n) => ({
+            ...n,
+            user: { __typename: 'UserProfile', id: n.userId },
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      notificationTemplates: async () => {
+        try {
+          const templates = await prisma.notificationTemplate.findMany({
+            where: { isActive: true },
+          });
+          return templates.map((t) => ({ ...t, variables: t.variables as string[] }));
+        } catch {
+          return [];
+        }
+      },
+
+      emailTemplates: async () => {
+        try {
+          const templates = await prisma.emailTemplate.findMany({ where: { isActive: true } });
+          return templates.map((t) => ({ ...t, variables: t.variables as string[] }));
+        } catch {
+          return [];
+        }
+      },
+
+      // ── Newsletter queries ───────────────────────────────────────────────
+
+      newsletterSubscriptions: async () => {
+        try {
+          const subs = await prisma.newsletterSubscription.findMany({ where: { isActive: true } });
+          return subs.map((s) => ({
+            ...s,
+            user: s.userId ? { __typename: 'UserProfile', id: s.userId } : null,
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      isSubscribedToNewsletter: async (_: any, { email }: { email: string }) => {
+        try {
+          const count = await prisma.newsletterSubscription.count({
+            where: { email, isActive: true },
+          });
+          return count > 0;
+        } catch {
+          return false;
+        }
+      },
+
+      // ── App events queries ───────────────────────────────────────────────
+
+      userAppEvents: async (_: any, { userId }: { userId: string }) => {
+        try {
+          const events = await prisma.appEvent.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+          });
+          return events.map((e) => ({
+            ...e,
+            user: e.userId ? { __typename: 'UserProfile', id: e.userId } : null,
+          }));
+        } catch {
+          return [];
+        }
+      },
+
+      productAppEvents: async (_: any, { productId }: { productId: string }) => {
+        try {
+          const events = await prisma.appEvent.findMany({
+            where: { productId },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+          });
+          return events.map((e) => ({
+            ...e,
+            user: e.userId ? { __typename: 'UserProfile', id: e.userId } : null,
+          }));
+        } catch {
+          return [];
         }
       },
     },
@@ -1195,6 +1411,160 @@ export function createResolvers(deps: UserServiceDeps) {
             {},
             { requestId, traceId, duration: 0 },
           );
+        }
+      },
+
+      // ── Favorites mutations ──────────────────────────────────────────────
+
+      addToFavorites: async (_: any, { userId, productId }: any) => {
+        const fav = await manageUserFavoritesUseCase.addToFavorites({ userId, productId });
+        return {
+          ...fav,
+          user: { __typename: 'UserProfile', id: fav.userId },
+          product: { __typename: 'Product', id: fav.productId },
+        };
+      },
+
+      removeFromFavorites: async (_: any, { userId, productId }: any) => {
+        try {
+          await manageUserFavoritesUseCase.removeFromFavorites({ userId, productId });
+          return { success: true, message: 'Removed from favorites' };
+        } catch (error: any) {
+          return { success: false, message: error.message };
+        }
+      },
+
+      toggleFavorite: async (_: any, { userId, productId }: any) => {
+        const result = await manageUserFavoritesUseCase.toggleFavorite(userId, productId);
+        if (result.action === 'removed') return null;
+        return {
+          ...result.favorite!,
+          user: { __typename: 'UserProfile', id: userId },
+          product: { __typename: 'Product', id: productId },
+        };
+      },
+
+      // ── Saved payment methods mutations ──────────────────────────────────
+
+      createSavedPaymentMethod: async (_: any, { input }: any) => {
+        const method = await prisma.savedPaymentMethod.create({
+          data: {
+            userId: input.userId,
+            type: input.type,
+            provider: input.provider,
+            lastFour: input.lastFour,
+            expiryMonth: input.expiryMonth,
+            expiryYear: input.expiryYear,
+            cardholderName: input.cardholderName,
+            isDefault: input.isDefault ?? false,
+            metadata: input.metadata ?? {},
+          },
+        });
+        return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
+      },
+
+      updateSavedPaymentMethod: async (_: any, { id, input }: any) => {
+        const method = await prisma.savedPaymentMethod.update({
+          where: { id },
+          data: {
+            isDefault: input.isDefault,
+            isActive: input.isActive,
+            metadata: input.metadata,
+          },
+        });
+        return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
+      },
+
+      deleteSavedPaymentMethod: async (_: any, { id }: any) => {
+        try {
+          await prisma.savedPaymentMethod.update({ where: { id }, data: { isActive: false } });
+          return { success: true, message: 'Payment method deleted' };
+        } catch (error: any) {
+          return { success: false, message: error.message };
+        }
+      },
+
+      // ── Notification mutations ───────────────────────────────────────────
+
+      createPushNotification: async (_: any, { input }: any) => {
+        const notif = await prisma.pushNotification.create({
+          data: {
+            userId: input.userId,
+            title: input.title,
+            body: input.body,
+            type: input.type,
+            data: input.data ?? {},
+          },
+        });
+        return { ...notif, user: { __typename: 'UserProfile', id: notif.userId } };
+      },
+
+      markNotificationAsRead: async (_: any, { id }: any) => {
+        const notif = await prisma.pushNotification.update({
+          where: { id },
+          data: { isRead: true, readAt: new Date() },
+        });
+        return { ...notif, user: { __typename: 'UserProfile', id: notif.userId } };
+      },
+
+      markAllNotificationsAsRead: async (_: any, { userId }: any) => {
+        try {
+          await prisma.pushNotification.updateMany({
+            where: { userId, isRead: false },
+            data: { isRead: true, readAt: new Date() },
+          });
+          return { success: true, message: 'All notifications marked as read' };
+        } catch (error: any) {
+          return { success: false, message: error.message };
+        }
+      },
+
+      createNotificationTemplate: async (_: any, { input }: any) => {
+        const template = await prisma.notificationTemplate.create({
+          data: {
+            name: input.name,
+            type: input.type,
+            title: input.title,
+            body: input.body,
+            variables: input.variables ?? [],
+            isActive: input.isActive ?? true,
+          },
+        });
+        return { ...template, variables: template.variables as string[] };
+      },
+
+      // ── Newsletter mutations ─────────────────────────────────────────────
+
+      subscribeToNewsletter: async (_: any, { email, userId }: any) => {
+        const existing = await prisma.newsletterSubscription.findUnique({ where: { email } });
+        if (existing) {
+          const updated = await prisma.newsletterSubscription.update({
+            where: { email },
+            data: { isActive: true, unsubscribedAt: null, userId: userId ?? existing.userId },
+          });
+          return {
+            ...updated,
+            user: updated.userId ? { __typename: 'UserProfile', id: updated.userId } : null,
+          };
+        }
+        const sub = await prisma.newsletterSubscription.create({
+          data: { email, userId: userId ?? null },
+        });
+        return {
+          ...sub,
+          user: sub.userId ? { __typename: 'UserProfile', id: sub.userId } : null,
+        };
+      },
+
+      unsubscribeFromNewsletter: async (_: any, { email }: any) => {
+        try {
+          await prisma.newsletterSubscription.update({
+            where: { email },
+            data: { isActive: false, unsubscribedAt: new Date() },
+          });
+          return { success: true, message: 'Unsubscribed successfully' };
+        } catch (error: any) {
+          return { success: false, message: error.message };
         }
       },
     },

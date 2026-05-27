@@ -13,6 +13,7 @@ import { PrismaUserProfileRepository } from './infrastructure/repositories/Prism
 import { PrismaAuthRepository } from './infrastructure/repositories/PrismaAuthRepository';
 import { PrismaAuditRepository } from './infrastructure/repositories/PrismaAuditRepository';
 import { PrismaSecurityEventRepository } from './infrastructure/repositories/PrismaSecurityEventRepository';
+import { PrismaUserFavoritesRepository } from './infrastructure/repositories/PrismaUserFavoritesRepository';
 import { NodemailerEmailService } from './infrastructure/services/NodemailerEmailService';
 import { CreateUserUseCase } from './application/use-cases/user/CreateUserUseCase';
 import { GetUsersUseCase } from './application/use-cases/user/GetUsersUseCase';
@@ -38,6 +39,7 @@ import { UpdateUserSessionAnalyticsUseCase } from './application/use-cases/user/
 import { GetUserSessionAnalyticsUseCase } from './application/use-cases/user/GetUserSessionAnalyticsUseCase';
 import { RevokeUserSessionUseCase } from './application/use-cases/user/RevokeUserSessionUseCase';
 import { RevokeAllUserSessionsUseCase } from './application/use-cases/user/RevokeAllUserSessionsUseCase';
+import { ManageUserFavoritesUseCase } from './application/use-cases/user/ManageUserFavoritesUseCase';
 
 dotenv.config();
 
@@ -80,6 +82,7 @@ async function start() {
   const authRepository = new PrismaAuthRepository(prisma);
   const auditRepository = new PrismaAuditRepository(prisma);
   const securityEventRepository = new PrismaSecurityEventRepository(prisma);
+  const userFavoritesRepository = new PrismaUserFavoritesRepository(prisma);
 
   // Email service
   const emailService = new NodemailerEmailService(
@@ -147,8 +150,10 @@ async function start() {
     authRepository,
     useCaseLogger,
   );
+  const manageUserFavoritesUseCase = new ManageUserFavoritesUseCase(userFavoritesRepository);
 
   const resolvers = createResolvers({
+    prisma,
     userRepository,
     authRepository,
     auditRepository,
@@ -174,6 +179,7 @@ async function start() {
     getUserSessionAnalyticsUseCase,
     revokeUserSessionUseCase,
     revokeAllUserSessionsUseCase,
+    manageUserFavoritesUseCase,
   });
 
   const server = new ApolloServer({

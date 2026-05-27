@@ -47,4 +47,7 @@ export interface OrderStats {
   cancelledOrders: number;
   totalRevenue: number;
   averageOrderValue: number;
+  todayOrders: number;
+  todayRevenue: number;
+  activeCoupons: number;
 }

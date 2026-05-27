@@ -19,7 +19,7 @@ const stat = promisify(fs.stat);
 
 // Inlined from @config/storage
 const storageConfig = {
-  baseUrl: process.env.STORAGE_BASE_URL || 'http://localhost:3001',
+  baseUrl: process.env.STORAGE_BASE_URL || 'http://localhost:3004',
   uploadDir: process.env.STORAGE_UPLOAD_DIR || 'uploads',
 };
 

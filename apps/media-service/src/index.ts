@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import * as path from 'path';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
@@ -40,6 +41,20 @@ async function start() {
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'Media Service', port: PORT });
   });
+
+  // Serve uploaded files statically
+  const uploadsPath = path.join(process.cwd(), 'uploads');
+  app.use(
+    '/uploads',
+    express.static(uploadsPath, {
+      maxAge: '1d',
+      etag: true,
+      setHeaders: (res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+      },
+    }),
+  );
 
   const imageRepository = new PrismaImageRepository(prisma);
   const svgRepository = new PrismaSvgRepository(prisma);

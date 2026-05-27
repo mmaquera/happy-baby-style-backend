@@ -43,6 +43,11 @@ export const typeDefs = gql`
     id: ID!
   }
 
+  # External entity — owned by user-service
+  type UserProfile @key(fields: "id") {
+    id: ID!
+  }
+
   type ProductVariant {
     id: ID!
     productId: ID!
@@ -227,6 +232,8 @@ export const typeDefs = gql`
   type ProductStats {
     totalProducts: Int!
     activeProducts: Int!
+    lowStockCount: Int!
+    outOfStockCount: Int!
   }
 
   type ProductStatsResponse {
@@ -300,6 +307,73 @@ export const typeDefs = gql`
     isActive: Boolean
   }
 
+  # ── Review types ─────────────────────────────────────────────────────────────
+
+  type ProductReview {
+    id: ID!
+    productId: ID!
+    userId: ID!
+    rating: Int!
+    title: String
+    comment: String
+    isApproved: Boolean!
+    isVerified: Boolean!
+    helpfulCount: Int!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    product: Product!
+    user: UserProfile!
+    photos: [ReviewPhoto!]!
+    votes: [ReviewVote!]!
+  }
+
+  type ReviewPhoto {
+    id: ID!
+    reviewId: ID!
+    imageUrl: String!
+    caption: String
+    sortOrder: Int!
+    createdAt: DateTime!
+    review: ProductReview!
+  }
+
+  type ReviewVote {
+    id: ID!
+    reviewId: ID!
+    userId: ID!
+    isHelpful: Boolean!
+    createdAt: DateTime!
+    review: ProductReview!
+    user: UserProfile!
+  }
+
+  type PaginatedReviews {
+    reviews: [ProductReview!]!
+    total: Int!
+    hasMore: Boolean!
+  }
+
+  input CreateProductReviewInput {
+    productId: ID!
+    userId: ID!
+    rating: Int!
+    title: String
+    comment: String
+  }
+
+  input UpdateProductReviewInput {
+    rating: Int
+    title: String
+    comment: String
+    isApproved: Boolean
+  }
+
+  input CreateReviewVoteInput {
+    reviewId: ID!
+    userId: ID!
+    isHelpful: Boolean!
+  }
+
   type Query {
     products(filter: ProductFilterInput, pagination: PaginationInput): GetProductsResponse!
     product(id: ID!): GetProductResponse!
@@ -317,6 +391,12 @@ export const typeDefs = gql`
     outOfStockProducts: [Product!]!
     inventoryTransactions(productId: ID!): [InventoryTransaction!]!
     stockAlerts: [StockAlert!]!
+
+    # Reviews
+    productReviews(productId: ID!, pagination: PaginationInput): PaginatedReviews!
+    userReviews(userId: ID!): [ProductReview!]!
+    review(id: ID!): ProductReview
+    reviewVotes(reviewId: ID!): [ReviewVote!]!
   }
 
   # =====================================================
@@ -335,5 +415,13 @@ export const typeDefs = gql`
     createStockAlert(input: CreateStockAlertInput!): StockAlert!
     updateStockAlert(id: ID!, isActive: Boolean!): StockAlert!
     deleteStockAlert(id: ID!): SuccessResponse!
+
+    # Reviews
+    createProductReview(input: CreateProductReviewInput!): ProductReview!
+    updateProductReview(id: ID!, input: UpdateProductReviewInput!): ProductReview!
+    deleteProductReview(id: ID!): SuccessResponse!
+    approveReview(id: ID!): ProductReview!
+    createReviewVote(input: CreateReviewVoteInput!): ReviewVote!
+    deleteReviewVote(reviewId: ID!, userId: ID!): SuccessResponse!
   }
 `;
