@@ -105,7 +105,7 @@ async function start() {
 
   const server = new ApolloServer({
     gateway,
-    introspection: true,
+    introspection: process.env.NODE_ENV !== 'production',
   });
 
   await server.start();

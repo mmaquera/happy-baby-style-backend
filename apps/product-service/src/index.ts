@@ -45,7 +45,11 @@ async function start() {
     },
   };
 
-  const server = new ApolloServer({ schema, introspection: true, plugins: [authPlugin] });
+  const server = new ApolloServer({
+    schema,
+    introspection: process.env.NODE_ENV !== 'production',
+    plugins: [authPlugin],
+  });
   await server.start();
 
   const redisClient = new Redis(REDIS_URL);
@@ -62,9 +66,20 @@ async function start() {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
+  const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000')
+    .split(',')
+    .map((u) => u.trim());
+
   const app = express();
   app.use(helmet({ contentSecurityPolicy: false }));
-  app.use(cors());
+  app.use(
+    cors({
+      origin: FRONTEND_URLS,
+      credentials: true,
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }),
+  );
   app.use(express.json());
 
   app.get('/health', (_req, res) => {

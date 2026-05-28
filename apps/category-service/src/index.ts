@@ -46,7 +46,11 @@ async function start() {
     },
   };
 
-  const server = new ApolloServer({ schema, introspection: true, plugins: [authPlugin] });
+  const server = new ApolloServer({
+    schema,
+    introspection: process.env.NODE_ENV !== 'production',
+    plugins: [authPlugin],
+  });
   await server.start();
 
   const app = express();

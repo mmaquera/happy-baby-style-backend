@@ -71,7 +71,7 @@ async function start() {
 
   const server = new ApolloServer({
     schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
-    introspection: true,
+    introspection: process.env.NODE_ENV !== 'production',
     plugins: [authPlugin],
   });
 

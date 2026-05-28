@@ -125,7 +125,7 @@ export function createResolvers(
           }
 
           return ResponseFactory.createErrorResponse(
-            error.message || 'Failed to upload image',
+            'Failed to upload image',
             errorCode,
             { operation: 'uploadImage', entityType, entityId },
             { requestId, traceId },
@@ -212,7 +212,7 @@ export function createResolvers(
           }
 
           return ResponseFactory.createSvgErrorResponse(
-            error.message || 'Failed to upload SVG',
+            'Failed to upload SVG',
             errorCode,
             { operation: 'uploadSvg', entityType, entityId, optimize, sanitize },
             { requestId, traceId },

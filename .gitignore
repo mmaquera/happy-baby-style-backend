@@ -52,3 +52,12 @@ docker-compose.override.yaml
 
 ## Claude (local del developer, no del proyecto)
 .claude/
+
+## Certificates and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+.npmrc

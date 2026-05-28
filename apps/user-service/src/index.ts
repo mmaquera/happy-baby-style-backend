@@ -1,12 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import jwt from 'jsonwebtoken';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { LoggerFactory } from '@hbs/logging';
+import { extractTokenFromAuthHeader } from '@hbs/auth';
+import type { TokenPayload } from '@hbs/auth';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaUserProfileRepository } from './infrastructure/repositories/PrismaUserProfileRepository';
@@ -189,7 +192,7 @@ async function start() {
 
   const server = new ApolloServer({
     schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
-    introspection: true,
+    introspection: process.env.NODE_ENV !== 'production',
   });
 
   await server.start();
@@ -198,7 +201,18 @@ async function start() {
     '/graphql',
     express.json({ limit: '10mb' }),
     expressMiddleware(server, {
-      context: async ({ req }) => ({ req }),
+      context: async ({ req }) => {
+        const token = extractTokenFromAuthHeader(req.headers.authorization);
+        let currentUser: TokenPayload | null = null;
+        if (token) {
+          try {
+            currentUser = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
+          } catch {
+            currentUser = null;
+          }
+        }
+        return { req, currentUser };
+      },
     }),
   );
 
