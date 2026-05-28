@@ -235,6 +235,8 @@ services:
       ORDER_SERVICE_URL:       http://order-service:3005/graphql
       USER_SERVICE_URL:        http://user-service:3006/graphql
       FRONTEND_URLS:           ${FRONTEND_URLS:-http://localhost:3000}
+      RATE_LIMIT_GENERAL:      ${RATE_LIMIT_GENERAL:-300}
+      RATE_LIMIT_AUTH:         ${RATE_LIMIT_AUTH:-10}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 15s
