@@ -1,0 +1,36 @@
+meta {
+  name: Products by Category
+  type: graphql
+  seq: 5
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  query ProductsByCategory($categoryId: ID!, $pagination: PaginationInput) {
+    productsByCategory(categoryId: $categoryId, pagination: $pagination) {
+      products {
+        id
+        name
+        price
+        sku
+        images
+        isActive
+        currentPrice
+        isInStock
+        rating
+      }
+      total
+      hasMore
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "categoryId": "{{CATEGORY_ID}}",
+    "pagination": { "limit": 20, "offset": 0 }
+  }
+}

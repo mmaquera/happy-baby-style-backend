@@ -1,0 +1,28 @@
+meta {
+  name: Clear User Cart
+  type: graphql
+  seq: 13
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation ClearUserCart($userId: ID!) {
+    clearUserCart(userId: $userId) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}

@@ -1,0 +1,46 @@
+meta {
+  name: Update Product [ADMIN]
+  type: graphql
+  seq: 9
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateProduct($id: ID!, $input: UpdateProductInput!) {
+    updateProduct(id: $id, input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        updatedAt
+        changes
+        entity {
+          id
+          name
+          price
+          salePrice
+          stockQuantity
+          isActive
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{PRODUCT_ID}}",
+    "input": {
+      "salePrice": 38000,
+      "stockQuantity": 45
+    }
+  }
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Low Stock Products [ADMIN]
+  type: graphql
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query LowStockProducts {
+    lowStockProducts {
+      id
+      name
+      sku
+      stockQuantity
+      price
+      isActive
+    }
+  }
+}

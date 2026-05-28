@@ -1,0 +1,31 @@
+meta {
+  name: Update Order Status [ADMIN]
+  type: graphql
+  seq: 5
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateOrderStatus($id: ID!, $status: OrderStatus!) {
+    updateOrderStatus(id: $id, status: $status) {
+      id
+      orderNumber
+      status
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{ORDER_ID}}",
+    "status": "confirmed"
+  }
+}

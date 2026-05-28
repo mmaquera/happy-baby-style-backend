@@ -1,0 +1,39 @@
+meta {
+  name: List Orders [ADMIN]
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListOrders($filter: OrderFilterInput, $pagination: PaginationInput) {
+    orders(filter: $filter, pagination: $pagination) {
+      orders {
+        id
+        orderNumber
+        customerEmail
+        customerName
+        status
+        totalAmount
+        currency
+        createdAt
+      }
+      total
+      hasMore
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "filter": {},
+    "pagination": { "limit": 20, "offset": 0 }
+  }
+}

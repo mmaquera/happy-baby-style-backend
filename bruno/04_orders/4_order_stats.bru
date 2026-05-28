@@ -1,0 +1,31 @@
+meta {
+  name: Order Stats [ADMIN]
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query OrderStats {
+    orderStats {
+      totalOrders
+      pendingOrders
+      processingOrders
+      shippedOrders
+      deliveredOrders
+      cancelledOrders
+      totalRevenue
+      averageOrderValue
+      todayOrders
+      todayRevenue
+      activeCoupons
+    }
+  }
+}

@@ -1,0 +1,46 @@
+meta {
+  name: List User Addresses
+  type: graphql
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserAddresses($userId: ID!) {
+    userAddresses(userId: $userId) {
+      success
+      code
+      message
+      data {
+        items {
+          id
+          type
+          firstName
+          lastName
+          address1
+          address2
+          city
+          state
+          postalCode
+          country
+          phone
+          isDefault
+          fullAddress
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}

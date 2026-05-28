@@ -1,0 +1,53 @@
+meta {
+  name: Create Category [ADMIN]
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateCategory($input: CreateCategoryInput!) {
+    createCategory(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          name
+          slug
+          isActive
+          sortOrder
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "Ropa Bebé",
+      "description": "Ropa para bebés de 0 a 24 meses",
+      "slug": "ropa-bebe",
+      "isActive": true,
+      "sortOrder": 1
+    }
+  }
+}
+
+script:post-response {
+  const id = res.body?.data?.createCategory?.data?.id;
+  if (id) {
+    bru.setEnvVar("CATEGORY_ID", id);
+  }
+}

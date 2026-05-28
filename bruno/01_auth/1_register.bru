@@ -1,0 +1,39 @@
+meta {
+  name: Register User
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  mutation RegisterUser($input: CreateUserProfileInput!) {
+    registerUser(input: $input) {
+      success
+      code
+      message
+      data {
+        accessToken
+        refreshToken
+        user {
+          id
+          email
+          role
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "email": "customer@example.com",
+      "password": "Customer1234!",
+      "firstName": "Test",
+      "lastName": "User"
+    }
+  }
+}

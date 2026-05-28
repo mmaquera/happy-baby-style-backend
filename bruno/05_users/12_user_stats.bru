@@ -1,0 +1,29 @@
+meta {
+  name: User Stats [ADMIN]
+  type: graphql
+  seq: 12
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserStats {
+    userStats {
+      success
+      code
+      message
+      data {
+        totalUsers
+        activeUsers
+        newUsersThisMonth
+        usersByRole
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+meta {
+  name: List Users [ADMIN]
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListUsers($filter: UserFilterInput, $pagination: PaginationInput) {
+    users(filter: $filter, pagination: $pagination) {
+      success
+      code
+      message
+      data {
+        items {
+          id
+          email
+          role
+          isActive
+          emailVerified
+          lastLoginAt
+          createdAt
+          profile {
+            firstName
+            lastName
+            fullName
+          }
+        }
+        pagination {
+          total
+          limit
+          offset
+          hasMore
+          currentPage
+          totalPages
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "filter": {},
+    "pagination": { "limit": 20, "offset": 0 }
+  }
+}

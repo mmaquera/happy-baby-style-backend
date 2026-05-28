@@ -1,0 +1,63 @@
+meta {
+  name: Create Address
+  type: graphql
+  seq: 6
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateUserAddress($input: CreateUserAddressInput!) {
+    createUserAddress(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          type
+          firstName
+          lastName
+          address1
+          city
+          state
+          postalCode
+          country
+          isDefault
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "userId": "{{USER_ID}}",
+      "type": "home",
+      "firstName": "María",
+      "lastName": "González",
+      "address1": "Cra 15 # 93-47 Apto 301",
+      "city": "Bogotá",
+      "state": "Cundinamarca",
+      "postalCode": "110221",
+      "country": "CO",
+      "isDefault": true
+    }
+  }
+}
+
+script:post-response {
+  const id = res.body?.data?.createUserAddress?.data?.id;
+  if (id) {
+    bru.setEnvVar("ADDRESS_ID", id);
+  }
+}

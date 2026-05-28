@@ -1,0 +1,56 @@
+meta {
+  name: List Products
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  query ListProducts($filter: ProductFilterInput, $pagination: PaginationInput) {
+    products(filter: $filter, pagination: $pagination) {
+      success
+      code
+      message
+      data {
+        items {
+          id
+          name
+          description
+          price
+          salePrice
+          sku
+          images
+          isActive
+          stockQuantity
+          categoryId
+          tags
+          rating
+          reviewCount
+          currentPrice
+          hasDiscount
+          discountPercentage
+          isInStock
+          createdAt
+        }
+        pagination {
+          total
+          limit
+          offset
+          hasMore
+          currentPage
+          totalPages
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "filter": { "isActive": true },
+    "pagination": { "limit": 20, "offset": 0 }
+  }
+}

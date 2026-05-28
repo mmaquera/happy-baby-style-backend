@@ -1,0 +1,36 @@
+meta {
+  name: Get Images by Entity
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetImagesByEntity($entityId: ID!, $entityType: ImageEntityType!) {
+    imagesByEntity(entityId: $entityId, entityType: $entityType) {
+      id
+      fileName
+      originalName
+      mimeType
+      size
+      url
+      entityType
+      entityId
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "entityId": "{{PRODUCT_ID}}",
+    "entityType": "product"
+  }
+}

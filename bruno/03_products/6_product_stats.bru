@@ -1,0 +1,29 @@
+meta {
+  name: Product Stats [ADMIN]
+  type: graphql
+  seq: 6
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ProductStats {
+    productStats {
+      success
+      code
+      message
+      data {
+        totalProducts
+        activeProducts
+        lowStockCount
+        outOfStockCount
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Set Default Address
+  type: graphql
+  seq: 8
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation SetDefaultAddress($userId: ID!, $addressId: ID!) {
+    setDefaultAddress(userId: $userId, addressId: $addressId) {
+      success
+      code
+      message
+      data {
+        userId
+        addressId
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}",
+    "addressId": "{{ADDRESS_ID}}"
+  }
+}

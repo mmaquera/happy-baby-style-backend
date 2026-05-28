@@ -1,0 +1,50 @@
+meta {
+  name: Get Current User
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetCurrentUser {
+    currentUser {
+      success
+      code
+      message
+      data {
+        id
+        email
+        role
+        isActive
+        emailVerified
+        lastLoginAt
+        createdAt
+        updatedAt
+        profile {
+          id
+          firstName
+          lastName
+          phone
+          avatar
+          fullName
+        }
+        addresses {
+          id
+          type
+          address1
+          city
+          state
+          country
+          isDefault
+        }
+      }
+    }
+  }
+}

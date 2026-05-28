@@ -1,0 +1,59 @@
+meta {
+  name: Create Product [ADMIN]
+  type: graphql
+  seq: 8
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateProduct($input: CreateProductInput!) {
+    createProduct(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          name
+          price
+          sku
+          stockQuantity
+          isActive
+          currentPrice
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "categoryId": "{{CATEGORY_ID}}",
+      "name": "Mameluco Estampado Bebé",
+      "description": "Mameluco de algodón orgánico para bebé, ideal para los primeros meses.",
+      "price": 45000,
+      "sku": "MAM-EST-001",
+      "images": ["https://example.com/images/mameluco-01.jpg"],
+      "isActive": true,
+      "stockQuantity": 50,
+      "tags": ["bebé", "ropa", "mameluco"]
+    }
+  }
+}
+
+script:post-response {
+  const id = res.body?.data?.createProduct?.data?.id;
+  if (id) {
+    bru.setEnvVar("PRODUCT_ID", id);
+  }
+}

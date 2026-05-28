@@ -1,0 +1,25 @@
+meta {
+  name: Delete Image [ADMIN]
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteImage($id: ID!) {
+    deleteImage(id: $id)
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "<image-id>"
+  }
+}

@@ -1,0 +1,30 @@
+meta {
+  name: User Favorites
+  type: graphql
+  seq: 9
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserFavorites($userId: ID!) {
+    userFavorites(userId: $userId) {
+      id
+      userId
+      productId
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}

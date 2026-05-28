@@ -1,0 +1,47 @@
+meta {
+  name: Create Inventory Transaction [ADMIN]
+  type: graphql
+  seq: 13
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateInventoryTransaction($input: CreateInventoryTransactionInput!) {
+    createInventoryTransaction(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          type
+          quantity
+          reference
+          notes
+          createdAt
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "productId": "{{PRODUCT_ID}}",
+      "type": "purchase",
+      "quantity": 100,
+      "reference": "OC-2024-001",
+      "notes": "Reposición de inventario inicial"
+    }
+  }
+}
