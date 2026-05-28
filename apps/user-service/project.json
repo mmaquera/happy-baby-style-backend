@@ -30,6 +30,12 @@
         "^build"
       ]
     },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "jest --config apps/user-service/jest.config.js"
+      }
+    },
     "lint": {}
   }
 }

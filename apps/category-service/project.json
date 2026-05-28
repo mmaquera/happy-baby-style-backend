@@ -36,6 +36,12 @@
         }
       }
     },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "jest --config apps/category-service/jest.config.js"
+      }
+    },
     "lint": {}
   }
 }
