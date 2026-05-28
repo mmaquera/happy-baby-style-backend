@@ -15,6 +15,7 @@
       }
     },
     "type-check": {
+      "dependsOn": ["^build"],
       "cache": true
     }
   }
