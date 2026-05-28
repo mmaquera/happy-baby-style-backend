@@ -26,6 +26,12 @@
         "command": "tsc --noEmit -p apps/product-service/tsconfig.json"
       }
     },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "jest --config apps/product-service/jest.config.js"
+      }
+    },
     "serve": {
       "executor": "nx:run-commands",
       "options": {

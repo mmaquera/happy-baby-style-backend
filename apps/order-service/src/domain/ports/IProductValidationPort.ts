@@ -1,4 +1,5 @@
 export interface ProductVariantInfo {
+  id: string;
   size: string;
   color: string;
   stockQuantity: number;

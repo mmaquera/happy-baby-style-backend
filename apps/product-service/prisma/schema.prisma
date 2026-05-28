@@ -79,6 +79,15 @@ model StockAlert {
   @@map("stock_alerts")
 }
 
+// Inbox for idempotent processing of consumed domain events (e.g. order.created).
+// A row's presence means the event was already applied; reprocessing is a no-op.
+model InboxEvent {
+  eventId     String   @id @map("event_id")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("inbox_events")
+}
+
 enum InventoryTransactionType {
   purchase
   sale

@@ -1,8 +1,10 @@
 export interface OrderCreatedEvent {
+  eventId: string;
   orderId: string;
   orderNumber: string;
   items: {
     productId: string;
+    variantId: string;
     variantSize: string;
     variantColor: string;
     quantity: number;

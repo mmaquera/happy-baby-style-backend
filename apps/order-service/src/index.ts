@@ -1,12 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import jwt from 'jsonwebtoken';
+import { GraphQLError } from 'graphql';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import Redis from 'ioredis';
 import dotenv from 'dotenv';
 import { prisma } from '@hbs/prisma';
+import { extractTokenFromAuthHeader } from '@hbs/auth';
+import type { TokenPayload } from '@hbs/auth';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaOrderRepository } from './infrastructure/repositories/PrismaOrderRepository';
@@ -14,6 +18,11 @@ import { HttpProductValidationAdapter } from './infrastructure/adapters/HttpProd
 import { RedisEventPublisher } from './infrastructure/adapters/RedisEventPublisher';
 
 dotenv.config();
+
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start.');
+  process.exit(1);
+}
 
 const PORT = parseInt(process.env.ORDER_SERVICE_PORT || '3005', 10);
 const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').split(',');
@@ -46,9 +55,24 @@ async function start() {
 
   const resolvers = createResolvers(orderRepository, productValidation, eventPublisher, prisma);
 
+  const authPlugin = {
+    async requestDidStart() {
+      return {
+        async didResolveOperation({ contextValue, operation }: any) {
+          if (operation.operation === 'mutation' && !contextValue.currentUser) {
+            throw new GraphQLError('Authentication required', {
+              extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+            });
+          }
+        },
+      };
+    },
+  };
+
   const server = new ApolloServer({
     schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
     introspection: true,
+    plugins: [authPlugin],
   });
 
   await server.start();
@@ -57,7 +81,18 @@ async function start() {
     '/graphql',
     express.json({ limit: '10mb' }),
     expressMiddleware(server, {
-      context: async ({ req }) => ({ req }),
+      context: async ({ req }) => {
+        const token = extractTokenFromAuthHeader(req.headers.authorization);
+        let currentUser: TokenPayload | null = null;
+        if (token) {
+          try {
+            currentUser = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
+          } catch {
+            currentUser = null;
+          }
+        }
+        return { req, currentUser };
+      },
     }),
   );
 

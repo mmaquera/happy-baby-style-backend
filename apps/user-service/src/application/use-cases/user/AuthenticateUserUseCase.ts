@@ -80,7 +80,7 @@ export class AuthenticateUserUseCase {
       }
 
       // Generate JWT tokens
-      const jwtSecret = process.env.JWT_SECRET || 'default-secret-key';
+      const jwtSecret = process.env.JWT_SECRET!;
       const accessToken = jwt.sign(
         {
           userId: user.id,

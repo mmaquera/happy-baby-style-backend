@@ -43,6 +43,11 @@ import { ManageUserFavoritesUseCase } from './application/use-cases/user/ManageU
 
 dotenv.config();
 
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const PORT = parseInt(process.env.USER_SERVICE_PORT || '3006', 10);
 const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').split(',');
 
