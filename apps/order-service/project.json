@@ -5,7 +5,8 @@
   "implicitDependencies": [
     "logging",
     "prisma",
-    "shared-kernel"
+    "shared-kernel",
+    "auth"
   ],
   "targets": {
     "build": {

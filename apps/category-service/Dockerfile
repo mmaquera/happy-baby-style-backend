@@ -30,6 +30,8 @@ ENV NODE_ENV=production \
     TS_NODE_PROJECT=apps/category-service/tsconfig.production.json
 
 # Copy lib dist BEFORE node_modules so symlinks resolve correctly
+COPY --from=builder /app/libs/auth/package.json          ./libs/auth/package.json
+COPY --from=builder /app/libs/auth/dist                  ./libs/auth/dist
 COPY --from=builder /app/libs/logging/package.json       ./libs/logging/package.json
 COPY --from=builder /app/libs/logging/dist               ./libs/logging/dist
 COPY --from=builder /app/libs/prisma/package.json        ./libs/prisma/package.json

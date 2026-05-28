@@ -11,6 +11,7 @@ import Redis from 'ioredis';
 import { prisma } from '@hbs/prisma';
 import { extractTokenFromAuthHeader } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
+import { RequestLogger } from '@hbs/logging';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaProductRepository } from './infrastructure/repositories/PrismaProductRepository';
@@ -48,6 +49,7 @@ async function start() {
   const server = new ApolloServer({
     schema,
     introspection: process.env.NODE_ENV !== 'production',
+    includeStacktraceInErrorResponses: process.env.NODE_ENV === 'development',
     plugins: [authPlugin],
   });
   await server.start();
@@ -71,6 +73,8 @@ async function start() {
     .map((u) => u.trim());
 
   const app = express();
+  const requestLogger = new RequestLogger();
+
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(
     cors({
@@ -80,6 +84,7 @@ async function start() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+  app.use(requestLogger.middleware());
   app.use(express.json());
 
   app.get('/health', (_req, res) => {

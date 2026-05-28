@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 import { prisma } from '@hbs/prisma';
 import { extractTokenFromAuthHeader } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
+import { RequestLogger } from '@hbs/logging';
 import { PrismaCategoryRepository } from './infrastructure/repositories/PrismaCategoryRepository';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
@@ -49,11 +50,14 @@ async function start() {
   const server = new ApolloServer({
     schema,
     introspection: process.env.NODE_ENV !== 'production',
+    includeStacktraceInErrorResponses: process.env.NODE_ENV === 'development',
     plugins: [authPlugin],
   });
   await server.start();
 
   const app = express();
+  const requestLogger = new RequestLogger();
+
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(
     cors({
@@ -63,6 +67,7 @@ async function start() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+  app.use(requestLogger.middleware());
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'category-service', port: PORT });

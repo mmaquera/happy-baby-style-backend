@@ -11,6 +11,7 @@ import dotenv from 'dotenv';
 import { prisma } from '@hbs/prisma';
 import { extractTokenFromAuthHeader } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
+import { RequestLogger } from '@hbs/logging';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaOrderRepository } from './infrastructure/repositories/PrismaOrderRepository';
@@ -31,6 +32,7 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 async function start() {
   const app = express();
+  const requestLogger = new RequestLogger();
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(
@@ -41,6 +43,7 @@ async function start() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+  app.use(requestLogger.middleware());
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'Order Service', port: PORT });
@@ -72,6 +75,7 @@ async function start() {
   const server = new ApolloServer({
     schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
     introspection: process.env.NODE_ENV !== 'production',
+    includeStacktraceInErrorResponses: process.env.NODE_ENV === 'development',
     plugins: [authPlugin],
   });
 

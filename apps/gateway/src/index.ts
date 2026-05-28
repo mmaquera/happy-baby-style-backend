@@ -6,6 +6,7 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { ApolloGateway, IntrospectAndCompose, RemoteGraphQLDataSource } from '@apollo/gateway';
 import dotenv from 'dotenv';
+import { RequestLogger } from '@hbs/logging';
 
 dotenv.config();
 
@@ -67,6 +68,7 @@ class AuthenticatedDataSource extends RemoteGraphQLDataSource {
 
 async function start() {
   const app = express();
+  const requestLogger = new RequestLogger();
 
   app.use(
     helmet({
@@ -83,6 +85,7 @@ async function start() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+  app.use(requestLogger.middleware());
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'Apollo Federation Gateway', port: PORT });
@@ -106,6 +109,7 @@ async function start() {
   const server = new ApolloServer({
     gateway,
     introspection: process.env.NODE_ENV !== 'production',
+    includeStacktraceInErrorResponses: process.env.NODE_ENV === 'development',
   });
 
   await server.start();

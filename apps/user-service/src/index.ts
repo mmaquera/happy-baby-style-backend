@@ -7,7 +7,7 @@ import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import { LoggerFactory } from '@hbs/logging';
+import { LoggerFactory, RequestLogger } from '@hbs/logging';
 import { extractTokenFromAuthHeader } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 import { typeDefs } from './graphql/schema';
@@ -67,6 +67,7 @@ class StubUserOrderRepository implements IUserOrderRepository {
 async function start() {
   const logger = LoggerFactory.create('user-service');
   const app = express();
+  const requestLogger = new RequestLogger();
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(
@@ -77,6 +78,7 @@ async function start() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+  app.use(requestLogger.middleware());
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'User Service', port: PORT });
@@ -193,6 +195,7 @@ async function start() {
   const server = new ApolloServer({
     schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
     introspection: process.env.NODE_ENV !== 'production',
+    includeStacktraceInErrorResponses: process.env.NODE_ENV === 'development',
   });
 
   await server.start();
