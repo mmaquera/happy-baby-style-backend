@@ -1,0 +1,38 @@
+meta {
+  name: User Order History
+  type: graphql
+  seq: 11
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserOrderHistory($userId: ID!, $pagination: PaginationInput) {
+    userOrderHistory(userId: $userId, pagination: $pagination) {
+      orders {
+        id
+      }
+      total
+      hasMore
+      stats {
+        totalOrders
+        totalSpent
+        averageOrderValue
+        lastOrderDate
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}",
+    "pagination": { "limit": 10, "offset": 0 }
+  }
+}

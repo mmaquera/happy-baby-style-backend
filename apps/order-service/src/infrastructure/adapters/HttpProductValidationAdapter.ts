@@ -10,8 +10,8 @@ const PRODUCT_QUERY = `
       price
       stockQuantity
       variants {
-        size
-        color
+        id
+        attributes
         stockQuantity
         price
         isActive
@@ -60,8 +60,9 @@ export class HttpProductValidationAdapter implements IProductValidationPort {
         price: Number(product.price) || 0,
         stockQuantity: Number(product.stockQuantity) || 0,
         variants: (product.variants || []).map((v: any) => ({
-          size: v.size,
-          color: v.color,
+          id: v.id,
+          size: v.attributes?.size,
+          color: v.attributes?.color,
           stockQuantity: Number(v.stockQuantity) || 0,
           price: Number(v.price) || 0,
           isActive: v.isActive ?? true,

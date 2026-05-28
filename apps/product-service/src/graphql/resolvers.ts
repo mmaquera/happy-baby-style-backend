@@ -7,7 +7,9 @@ import { CreateProductUseCase } from '../application/use-cases/CreateProductUseC
 import { UpdateProductUseCase } from '../application/use-cases/UpdateProductUseCase';
 import { DeleteProductUseCase } from '../application/use-cases/DeleteProductUseCase';
 import { transformProduct, transformVariant } from './transformers/productTransformer';
-import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { DomainError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { requireAdmin } from '@hbs/auth';
+import { LoggerFactory } from '@hbs/logging';
 
 const DateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
@@ -33,6 +35,7 @@ const JsonScalar = new GraphQLScalarType({
 });
 
 export function createResolvers(productRepository: IProductRepository, prisma: PrismaClient) {
+  const logger = LoggerFactory.getInstance().createServiceLogger('ProductResolvers');
   const getProductsUseCase = new GetProductsUseCase(productRepository);
   const getProductByIdUseCase = new GetProductByIdUseCase(productRepository);
   const createProductUseCase = new CreateProductUseCase(productRepository);
@@ -299,7 +302,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
     },
 
     Mutation: {
-      createProduct: async (_: any, { input }: any) => {
+      createProduct: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         try {
           const product = await createProductUseCase.execute({
             categoryId: input.categoryId,
@@ -320,15 +324,17 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
             'Product created successfully',
             RESPONSE_CODES.CREATED,
           );
-        } catch (error: any) {
-          return ResponseFactory.createErrorResponse(
-            error.message || 'Failed to create product',
-            RESPONSE_CODES.INTERNAL_ERROR,
-          );
+        } catch (error) {
+          if (error instanceof DomainError) {
+            return ResponseFactory.createErrorResponse(error.message, RESPONSE_CODES.VALIDATION_ERROR);
+          }
+          logger.error('createProduct failed', error instanceof Error ? error : new Error(String(error)));
+          return ResponseFactory.createErrorResponse('Failed to create product', RESPONSE_CODES.INTERNAL_ERROR);
         }
       },
 
-      updateProduct: async (_: any, { id, input }: any) => {
+      updateProduct: async (_: any, { id, input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         try {
           const product = await updateProductUseCase.execute({ id, ...input });
           const transformed = transformProduct(product);
@@ -343,15 +349,17 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
             'Product updated successfully',
             RESPONSE_CODES.SUCCESS,
           );
-        } catch (error: any) {
-          return ResponseFactory.createErrorResponse(
-            error.message || 'Failed to update product',
-            RESPONSE_CODES.INTERNAL_ERROR,
-          );
+        } catch (error) {
+          if (error instanceof DomainError) {
+            return ResponseFactory.createErrorResponse(error.message, RESPONSE_CODES.VALIDATION_ERROR);
+          }
+          logger.error('updateProduct failed', error instanceof Error ? error : new Error(String(error)));
+          return ResponseFactory.createErrorResponse('Failed to update product', RESPONSE_CODES.INTERNAL_ERROR);
         }
       },
 
-      deleteProduct: async (_: any, { id }: { id: string }) => {
+      deleteProduct: async (_: any, { id }: { id: string }, context: any) => {
+        requireAdmin(context.currentUser);
         try {
           await deleteProductUseCase.execute(id);
           return ResponseFactory.createSuccessResponse(
@@ -359,30 +367,35 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
             'Product deleted successfully',
             RESPONSE_CODES.SUCCESS,
           );
-        } catch (error: any) {
-          return ResponseFactory.createErrorResponse(
-            error.message || 'Failed to delete product',
-            RESPONSE_CODES.INTERNAL_ERROR,
-          );
+        } catch (error) {
+          if (error instanceof DomainError) {
+            return ResponseFactory.createErrorResponse(error.message, RESPONSE_CODES.VALIDATION_ERROR);
+          }
+          logger.error('deleteProduct failed', error instanceof Error ? error : new Error(String(error)));
+          return ResponseFactory.createErrorResponse('Failed to delete product', RESPONSE_CODES.INTERNAL_ERROR);
         }
       },
 
-      createProductVariant: async (_: any, { input }: any) => {
+      createProductVariant: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const variant = await productRepository.createVariant(input);
         return transformVariant(variant);
       },
 
-      updateProductVariant: async (_: any, { id, input }: any) => {
+      updateProductVariant: async (_: any, { id, input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const variant = await productRepository.updateVariant(id, input);
         return transformVariant(variant);
       },
 
-      deleteProductVariant: async (_: any, { id }: { id: string }) => {
+      deleteProductVariant: async (_: any, { id }: { id: string }, context: any) => {
+        requireAdmin(context.currentUser);
         await productRepository.deleteVariant(id);
         return { success: true, message: 'Product variant deleted successfully' };
       },
 
-      bulkUpdateProducts: async (_: any, { ids, input }: any) => {
+      bulkUpdateProducts: async (_: any, { ids, input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const updated = await Promise.all(
           ids.map((id: string) => updateProductUseCase.execute({ id, ...input })),
         );
@@ -390,7 +403,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       // ── Inventory transactions ───────────────────────────────────────────
-      createInventoryTransaction: async (_: any, { input }: any) => {
+      createInventoryTransaction: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const tx = await prisma.inventoryTransaction.create({
           data: {
             productId: input.productId,
@@ -404,7 +418,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       // ── Stock alerts ─────────────────────────────────────────────────────
-      createStockAlert: async (_: any, { input }: any) => {
+      createStockAlert: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const alert = await prisma.stockAlert.create({
           data: {
             productId: input.productId,
@@ -421,7 +436,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         };
       },
 
-      updateStockAlert: async (_: any, { id, isActive }: any) => {
+      updateStockAlert: async (_: any, { id, isActive }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const alert = await prisma.stockAlert.update({
           where: { id },
           data: { isActive },
@@ -433,7 +449,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         };
       },
 
-      deleteStockAlert: async (_: any, { id }: { id: string }) => {
+      deleteStockAlert: async (_: any, { id }: { id: string }, context: any) => {
+        requireAdmin(context.currentUser);
         await prisma.stockAlert.delete({ where: { id } });
         return { success: true, message: 'Stock alert deleted successfully' };
       },
@@ -460,7 +477,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         };
       },
 
-      updateProductReview: async (_: any, { id, input }: any) => {
+      updateProductReview: async (_: any, { id, input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const review = await prisma.productReview.update({
           where: { id },
           data: { rating: input.rating, title: input.title, comment: input.comment, isApproved: input.isApproved },
@@ -475,12 +493,14 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         };
       },
 
-      deleteProductReview: async (_: any, { id }: any) => {
+      deleteProductReview: async (_: any, { id }: any, context: any) => {
+        requireAdmin(context.currentUser);
         await prisma.productReview.delete({ where: { id } });
         return { success: true, message: 'Review deleted' };
       },
 
-      approveReview: async (_: any, { id }: any) => {
+      approveReview: async (_: any, { id }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const review = await prisma.productReview.update({
           where: { id },
           data: { isApproved: true },

@@ -1,0 +1,46 @@
+meta {
+  name: Search Products
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  query SearchProducts($query: String!, $filter: ProductFilterInput, $pagination: PaginationInput) {
+    searchProducts(query: $query, filter: $filter, pagination: $pagination) {
+      success
+      code
+      message
+      data {
+        items {
+          id
+          name
+          price
+          sku
+          images
+          isActive
+          currentPrice
+          hasDiscount
+          isInStock
+        }
+        pagination {
+          total
+          hasMore
+          currentPage
+          totalPages
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "query": "mameluco",
+    "filter": { "isActive": true, "inStock": true },
+    "pagination": { "limit": 10, "offset": 0 }
+  }
+}

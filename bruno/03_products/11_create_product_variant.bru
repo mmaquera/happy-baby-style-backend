@@ -1,0 +1,50 @@
+meta {
+  name: Create Product Variant [ADMIN]
+  type: graphql
+  seq: 11
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateProductVariant($input: CreateProductVariantInput!) {
+    createProductVariant(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          name
+          price
+          sku
+          stockQuantity
+          isActive
+          isInStock
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "productId": "{{PRODUCT_ID}}",
+      "name": "Talla 0-3 meses / Azul",
+      "price": 45000,
+      "sku": "MAM-EST-001-0-3M-AZ",
+      "stockQuantity": 15,
+      "isActive": true,
+      "attributes": { "size": "0-3M", "color": "azul" }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+meta {
+  name: Get User Cart
+  type: graphql
+  seq: 12
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserCart($userId: ID!) {
+    userCart(userId: $userId) {
+      id
+      userId
+      createdAt
+      updatedAt
+      items {
+        id
+        productId
+        quantity
+        price
+        createdAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}

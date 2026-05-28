@@ -1,0 +1,47 @@
+meta {
+  name: Create Coupon [ADMIN]
+  type: graphql
+  seq: 8
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateCoupon($input: CreateCouponInput!) {
+    createCoupon(input: $input) {
+      id
+      code
+      name
+      discountType
+      discountValue
+      validFrom
+      validUntil
+      isActive
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "code": "WELCOME10",
+      "name": "Bienvenida 10%",
+      "description": "10% de descuento en tu primera compra",
+      "discountType": "percentage",
+      "discountValue": 10,
+      "minimumAmount": 50000,
+      "usageLimit": 500,
+      "validFrom": "2024-01-01T00:00:00Z",
+      "validUntil": "2025-12-31T23:59:59Z",
+      "isActive": true,
+      "isFirstTimeOnly": true
+    }
+  }
+}

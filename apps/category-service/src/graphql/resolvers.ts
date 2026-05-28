@@ -7,6 +7,7 @@ import { UpdateCategoryUseCase } from '../application/use-cases/UpdateCategoryUs
 import { DeleteCategoryUseCase } from '../application/use-cases/DeleteCategoryUseCase';
 import { transformCategory } from './transformers/categoryTransformer';
 import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { requireAdmin } from '@hbs/auth';
 import { GraphQLScalarType, Kind } from 'graphql';
 
 const DateTimeScalar = new GraphQLScalarType({
@@ -139,6 +140,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
 
     Mutation: {
       createCategory: async (_: any, { input }: { input: any }, context: any) => {
+        requireAdmin(context.currentUser);
         const startTime = Date.now();
         const traceId = `create-category-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
@@ -176,6 +178,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
       },
 
       updateCategory: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
+        requireAdmin(context.currentUser);
         const startTime = Date.now();
         const traceId = `update-category-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
@@ -215,6 +218,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
       },
 
       deleteCategory: async (_: any, { id }: { id: string }, context: any) => {
+        requireAdmin(context.currentUser);
         const startTime = Date.now();
         const traceId = `delete-category-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;

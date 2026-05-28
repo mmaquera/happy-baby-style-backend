@@ -1,0 +1,27 @@
+meta {
+  name: List Shipping Zones
+  type: graphql
+  seq: 10
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListShippingZones {
+    shippingZones {
+      id
+      name
+      countries
+      states
+      cities
+      isActive
+      createdAt
+    }
+  }
+}

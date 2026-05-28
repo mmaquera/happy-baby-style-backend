@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Happy Baby Style API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { IOrderRepository } from '../../domain/repositories/IOrderRepository';
 import { IProductValidationPort } from '../../domain/ports/IProductValidationPort';
 import { IEventPublisher } from '../../domain/ports/IEventPublisher';
@@ -62,13 +63,15 @@ export class CreateOrderUseCase {
 
     const order = await this.orderRepository.create(orderData, total);
 
-    // Publish async event for stock decrement — product-service subscribes
+    // Publish event so product-service decrements stock (consumed via Redis Stream).
     try {
       await this.eventPublisher.publishOrderCreated({
+        eventId: randomUUID(),
         orderId: order.id,
         orderNumber: order.orderNumber,
-        items: orderData.items.map((item) => ({
+        items: validatedItems.map(({ variant, item }) => ({
           productId: item.productId,
+          variantId: variant.id,
           variantSize: item.size,
           variantColor: item.color,
           quantity: item.quantity,
@@ -76,11 +79,13 @@ export class CreateOrderUseCase {
         createdAt: order.createdAt.toISOString(),
       });
     } catch (publishError) {
-      // Non-fatal: order is created, stock decrement will retry via event replay
-      this.logger.warn('Failed to publish order.created event', {
-        orderId: order.id,
-        error: publishError instanceof Error ? publishError.message : String(publishError),
-      });
+      // Order is committed but the stock event was not durably enqueued: stock will NOT
+      // be decremented until this is reconciled. Surfaced as an error for alerting.
+      this.logger.error(
+        'Failed to enqueue order.created event — stock decrement skipped',
+        publishError instanceof Error ? publishError : new Error(String(publishError)),
+        { orderId: order.id },
+      );
     }
 
     this.logger.info('Order created', { orderId: order.id, orderNumber: order.orderNumber, total });

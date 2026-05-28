@@ -6,7 +6,8 @@
   "implicitDependencies": [
     "logging",
     "prisma",
-    "shared-kernel"
+    "shared-kernel",
+    "auth"
   ],
   "targets": {
     "build": {
@@ -34,6 +35,12 @@
         "env": {
           "TS_NODE_PROJECT": "apps/category-service/tsconfig.json"
         }
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "jest --config apps/category-service/jest.config.js"
       }
     },
     "lint": {}

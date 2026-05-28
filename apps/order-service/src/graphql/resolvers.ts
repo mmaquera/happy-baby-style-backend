@@ -8,6 +8,7 @@ import { GetOrderByIdUseCase } from '../application/use-cases/GetOrderByIdUseCas
 import { UpdateOrderUseCase } from '../application/use-cases/UpdateOrderUseCase';
 import { GetOrderStatsUseCase } from '../application/use-cases/GetOrderStatsUseCase';
 import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { requireAdmin } from '@hbs/auth';
 
 function transformOrder(order: any) {
   return {
@@ -310,7 +311,8 @@ export function createResolvers(
         return transformOrder(order);
       },
 
-      updateOrder: async (_: any, { id, input }: { id: string; input: any }) => {
+      updateOrder: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
+        requireAdmin(context.currentUser);
         const order = await updateOrderUseCase.execute(id, {
           status: input.status,
           customerEmail: input.customerEmail,
@@ -320,17 +322,23 @@ export function createResolvers(
         return transformOrder(order);
       },
 
-      updateOrderStatus: async (_: any, { id, status }: { id: string; status: string }) => {
+      updateOrderStatus: async (_: any, { id, status }: { id: string; status: string }, context: any) => {
+        requireAdmin(context.currentUser);
         const order = await updateOrderUseCase.execute(id, { status: status as any });
         return transformOrder(order);
       },
 
-      deleteOrder: async (_: any, { id }: { id: string }) => orderRepository.delete(id),
+      deleteOrder: async (_: any, { id }: { id: string }, context: any) => {
+        requireAdmin(context.currentUser);
+        return orderRepository.delete(id);
+      },
 
       bulkUpdateOrderStatus: async (
         _: any,
         { orders, status }: { orders: string[]; status: string },
+        context: any,
       ) => {
+        requireAdmin(context.currentUser);
         const updated = await Promise.all(
           orders.map((id) => updateOrderUseCase.execute(id, { status: status as any })),
         );
@@ -369,7 +377,8 @@ export function createResolvers(
       },
 
       // ── Coupons ──────────────────────────────────────────────────────────
-      createCoupon: async (_: any, { input }: any) => {
+      createCoupon: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const c = await prisma.coupon.create({
           data: {
             code: input.code,
@@ -391,7 +400,8 @@ export function createResolvers(
         return transformCoupon(c);
       },
 
-      updateCoupon: async (_: any, { id, input }: any) => {
+      updateCoupon: async (_: any, { id, input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const updateData: any = {};
         if (input.name) updateData.name = input.name;
         if (input.description !== undefined) updateData.description = input.description;
@@ -410,13 +420,15 @@ export function createResolvers(
         return transformCoupon(c);
       },
 
-      deleteCoupon: async (_: any, { id }: { id: string }) => {
+      deleteCoupon: async (_: any, { id }: { id: string }, context: any) => {
+        requireAdmin(context.currentUser);
         await prisma.coupon.delete({ where: { id } });
         return true;
       },
 
       // ── Carriers ─────────────────────────────────────────────────────────
-      createCarrier: async (_: any, { input }: any) => {
+      createCarrier: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const c = await prisma.carrier.create({
           data: {
             name: input.name,
@@ -428,7 +440,8 @@ export function createResolvers(
         return transformCarrier(c);
       },
 
-      updateCarrier: async (_: any, { id, name, code, trackingUrlTemplate, isActive }: any) => {
+      updateCarrier: async (_: any, { id, name, code, trackingUrlTemplate, isActive }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const updateData: any = {};
         if (name !== undefined) updateData.name = name;
         if (code !== undefined) updateData.code = code;
@@ -438,13 +451,15 @@ export function createResolvers(
         return transformCarrier(c);
       },
 
-      deleteCarrier: async (_: any, { id }: { id: string }) => {
+      deleteCarrier: async (_: any, { id }: { id: string }, context: any) => {
+        requireAdmin(context.currentUser);
         await prisma.carrier.delete({ where: { id } });
         return true;
       },
 
       // ── Shipping zones & rates ────────────────────────────────────────────
-      createShippingZone: async (_: any, { input }: any) => {
+      createShippingZone: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const z = await prisma.shippingZone.create({
           data: {
             name: input.name,
@@ -458,7 +473,8 @@ export function createResolvers(
         return transformShippingZone(z);
       },
 
-      createShippingRate: async (_: any, { input }: any) => {
+      createShippingRate: async (_: any, { input }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const r = await prisma.shippingRate.create({
           data: {
             zoneId: input.zoneId,

@@ -1,0 +1,34 @@
+meta {
+  name: Add to Cart
+  type: graphql
+  seq: 11
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation AddToCart($userId: ID!, $productId: ID!, $quantity: Int!) {
+    addToCart(userId: $userId, productId: $productId, quantity: $quantity) {
+      id
+      cartId
+      productId
+      quantity
+      price
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}",
+    "productId": "{{PRODUCT_ID}}",
+    "quantity": 1
+  }
+}

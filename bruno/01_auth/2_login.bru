@@ -1,0 +1,44 @@
+meta {
+  name: Login
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  mutation Login($email: String!, $password: String!) {
+    loginUser(email: $email, password: $password) {
+      success
+      code
+      message
+      data {
+        accessToken
+        refreshToken
+        user {
+          id
+          email
+          role
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "email": "admin@example.com",
+    "password": "Admin1234!"
+  }
+}
+
+script:post-response {
+  const data = res.body?.data?.loginUser?.data;
+  if (res.status === 200 && data?.accessToken) {
+    bru.setEnvVar("ACCESS_TOKEN", data.accessToken);
+    bru.setEnvVar("REFRESH_TOKEN", data.refreshToken);
+    bru.setEnvVar("USER_ID", data.user.id);
+  }
+}

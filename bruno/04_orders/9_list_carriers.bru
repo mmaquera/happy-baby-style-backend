@@ -1,0 +1,26 @@
+meta {
+  name: List Carriers
+  type: graphql
+  seq: 9
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListCarriers {
+    carriers {
+      id
+      name
+      code
+      trackingUrlTemplate
+      isActive
+      createdAt
+    }
+  }
+}

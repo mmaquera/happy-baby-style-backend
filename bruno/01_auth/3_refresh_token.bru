@@ -1,0 +1,42 @@
+meta {
+  name: Refresh Token
+  type: graphql
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  mutation RefreshToken($refreshToken: String!) {
+    refreshToken(refreshToken: $refreshToken) {
+      success
+      code
+      message
+      data {
+        accessToken
+        refreshToken
+        user {
+          id
+          email
+          role
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "refreshToken": "{{REFRESH_TOKEN}}"
+  }
+}
+
+script:post-response {
+  const data = res.body?.data?.refreshToken?.data;
+  if (res.status === 200 && data?.accessToken) {
+    bru.setEnvVar("ACCESS_TOKEN", data.accessToken);
+    bru.setEnvVar("REFRESH_TOKEN", data.refreshToken);
+  }
+}

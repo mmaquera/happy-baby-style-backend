@@ -1,0 +1,57 @@
+meta {
+  name: Get Product by ID
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  query GetProduct($id: ID!) {
+    product(id: $id) {
+      success
+      code
+      message
+      data {
+        entity {
+          id
+          name
+          description
+          price
+          salePrice
+          sku
+          images
+          isActive
+          stockQuantity
+          categoryId
+          tags
+          rating
+          reviewCount
+          currentPrice
+          hasDiscount
+          discountPercentage
+          isInStock
+          createdAt
+          updatedAt
+          variants {
+            id
+            name
+            price
+            sku
+            stockQuantity
+            isActive
+            isInStock
+          }
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{PRODUCT_ID}}"
+  }
+}

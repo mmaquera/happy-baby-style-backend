@@ -1,0 +1,34 @@
+meta {
+  name: Delete Category [ADMIN]
+  type: graphql
+  seq: 6
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteCategory($id: ID!) {
+    deleteCategory(id: $id) {
+      success
+      code
+      message
+      data {
+        id
+        deletedAt
+        softDelete
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{CATEGORY_ID}}"
+  }
+}

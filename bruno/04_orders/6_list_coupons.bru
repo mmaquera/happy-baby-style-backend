@@ -1,0 +1,34 @@
+meta {
+  name: List Coupons [ADMIN]
+  type: graphql
+  seq: 6
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListCoupons {
+    coupons {
+      id
+      code
+      name
+      description
+      discountType
+      discountValue
+      minimumAmount
+      usageLimit
+      usedCount
+      validFrom
+      validUntil
+      isActive
+      isFirstTimeOnly
+      createdAt
+    }
+  }
+}

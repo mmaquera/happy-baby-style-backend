@@ -1,0 +1,47 @@
+meta {
+  name: Create Product Review
+  type: graphql
+  seq: 12
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateProductReview($input: CreateProductReviewInput!) {
+    createProductReview(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          rating
+          title
+          comment
+          isVerified
+          createdAt
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "productId": "{{PRODUCT_ID}}",
+      "userId": "{{USER_ID}}",
+      "rating": 5,
+      "title": "Excelente calidad",
+      "comment": "El mameluco es muy suave y de buena calidad. Mi bebé lo ama."
+    }
+  }
+}

@@ -67,8 +67,10 @@ services:
       - "${CATEGORY_SERVICE_PORT:-3002}:3002"
     environment:
       NODE_ENV:                  development
+      LOG_FORMAT:                simple
       CATEGORY_SERVICE_PORT:     3002
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_category
+      JWT_SECRET:                ${JWT_SECRET}
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3001}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
     healthcheck:
@@ -88,14 +90,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       db-init:
         condition: service_completed_successfully
     ports:
       - "${PRODUCT_SERVICE_PORT:-3003}:3003"
     environment:
       NODE_ENV:                  development
+      LOG_FORMAT:                simple
       PRODUCT_SERVICE_PORT:      3003
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_product
+      JWT_SECRET:                ${JWT_SECRET}
+      REDIS_URL:                 redis://redis:6379
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3001}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
     healthcheck:
@@ -123,8 +130,10 @@ services:
       - "${ORDER_SERVICE_PORT:-3005}:3005"
     environment:
       NODE_ENV:                  development
+      LOG_FORMAT:                simple
       ORDER_SERVICE_PORT:        3005
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_order
+      JWT_SECRET:                ${JWT_SECRET}
       REDIS_URL:                 redis://redis:6379
       PRODUCT_SERVICE_URL:       http://product-service:3003/graphql
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
@@ -151,8 +160,10 @@ services:
       - "${MEDIA_SERVICE_PORT:-3004}:3004"
     environment:
       NODE_ENV:                  development
+      LOG_FORMAT:                simple
       MEDIA_SERVICE_PORT:        3004
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_media
+      JWT_SECRET:                ${JWT_SECRET}
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3004}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
     volumes:
@@ -180,6 +191,7 @@ services:
       - "${USER_SERVICE_PORT:-3006}:3006"
     environment:
       NODE_ENV:                  development
+      LOG_FORMAT:                simple
       USER_SERVICE_PORT:         3006
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_user
       JWT_SECRET:                ${JWT_SECRET}
@@ -221,6 +233,7 @@ services:
       - "${GATEWAY_PORT:-4000}:4000"
     environment:
       NODE_ENV:                development
+      LOG_FORMAT:              simple
       GATEWAY_PORT:            4000
       CATEGORY_SERVICE_URL:    http://category-service:3002/graphql
       PRODUCT_SERVICE_URL:     http://product-service:3003/graphql
@@ -228,6 +241,8 @@ services:
       ORDER_SERVICE_URL:       http://order-service:3005/graphql
       USER_SERVICE_URL:        http://user-service:3006/graphql
       FRONTEND_URLS:           ${FRONTEND_URLS:-http://localhost:3000}
+      RATE_LIMIT_GENERAL:      ${RATE_LIMIT_GENERAL:-300}
+      RATE_LIMIT_AUTH:         ${RATE_LIMIT_AUTH:-10}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 15s

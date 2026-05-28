@@ -28,6 +28,7 @@ import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { UserRole } from '@domain/entities/User';
+import { requireAdmin } from '@hbs/auth';
 
 // ── Scalars ─────────────────────────────────────────────────────────────────
 
@@ -280,7 +281,7 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch (error: any) {
           const duration = Date.now() - startTime;
           return ResponseFactory.createErrorResponse(
-            `Failed to fetch users: ${error.message}`,
+            'Failed to fetch users',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration },
@@ -327,7 +328,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed to get current user: ${error.message}`,
+            'Failed to get current user',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -375,7 +376,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -403,7 +404,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -450,7 +451,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -479,7 +480,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -600,7 +601,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -621,7 +622,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -860,7 +861,7 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch (error: any) {
           const duration = Date.now() - startTime;
           return ResponseFactory.createErrorResponse(
-            `Registration failed: ${error.message}`,
+            'Registration failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration },
@@ -893,7 +894,7 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch (error: any) {
           const duration = Date.now() - startTime;
           return ResponseFactory.createErrorResponse(
-            `Login failed: ${error.message}`,
+            'Invalid credentials',
             RESPONSE_CODES.AUTHENTICATION_FAILED,
             {},
             { requestId, traceId, duration },
@@ -929,7 +930,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Token refresh failed: ${error.message}`,
+            'Token refresh failed',
             RESPONSE_CODES.AUTHENTICATION_FAILED,
             {},
             { requestId, traceId, duration: 0 },
@@ -969,7 +970,7 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch (error: any) {
           const duration = Date.now() - startTime;
           return ResponseFactory.createErrorResponse(
-            `Failed to create user: ${error.message}`,
+            'Failed to create user',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration },
@@ -993,21 +994,24 @@ export function createResolvers(deps: UserServiceDeps) {
         return transformUser(user);
       },
 
-      deleteUser: async (_: any, { id }: any) => {
+      deleteUser: async (_: any, { id }: any, context: any) => {
+        requireAdmin(context.currentUser);
         try {
           await deps.userRepository.deleteUser(id);
           return { success: true, message: 'User deleted successfully' };
-        } catch (error: any) {
-          return { success: false, message: `Failed to delete user: ${error.message}` };
+        } catch {
+          return { success: false, message: 'Failed to delete user' };
         }
       },
 
-      activateUser: async (_: any, { id }: any) => {
+      activateUser: async (_: any, { id }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const user = await updateUserUseCase.execute(id, { isActive: true });
         return transformUser(user);
       },
 
-      deactivateUser: async (_: any, { id }: any) => {
+      deactivateUser: async (_: any, { id }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const user = await updateUserUseCase.execute(id, { isActive: false });
         return transformUser(user);
       },
@@ -1028,7 +1032,7 @@ export function createResolvers(deps: UserServiceDeps) {
           });
           return { success: true, message: 'Password updated successfully' };
         } catch (error: any) {
-          return { success: false, message: `Failed to update password: ${error.message}` };
+          return { success: false, message: 'Failed to update password' };
         }
       },
 
@@ -1066,7 +1070,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Reset failed: ${error.message}`,
+            'Password reset failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1075,6 +1079,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       setUserPassword: async (_: any, { userId, newPassword }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `set-password-${Date.now()}`;
         try {
@@ -1091,7 +1096,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1135,7 +1140,7 @@ export function createResolvers(deps: UserServiceDeps) {
           await deps.userRepository.deleteUserProfile(userId);
           return { success: true, message: 'Profile deleted' };
         } catch (error: any) {
-          return { success: false, message: `Failed: ${error.message}` };
+          return { success: false, message: 'Operation failed' };
         }
       },
 
@@ -1168,7 +1173,7 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch (error: any) {
           const duration = Date.now() - startTime;
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration },
@@ -1206,7 +1211,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1227,7 +1232,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1248,7 +1253,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1274,7 +1279,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1310,7 +1315,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1323,15 +1328,17 @@ export function createResolvers(deps: UserServiceDeps) {
           await authRepository.deleteUserAccount(accountId);
           return { success: true, message: 'Account unlinked' };
         } catch (error: any) {
-          return { success: false, message: `Failed: ${error.message}` };
+          return { success: false, message: 'Operation failed' };
         }
       },
 
-      forcePasswordReset: async (_: any, { userId }: any) => {
+      forcePasswordReset: async (_: any, { userId }: any, context: any) => {
+        requireAdmin(context.currentUser);
         return { success: true, message: 'Password reset forced' };
       },
 
       impersonateUser: async (_: any, { userId }: any, context: any) => {
+        requireAdmin(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `impersonate-${Date.now()}`;
         return ResponseFactory.createErrorResponse(
@@ -1359,7 +1366,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1385,7 +1392,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1406,7 +1413,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         } catch (error: any) {
           return ResponseFactory.createErrorResponse(
-            `Failed: ${error.message}`,
+            'Operation failed',
             RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
@@ -1430,7 +1437,7 @@ export function createResolvers(deps: UserServiceDeps) {
           await manageUserFavoritesUseCase.removeFromFavorites({ userId, productId });
           return { success: true, message: 'Removed from favorites' };
         } catch (error: any) {
-          return { success: false, message: error.message };
+          return { success: false, message: 'Failed to remove from favorites' };
         }
       },
 
@@ -1480,7 +1487,7 @@ export function createResolvers(deps: UserServiceDeps) {
           await prisma.savedPaymentMethod.update({ where: { id }, data: { isActive: false } });
           return { success: true, message: 'Payment method deleted' };
         } catch (error: any) {
-          return { success: false, message: error.message };
+          return { success: false, message: 'Failed to delete payment method' };
         }
       },
 
@@ -1514,8 +1521,8 @@ export function createResolvers(deps: UserServiceDeps) {
             data: { isRead: true, readAt: new Date() },
           });
           return { success: true, message: 'All notifications marked as read' };
-        } catch (error: any) {
-          return { success: false, message: error.message };
+        } catch {
+          return { success: false, message: 'Failed to mark notifications as read' };
         }
       },
 
@@ -1563,8 +1570,8 @@ export function createResolvers(deps: UserServiceDeps) {
             data: { isActive: false, unsubscribedAt: new Date() },
           });
           return { success: true, message: 'Unsubscribed successfully' };
-        } catch (error: any) {
-          return { success: false, message: error.message };
+        } catch {
+          return { success: false, message: 'Failed to unsubscribe' };
         }
       },
     },

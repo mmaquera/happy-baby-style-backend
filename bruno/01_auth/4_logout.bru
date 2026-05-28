@@ -1,0 +1,29 @@
+meta {
+  name: Logout
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation Logout {
+    logoutUser {
+      success
+      message
+    }
+  }
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setEnvVar("ACCESS_TOKEN", "");
+    bru.setEnvVar("REFRESH_TOKEN", "");
+  }
+}

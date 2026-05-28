@@ -10,13 +10,25 @@ export class RedisEventPublisher implements IEventPublisher {
   }
 
   async publishOrderCreated(event: OrderCreatedEvent): Promise<void> {
-    const channel = 'order:created';
+    const stream = 'stream:order-events';
     const payload = JSON.stringify(event);
 
-    await this.redis.publish(channel, payload);
+    const entryId = await this.redis.xadd(
+      stream,
+      'MAXLEN',
+      '~',
+      '10000',
+      '*',
+      'type',
+      'order.created',
+      'payload',
+      payload,
+    );
 
-    this.logger.info('Published order:created event', {
-      channel,
+    this.logger.info('Enqueued order.created event', {
+      stream,
+      entryId,
+      eventId: event.eventId,
       orderId: event.orderId,
       orderNumber: event.orderNumber,
       itemCount: event.items.length,

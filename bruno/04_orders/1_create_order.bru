@@ -1,0 +1,78 @@
+meta {
+  name: Create Order
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateOrder($input: CreateOrderInput!) {
+    createOrder(input: $input) {
+      id
+      orderNumber
+      customerEmail
+      customerName
+      status
+      subtotal
+      taxAmount
+      shippingAmount
+      discountAmount
+      totalAmount
+      currency
+      createdAt
+      items {
+        id
+        productId
+        quantity
+        price
+      }
+      shippingAddress {
+        id
+        street
+        city
+        state
+        zipCode
+        country
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "customerEmail": "cliente@example.com",
+      "customerName": "María García",
+      "customerPhone": "+57 300 123 4567",
+      "items": [
+        {
+          "productId": "{{PRODUCT_ID}}",
+          "quantity": 2,
+          "size": "0-3M",
+          "color": "azul"
+        }
+      ],
+      "shippingAddress": {
+        "street": "Cra 15 # 93-47",
+        "city": "Bogotá",
+        "state": "Cundinamarca",
+        "zipCode": "110221",
+        "country": "CO"
+      }
+    }
+  }
+}
+
+script:post-response {
+  const id = res.body?.data?.createOrder?.id;
+  if (id) {
+    bru.setEnvVar("ORDER_ID", id);
+  }
+}

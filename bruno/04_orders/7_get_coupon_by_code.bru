@@ -1,0 +1,38 @@
+meta {
+  name: Get Coupon by Code
+  type: graphql
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetCouponByCode($code: String!) {
+    couponByCode(code: $code) {
+      id
+      code
+      name
+      discountType
+      discountValue
+      minimumAmount
+      maximumDiscount
+      validFrom
+      validUntil
+      isActive
+      usageLimit
+      usedCount
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "code": "{{COUPON_CODE}}"
+  }
+}

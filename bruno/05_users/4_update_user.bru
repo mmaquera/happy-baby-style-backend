@@ -1,0 +1,42 @@
+meta {
+  name: Update User
+  type: graphql
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
+    updateUser(id: $id, input: $input) {
+      id
+      email
+      role
+      isActive
+      updatedAt
+      profile {
+        firstName
+        lastName
+        phone
+        fullName
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{USER_ID}}",
+    "input": {
+      "firstName": "María",
+      "lastName": "González",
+      "phone": "+57 310 987 6543"
+    }
+  }
+}

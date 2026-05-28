@@ -1,0 +1,31 @@
+meta {
+  name: Add to Favorites
+  type: graphql
+  seq: 10
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation AddToFavorites($userId: ID!, $productId: ID!) {
+    addToFavorites(userId: $userId, productId: $productId) {
+      id
+      userId
+      productId
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}",
+    "productId": "{{PRODUCT_ID}}"
+  }
+}

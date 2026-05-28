@@ -1,0 +1,45 @@
+meta {
+  name: Update Category [ADMIN]
+  type: graphql
+  seq: 5
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateCategory($id: ID!, $input: UpdateCategoryInput!) {
+    updateCategory(id: $id, input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        updatedAt
+        changes
+        entity {
+          id
+          name
+          slug
+          isActive
+          sortOrder
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{CATEGORY_ID}}",
+    "input": {
+      "description": "Ropa y accesorios para bebés de 0 a 24 meses",
+      "isActive": true
+    }
+  }
+}

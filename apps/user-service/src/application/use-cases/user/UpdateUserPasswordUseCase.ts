@@ -253,7 +253,7 @@ export class UpdateUserPasswordUseCase {
       }
 
       // 3. Generar token JWT seguro
-      const jwtSecret = process.env.JWT_SECRET || 'default-secret-key';
+      const jwtSecret = process.env.JWT_SECRET!;
       const resetToken = jwt.sign(
         {
           userId: user.id,
@@ -369,7 +369,7 @@ export class UpdateUserPasswordUseCase {
       }
 
       // 3. Verificar token JWT
-      const jwtSecret = process.env.JWT_SECRET || 'default-secret-key';
+      const jwtSecret = process.env.JWT_SECRET!;
       let payload: any;
 
       try {

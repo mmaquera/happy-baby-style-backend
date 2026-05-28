@@ -1,0 +1,36 @@
+meta {
+  name: Get Category by ID
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  query GetCategory($id: ID!) {
+    category(id: $id) {
+      success
+      code
+      message
+      data {
+        id
+        name
+        description
+        slug
+        image
+        isActive
+        sortOrder
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{CATEGORY_ID}}"
+  }
+}

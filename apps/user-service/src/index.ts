@@ -1,12 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import jwt from 'jsonwebtoken';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import { LoggerFactory } from '@hbs/logging';
+import { LoggerFactory, RequestLogger } from '@hbs/logging';
+import { extractTokenFromAuthHeader } from '@hbs/auth';
+import type { TokenPayload } from '@hbs/auth';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaUserProfileRepository } from './infrastructure/repositories/PrismaUserProfileRepository';
@@ -43,6 +46,11 @@ import { ManageUserFavoritesUseCase } from './application/use-cases/user/ManageU
 
 dotenv.config();
 
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const PORT = parseInt(process.env.USER_SERVICE_PORT || '3006', 10);
 const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').split(',');
 
@@ -59,6 +67,7 @@ class StubUserOrderRepository implements IUserOrderRepository {
 async function start() {
   const logger = LoggerFactory.create('user-service');
   const app = express();
+  const requestLogger = new RequestLogger();
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(
@@ -69,6 +78,7 @@ async function start() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
+  app.use(requestLogger.middleware());
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK', service: 'User Service', port: PORT });
@@ -184,7 +194,8 @@ async function start() {
 
   const server = new ApolloServer({
     schema: buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]),
-    introspection: true,
+    introspection: process.env.NODE_ENV !== 'production',
+    includeStacktraceInErrorResponses: process.env.NODE_ENV === 'development',
   });
 
   await server.start();
@@ -193,7 +204,18 @@ async function start() {
     '/graphql',
     express.json({ limit: '10mb' }),
     expressMiddleware(server, {
-      context: async ({ req }) => ({ req }),
+      context: async ({ req }) => {
+        const token = extractTokenFromAuthHeader(req.headers.authorization);
+        let currentUser: TokenPayload | null = null;
+        if (token) {
+          try {
+            currentUser = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
+          } catch {
+            currentUser = null;
+          }
+        }
+        return { req, currentUser };
+      },
     }),
   );
 

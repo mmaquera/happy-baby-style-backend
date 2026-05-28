@@ -1,0 +1,30 @@
+meta {
+  name: Deactivate User [ADMIN]
+  type: graphql
+  seq: 5
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+headers {
+  Authorization: Bearer {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeactivateUser($id: ID!) {
+    deactivateUser(id: $id) {
+      id
+      email
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{USER_ID}}"
+  }
+}
