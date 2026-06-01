@@ -29,14 +29,24 @@ export interface AuthUser {
   id: string;
   email: string;
   role: UserRole;
-  permissions: Permission[];
+  // string[] to accommodate RBAC permission codes alongside the Permission enum values.
+  // The Permission enum values are all valid string codes (e.g. "create:product").
+  permissions: string[];
+  // RBAC group codes resolved from user_groups (populated post-Fase-5.5).
+  // Optional: absent in tokens issued before RBAC backfill.
+  groups?: string[];
 }
 
 export interface TokenPayload {
   userId: string;
   email: string;
-  role: UserRole;
-  permissions: Permission[];
+  role: UserRole; // kept for backward compat — will be removed in Fase 5.11
+  // string[] to accommodate RBAC permission codes alongside the Permission enum values.
+  // All Permission enum values are valid strings (e.g. "create:product").
+  permissions: string[];
+  // RBAC group codes resolved transitively via CTE (populated post-Fase-5.5).
+  // Empty array or absent means the legacy role-based fallback was used.
+  groups?: string[];
   iat?: number;
   exp?: number;
 }

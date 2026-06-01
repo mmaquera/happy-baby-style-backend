@@ -12,37 +12,38 @@ datasource db {
 // =====================================================
 
 model UserProfile {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  firstName     String         @map("first_name")
-  lastName      String         @map("last_name")
+  id            String    @id @default(uuid())
+  email         String    @unique
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
   phone         String?
-  dateOfBirth   DateTime?      @map("date_of_birth")
+  dateOfBirth   DateTime? @map("date_of_birth")
   avatar        String?
-  role          UserRole       @default(customer)
-  emailVerified Boolean        @default(false) @map("email_verified")
-  isActive      Boolean        @default(true) @map("is_active")
-  lastLoginAt   DateTime?      @map("last_login_at")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  
+  role          UserRole  @default(customer)
+  emailVerified Boolean   @default(false) @map("email_verified")
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
   // Relations
-  orders        Order[]
-  accounts      UserAccount[]
-  addresses     UserAddress[]
-  favorites     UserFavorite[]
-  password      UserPassword?
-  sessions      UserSession[]
-  sessionsAnalytics UserSessionAnalytics[]
-  appEvents     AppEvent[]
-  auditLogs     AuditLog[]
-  couponUsage   CouponUsage[]
+  orders                  Order[]
+  accounts                UserAccount[]
+  addresses               UserAddress[]
+  favorites               UserFavorite[]
+  password                UserPassword?
+  sessions                UserSession[]
+  sessionsAnalytics       UserSessionAnalytics[]
+  appEvents               AppEvent[]
+  auditLogs               AuditLog[]
+  couponUsage             CouponUsage[]
   newsletterSubscriptions NewsletterSubscription[]
-  pushNotifications PushNotification[]
-  rewardPoints  RewardPoint[]
-  savedPaymentMethods SavedPaymentMethod[]
-  securityEvents SecurityEvent[]
-  transactions  Transaction[]
+  pushNotifications       PushNotification[]
+  rewardPoints            RewardPoint[]
+  savedPaymentMethods     SavedPaymentMethod[]
+  securityEvents          SecurityEvent[]
+  transactions            Transaction[]
+  groups                  UserGroup[]
 
   @@map("user_profiles")
 }
@@ -60,92 +61,92 @@ model UserAccount {
   expiresAt         DateTime?    @map("expires_at")
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
-  
+
   // Relations
-  user              UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("user_accounts")
 }
 
 model UserSession {
-  id           String      @id @default(uuid())
-  userId       String      @map("user_id")
-  sessionToken String      @unique @map("session_token")
-  accessToken  String      @unique @map("access_token")
-  refreshToken String?     @unique @map("refresh_token")
-  expiresAt    DateTime    @map("expires_at")
-  userAgent    String?     @map("user_agent")
-  ipAddress    String?     @map("ip_address")
-  isActive     Boolean     @default(true) @map("is_active")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-  
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  sessionToken String   @unique @map("session_token")
+  accessToken  String   @unique @map("access_token")
+  refreshToken String?  @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  userAgent    String?  @map("user_agent")
+  ipAddress    String?  @map("ip_address")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
   // Relations
-  user         UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_sessions")
 }
 
 model UserSessionAnalytics {
-  id           String      @id @default(uuid())
-  sessionId    String      @map("session_id")
-  userId       String      @map("user_id")
-  pageViews    Int         @default(0) @map("page_views")
-  timeSpent    Int         @default(0) @map("time_spent")
-  bounceRate   Float       @default(0) @map("bounce_rate")
-  conversionRate Float     @default(0) @map("conversion_rate")
-  deviceType   String?     @map("device_type")
-  browser      String?
-  os           String?
-  country      String?
-  city         String?
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-  
+  id             String   @id @default(uuid())
+  sessionId      String   @map("session_id")
+  userId         String   @map("user_id")
+  pageViews      Int      @default(0) @map("page_views")
+  timeSpent      Int      @default(0) @map("time_spent")
+  bounceRate     Float    @default(0) @map("bounce_rate")
+  conversionRate Float    @default(0) @map("conversion_rate")
+  deviceType     String?  @map("device_type")
+  browser        String?
+  os             String?
+  country        String?
+  city           String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
   // Relations
-  user         UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_sessions_analytics")
 }
 
 model UserPassword {
-  id             String      @id @default(uuid())
-  userId         String      @unique @map("user_id")
-  passwordHash   String      @map("password_hash")
+  id             String    @id @default(uuid())
+  userId         String    @unique @map("user_id")
+  passwordHash   String    @map("password_hash")
   salt           String?
-  resetToken     String?     @unique @map("reset_token")
-  resetExpiresAt DateTime?   @map("reset_expires_at")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
-  
+  resetToken     String?   @unique @map("reset_token")
+  resetExpiresAt DateTime? @map("reset_expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
   // Relations
-  user           UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_passwords")
 }
 
 model UserAddress {
-  id         String      @id @default(uuid())
-  userId     String      @map("user_id")
-  type       String      @default("shipping")
-  firstName  String      @map("first_name")
-  lastName   String      @map("last_name")
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  type       String   @default("shipping")
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
   company    String?
-  address1   String      @map("address_1")
-  address2   String?     @map("address_2")
+  address1   String   @map("address_1")
+  address2   String?  @map("address_2")
   city       String
   state      String
-  postalCode String      @map("postal_code")
-  country    String      @default("PE")
+  postalCode String   @map("postal_code")
+  country    String   @default("PE")
   phone      String?
-  isDefault  Boolean     @default(false) @map("is_default")
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
-  
+  isDefault  Boolean  @default(false) @map("is_default")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
   // Relations
-  orders     Order[]
-  user       UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+  user   UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_addresses")
 }
@@ -155,48 +156,48 @@ model UserAddress {
 // =====================================================
 
 model Category {
-  id          String    @id @default(uuid())
-  name        String    @unique
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
-  slug        String    @unique
+  slug        String   @unique
   image       String?
-  isActive    Boolean   @default(true) @map("is_active")
-  sortOrder   Int       @default(0) @map("sort_order")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
   // Relations
-  products    Product[]
+  products Product[]
 
   @@map("categories")
 }
 
 model Product {
-  id            String             @id @default(uuid())
-  categoryId    String             @map("category_id")
+  id            String   @id @default(uuid())
+  categoryId    String   @map("category_id")
   name          String
   description   String?
-  price         Decimal            @db.Decimal(10, 2)
-  salePrice     Decimal?           @map("sale_price") @db.Decimal(10, 2)
-  sku           String             @unique
-  images        String[]           @default([])
-  attributes    Json               @default("{}")
-  isActive      Boolean            @default(true) @map("is_active")
-  stockQuantity Int                @default(0) @map("stock_quantity")
-  tags          String[]           @default([])
-  rating        Decimal?           @db.Decimal(2, 1)
-  reviewCount   Int                @default(0) @map("review_count")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
-  
+  price         Decimal  @db.Decimal(10, 2)
+  salePrice     Decimal? @map("sale_price") @db.Decimal(10, 2)
+  sku           String   @unique
+  images        String[] @default([])
+  attributes    Json     @default("{}")
+  isActive      Boolean  @default(true) @map("is_active")
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  tags          String[] @default([])
+  rating        Decimal? @db.Decimal(2, 1)
+  reviewCount   Int      @default(0) @map("review_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
   // Relations
-  orderItems    OrderItem[]
-  variants      ProductVariant[]
-  category      Category           @relation(fields: [categoryId], references: [id])
-  reviews       ProductReview[]
-  appEvents     AppEvent[]
+  orderItems            OrderItem[]
+  variants              ProductVariant[]
+  category              Category               @relation(fields: [categoryId], references: [id])
+  reviews               ProductReview[]
+  appEvents             AppEvent[]
   inventoryTransactions InventoryTransaction[]
-  stockAlerts   StockAlert[]
+  stockAlerts           StockAlert[]
 
   @@map("products")
 }
@@ -212,9 +213,9 @@ model ProductVariant {
   isActive      Boolean  @default(true) @map("is_active")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
-  
+
   // Relations
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("product_variants")
 }
@@ -224,41 +225,41 @@ model ProductVariant {
 // =====================================================
 
 model ShoppingCart {
-  id        String             @id @default(uuid())
-  userId    String?            @map("user_id")
-  sessionId String?            @map("session_id")
-  createdAt DateTime           @default(now()) @map("created_at")
-  updatedAt DateTime           @updatedAt @map("updated_at")
-  
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  sessionId String?  @map("session_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  items     ShoppingCartItem[]
+  items ShoppingCartItem[]
 
   @@map("shopping_carts")
 }
 
 model ShoppingCartItem {
-  id        String       @id @default(uuid())
-  cartId    String       @map("cart_id")
-  productId String       @map("product_id")
+  id        String   @id @default(uuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
   quantity  Int
-  price     Decimal      @db.Decimal(10, 2)
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  cart      ShoppingCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cart ShoppingCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
 
   @@map("shopping_cart_items")
 }
 
 model UserFavorite {
-  id        String      @id @default(uuid())
-  userId    String      @map("user_id")
-  productId String      @map("product_id")
-  createdAt DateTime    @default(now()) @map("created_at")
-  
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
   // Relations
-  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@map("user_favorites")
@@ -269,37 +270,37 @@ model UserFavorite {
 // =====================================================
 
 model Order {
-  id                String          @id @default(uuid())
-  userId            String          @map("user_id")
-  orderNumber       String          @unique @map("order_number")
-  customerEmail     String          @default("") @map("customer_email")
-  customerName      String          @default("") @map("customer_name")
-  status            OrderStatus     @default(pending)
-  subtotal          Decimal         @db.Decimal(10, 2)
-  taxAmount         Decimal         @default(0) @map("tax_amount") @db.Decimal(10, 2)
-  shippingAmount    Decimal         @default(0) @map("shipping_amount") @db.Decimal(10, 2)
-  discountAmount    Decimal         @default(0) @map("discount_amount") @db.Decimal(10, 2)
-  totalAmount       Decimal         @map("total_amount") @db.Decimal(10, 2)
-  currency          String          @default("PEN")
-  shippingAddressId String?         @map("shipping_address_id")
-  shippingStreet    String?         @map("shipping_street")
-  shippingCity      String?         @map("shipping_city")
-  shippingState     String?         @map("shipping_state")
-  shippingZipCode   String?         @map("shipping_zip_code")
-  shippingCountry   String?         @default("PE") @map("shipping_country")
+  id                String      @id @default(uuid())
+  userId            String      @map("user_id")
+  orderNumber       String      @unique @map("order_number")
+  customerEmail     String      @default("") @map("customer_email")
+  customerName      String      @default("") @map("customer_name")
+  status            OrderStatus @default(pending)
+  subtotal          Decimal     @db.Decimal(10, 2)
+  taxAmount         Decimal     @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  shippingAmount    Decimal     @default(0) @map("shipping_amount") @db.Decimal(10, 2)
+  discountAmount    Decimal     @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  totalAmount       Decimal     @map("total_amount") @db.Decimal(10, 2)
+  currency          String      @default("PEN")
+  shippingAddressId String?     @map("shipping_address_id")
+  shippingStreet    String?     @map("shipping_street")
+  shippingCity      String?     @map("shipping_city")
+  shippingState     String?     @map("shipping_state")
+  shippingZipCode   String?     @map("shipping_zip_code")
+  shippingCountry   String?     @default("PE") @map("shipping_country")
   notes             String?
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  deliveredAt       DateTime?       @map("delivered_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  deliveredAt       DateTime?   @map("delivered_at")
 
   // Relations
-  items             OrderItem[]
-  shippingAddress   UserAddress?    @relation(fields: [shippingAddressId], references: [id])
-  user              UserProfile     @relation(fields: [userId], references: [id])
-  paymentMethods    PaymentMethod[]
-  tracking          OrderTracking[]
-  transactions      Transaction[]
-  couponUsage       CouponUsage[]
+  items           OrderItem[]
+  shippingAddress UserAddress?    @relation(fields: [shippingAddressId], references: [id])
+  user            UserProfile     @relation(fields: [userId], references: [id])
+  paymentMethods  PaymentMethod[]
+  tracking        OrderTracking[]
+  transactions    Transaction[]
+  couponUsage     CouponUsage[]
 
   @@map("orders")
 }
@@ -312,30 +313,30 @@ model OrderItem {
   unitPrice  Decimal  @map("unit_price") @db.Decimal(10, 2)
   totalPrice Decimal  @map("total_price") @db.Decimal(10, 2)
   createdAt  DateTime @default(now()) @map("created_at")
-  
+
   // Relations
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
 }
 
 model OrderTracking {
-  id              String    @id @default(uuid())
-  orderId         String    @map("order_id")
-  status          String
-  location        String?
-  description     String?
-  trackingNumber  String?   @map("tracking_number")
-  carrierId       String?   @map("carrier_id")
+  id                String    @id @default(uuid())
+  orderId           String    @map("order_id")
+  status            String
+  location          String?
+  description       String?
+  trackingNumber    String?   @map("tracking_number")
+  carrierId         String?   @map("carrier_id")
   estimatedDelivery DateTime? @map("estimated_delivery")
-  actualDelivery  DateTime? @map("actual_delivery")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  
+  actualDelivery    DateTime? @map("actual_delivery")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
   // Relations
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  carrier         Carrier?  @relation(fields: [carrierId], references: [id])
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  carrier Carrier? @relation(fields: [carrierId], references: [id])
 
   @@map("order_tracking")
 }
@@ -354,51 +355,51 @@ model PaymentMethod {
   metadata      Json              @default("{}")
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
-  
+
   // Relations
-  order         Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("payment_methods")
 }
 
 model SavedPaymentMethod {
-  id            String    @id @default(uuid())
-  userId        String    @map("user_id")
-  type          PaymentMethodType
-  provider      String
-  lastFour      String?   @map("last_four")
-  expiryMonth   Int?      @map("expiry_month")
-  expiryYear    Int?      @map("expiry_year")
-  cardholderName String?  @map("cardholder_name")
-  isDefault     Boolean   @default(false) @map("is_default")
-  isActive      Boolean   @default(true) @map("is_active")
-  metadata      Json      @default("{}")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  
+  id             String            @id @default(uuid())
+  userId         String            @map("user_id")
+  type           PaymentMethodType
+  provider       String
+  lastFour       String?           @map("last_four")
+  expiryMonth    Int?              @map("expiry_month")
+  expiryYear     Int?              @map("expiry_year")
+  cardholderName String?           @map("cardholder_name")
+  isDefault      Boolean           @default(false) @map("is_default")
+  isActive       Boolean           @default(true) @map("is_active")
+  metadata       Json              @default("{}")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
   // Relations
-  user          UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("saved_payment_methods")
 }
 
 model Transaction {
-  id            String    @id @default(uuid())
-  orderId       String    @map("order_id")
-  userId        String    @map("user_id")
-  type          TransactionType
-  amount        Decimal   @db.Decimal(10, 2)
-  currency      String    @default("PEN")
-  status        TransactionStatus @default(pending)
-  gateway       String?
-  gatewayTransactionId String? @map("gateway_transaction_id")
-  metadata      Json      @default("{}")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  
+  id                   String            @id @default(uuid())
+  orderId              String            @map("order_id")
+  userId               String            @map("user_id")
+  type                 TransactionType
+  amount               Decimal           @db.Decimal(10, 2)
+  currency             String            @default("PEN")
+  status               TransactionStatus @default(pending)
+  gateway              String?
+  gatewayTransactionId String?           @map("gateway_transaction_id")
+  metadata             Json              @default("{}")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
   // Relations
-  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user          UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("transactions")
 }
@@ -408,43 +409,43 @@ model Transaction {
 // =====================================================
 
 model Coupon {
-  id              String    @id @default(uuid())
-  code            String    @unique
-  name            String
-  description     String?
-  discountType    DiscountType @map("discount_type")
-  discountValue   Decimal   @map("discount_value") @db.Decimal(10, 2)
-  minimumAmount   Decimal?  @map("minimum_amount") @db.Decimal(10, 2)
-  maximumDiscount Decimal?  @map("maximum_discount") @db.Decimal(10, 2)
-  usageLimit      Int?      @map("usage_limit")
-  usedCount       Int       @default(0) @map("used_count")
-  validFrom       DateTime  @map("valid_from")
-  validUntil      DateTime  @map("valid_until")
-  isActive        Boolean   @default(true) @map("is_active")
-  isFirstTimeOnly Boolean   @default(false) @map("is_first_time_only")
-  applicableCategories String[] @map("applicable_categories")
-  applicableProducts String[] @map("applicable_products")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  
+  id                   String       @id @default(uuid())
+  code                 String       @unique
+  name                 String
+  description          String?
+  discountType         DiscountType @map("discount_type")
+  discountValue        Decimal      @map("discount_value") @db.Decimal(10, 2)
+  minimumAmount        Decimal?     @map("minimum_amount") @db.Decimal(10, 2)
+  maximumDiscount      Decimal?     @map("maximum_discount") @db.Decimal(10, 2)
+  usageLimit           Int?         @map("usage_limit")
+  usedCount            Int          @default(0) @map("used_count")
+  validFrom            DateTime     @map("valid_from")
+  validUntil           DateTime     @map("valid_until")
+  isActive             Boolean      @default(true) @map("is_active")
+  isFirstTimeOnly      Boolean      @default(false) @map("is_first_time_only")
+  applicableCategories String[]     @map("applicable_categories")
+  applicableProducts   String[]     @map("applicable_products")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
   // Relations
-  usage          CouponUsage[]
+  usage CouponUsage[]
 
   @@map("coupons")
 }
 
 model CouponUsage {
-  id             String    @id @default(uuid())
-  couponId       String    @map("coupon_id")
-  userId         String    @map("user_id")
-  orderId        String    @map("order_id")
-  discountAmount Decimal   @map("discount_amount") @db.Decimal(10, 2)
-  usedAt         DateTime  @map("used_at")
-  
+  id             String   @id @default(uuid())
+  couponId       String   @map("coupon_id")
+  userId         String   @map("user_id")
+  orderId        String   @map("order_id")
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(10, 2)
+  usedAt         DateTime @map("used_at")
+
   // Relations
-  coupon         Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
-  user           UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
-  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  coupon Coupon      @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order  Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("coupon_usage")
 }
@@ -454,49 +455,49 @@ model CouponUsage {
 // =====================================================
 
 model ProductReview {
-  id          String    @id @default(uuid())
-  productId   String    @map("product_id")
-  userId      String    @map("user_id")
-  rating      Int
-  title       String?
-  comment     String?
-  isApproved  Boolean   @default(false) @map("is_approved")
-  isVerified  Boolean   @default(false) @map("is_verified")
+  id           String   @id @default(uuid())
+  productId    String   @map("product_id")
+  userId       String   @map("user_id")
+  rating       Int
+  title        String?
+  comment      String?
+  isApproved   Boolean  @default(false) @map("is_approved")
+  isVerified   Boolean  @default(false) @map("is_verified")
   helpfulCount Int      @default(0) @map("helpful_count")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
   // Relations
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  photos      ReviewPhoto[]
-  votes       ReviewVote[]
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  photos  ReviewPhoto[]
+  votes   ReviewVote[]
 
   @@map("product_reviews")
 }
 
 model ReviewPhoto {
-  id          String    @id @default(uuid())
-  reviewId    String    @map("review_id")
-  imageUrl    String    @map("image_url")
-  caption     String?
-  sortOrder   Int       @default(0) @map("sort_order")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
+  id        String   @id @default(uuid())
+  reviewId  String   @map("review_id")
+  imageUrl  String   @map("image_url")
+  caption   String?
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
   // Relations
-  review      ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@map("review_photos")
 }
 
 model ReviewVote {
-  id        String    @id @default(uuid())
-  reviewId  String    @map("review_id")
-  userId    String    @map("user_id")
-  isHelpful Boolean   @map("is_helpful")
-  createdAt DateTime  @default(now()) @map("created_at")
-  
+  id        String   @id @default(uuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  isHelpful Boolean  @map("is_helpful")
+  createdAt DateTime @default(now()) @map("created_at")
+
   // Relations
-  review    ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@unique([reviewId, userId])
   @@map("review_votes")
@@ -507,32 +508,32 @@ model ReviewVote {
 // =====================================================
 
 model InventoryTransaction {
-  id          String    @id @default(uuid())
-  productId   String    @map("product_id")
-  type        InventoryTransactionType
-  quantity    Int
-  reference   String?
-  notes       String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
+  id        String                   @id @default(uuid())
+  productId String                   @map("product_id")
+  type      InventoryTransactionType
+  quantity  Int
+  reference String?
+  notes     String?
+  createdAt DateTime                 @default(now()) @map("created_at")
+
   // Relations
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("inventory_transactions")
 }
 
 model StockAlert {
-  id          String    @id @default(uuid())
-  productId   String    @map("product_id")
-  type        StockAlertType
-  threshold   Int
-  currentStock Int      @map("current_stock")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+  id           String         @id @default(uuid())
+  productId    String         @map("product_id")
+  type         StockAlertType
+  threshold    Int
+  currentStock Int            @map("current_stock")
+  isActive     Boolean        @default(true) @map("is_active")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
   // Relations
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("stock_alerts")
 }
@@ -551,63 +552,63 @@ model InboxEvent {
 // =====================================================
 
 model Carrier {
-  id                    String    @id @default(uuid())
-  name                  String
-  code                  String    @unique
-  trackingUrlTemplate   String?   @map("tracking_url_template")
-  isActive              Boolean   @default(true) @map("is_active")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
-  
+  id                  String   @id @default(uuid())
+  name                String
+  code                String   @unique
+  trackingUrlTemplate String?  @map("tracking_url_template")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
   // Relations
-  tracking              OrderTracking[]
+  tracking OrderTracking[]
 
   @@map("carriers")
 }
 
 model ShippingZone {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   countries   String[]
   states      String[]
   cities      String[]
-  postalCodes String[]  @map("postal_codes")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+  postalCodes String[] @map("postal_codes")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
   // Relations
-  rates       ShippingRate[]
+  rates ShippingRate[]
 
   @@map("shipping_zones")
 }
 
 model ShippingRate {
-  id            String    @id @default(uuid())
-  zoneId        String    @map("zone_id")
-  name          String
-  minWeight     Decimal?  @map("min_weight") @db.Decimal(10, 2)
-  maxWeight     Decimal?  @map("max_weight") @db.Decimal(10, 2)
-  price         Decimal   @db.Decimal(10, 2)
-  isActive      Boolean   @default(true) @map("is_active")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  
+  id        String   @id @default(uuid())
+  zoneId    String   @map("zone_id")
+  name      String
+  minWeight Decimal? @map("min_weight") @db.Decimal(10, 2)
+  maxWeight Decimal? @map("max_weight") @db.Decimal(10, 2)
+  price     Decimal  @db.Decimal(10, 2)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  zone          ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  zone ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
 
   @@map("shipping_rates")
 }
 
 model DeliverySlot {
-  id          String    @id @default(uuid())
-  dayOfWeek   Int       @map("day_of_week")
-  startTime   String    @map("start_time")
-  endTime     String    @map("end_time")
-  maxOrders   Int       @map("max_orders")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  dayOfWeek Int      @map("day_of_week")
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  maxOrders Int      @map("max_orders")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("delivery_slots")
 }
@@ -617,29 +618,29 @@ model DeliverySlot {
 // =====================================================
 
 model LoyaltyProgram {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   name            String
   description     String?
-  pointsPerDollar Decimal   @default(1) @map("points_per_dollar") @db.Decimal(10, 4)
-  redemptionRate  Decimal   @default(0.01) @map("redemption_rate") @db.Decimal(10, 4)
-  expiryMonths    Int       @default(12) @map("expiry_months")
-  isActive        Boolean   @default(true) @map("is_active")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  pointsPerDollar Decimal  @default(1) @map("points_per_dollar") @db.Decimal(10, 4)
+  redemptionRate  Decimal  @default(0.01) @map("redemption_rate") @db.Decimal(10, 4)
+  expiryMonths    Int      @default(12) @map("expiry_months")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("loyalty_programs")
 }
 
 model RewardPoint {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  points      Int
-  type        RewardPointType
-  expiresAt   DateTime? @map("expires_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
+  id        String          @id @default(uuid())
+  userId    String          @map("user_id")
+  points    Int
+  type      RewardPointType
+  expiresAt DateTime?       @map("expires_at")
+  createdAt DateTime        @default(now()) @map("created_at")
+
   // Relations
-  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("reward_points")
 }
@@ -649,64 +650,64 @@ model RewardPoint {
 // =====================================================
 
 model PushNotification {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  title       String
-  body        String
-  type        NotificationType
-  data        Json      @default("{}")
-  isRead      Boolean   @default(false) @map("is_read")
-  readAt      DateTime? @map("read_at")
-  sentAt      DateTime? @map("sent_at")
-  deliveredAt DateTime? @map("delivered_at")
-  failedAt    DateTime? @map("failed_at")
-  errorMessage String?  @map("error_message")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+  id           String           @id @default(uuid())
+  userId       String           @map("user_id")
+  title        String
+  body         String
+  type         NotificationType
+  data         Json             @default("{}")
+  isRead       Boolean          @default(false) @map("is_read")
+  readAt       DateTime?        @map("read_at")
+  sentAt       DateTime?        @map("sent_at")
+  deliveredAt  DateTime?        @map("delivered_at")
+  failedAt     DateTime?        @map("failed_at")
+  errorMessage String?          @map("error_message")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
   // Relations
-  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("push_notifications")
 }
 
 model NotificationTemplate {
-  id          String    @id @default(uuid())
-  name        String
-  type        NotificationType
-  title       String
-  body        String
-  variables   Json      @default("[]")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String           @id @default(uuid())
+  name      String
+  type      NotificationType
+  title     String
+  body      String
+  variables Json             @default("[]")
+  isActive  Boolean          @default(true) @map("is_active")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
 
   @@map("notification_templates")
 }
 
 model EmailTemplate {
-  id          String    @id @default(uuid())
-  name        String
-  subject     String
-  body        String
-  variables   Json      @default("[]")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String
+  subject   String
+  body      String
+  variables Json     @default("[]")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("email_templates")
 }
 
 model NewsletterSubscription {
-  id          String    @id @default(uuid())
-  email       String    @unique
-  userId      String?   @map("user_id")
-  isActive    Boolean   @default(true) @map("is_active")
-  subscribedAt DateTime @default(now()) @map("subscribed_at")
+  id             String    @id @default(uuid())
+  email          String    @unique
+  userId         String?   @map("user_id")
+  isActive       Boolean   @default(true) @map("is_active")
+  subscribedAt   DateTime  @default(now()) @map("subscribed_at")
   unsubscribedAt DateTime? @map("unsubscribed_at")
-  
+
   // Relations
-  user        UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("newsletter_subscriptions")
 }
@@ -716,56 +717,56 @@ model NewsletterSubscription {
 // =====================================================
 
 model AppEvent {
-  id          String    @id @default(uuid())
-  userId      String?   @map("user_id")
-  sessionId   String?   @map("session_id")
-  eventType   String    @map("event_type")
-  eventData   Json?     @map("event_data")
-  productId   String?   @map("product_id")
-  categoryId  String?   @map("category_id")
-  deviceInfo  Json?     @map("device_info")
-  location    Json?
-  userAgent   String?   @map("user_agent")
-  ipAddress   String?   @map("ip_address")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  sessionId  String?  @map("session_id")
+  eventType  String   @map("event_type")
+  eventData  Json?    @map("event_data")
+  productId  String?  @map("product_id")
+  categoryId String?  @map("category_id")
+  deviceInfo Json?    @map("device_info")
+  location   Json?
+  userAgent  String?  @map("user_agent")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
   // Relations
-  user        UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  product     Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  user    UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@map("app_events")
 }
 
 model AuditLog {
-  id          String    @id @default(uuid())
-  userId      String?   @map("user_id")
-  action      String
-  tableName   String?   @map("table_name")
-  recordId    String?   @map("record_id")
-  oldValues   Json?     @map("old_values")
-  newValues   Json?     @map("new_values")
-  ipAddress   String?   @map("ip_address")
-  userAgent   String?   @map("user_agent")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  action    String
+  tableName String?  @map("table_name")
+  recordId  String?  @map("record_id")
+  oldValues Json?    @map("old_values")
+  newValues Json?    @map("new_values")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
   // Relations
-  user        UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
 }
 
 model SecurityEvent {
-  id          String    @id @default(uuid())
-  userId      String?   @map("user_id")
-  eventType   String    @map("event_type")
+  id          String   @id @default(uuid())
+  userId      String?  @map("user_id")
+  eventType   String   @map("event_type")
   description String
-  ipAddress   String?   @map("ip_address")
-  userAgent   String?   @map("user_agent")
-  metadata    Json      @default("{}")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
   // Relations
-  user        UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("security_events")
 }
@@ -775,28 +776,28 @@ model SecurityEvent {
 // =====================================================
 
 model StoreSettings {
-  id          String    @id @default(uuid())
-  settingKey  String    @unique @map("setting_key")
+  id           String   @id @default(uuid())
+  settingKey   String   @unique @map("setting_key")
   settingValue String   @map("setting_value")
-  description String?
-  category    String?
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  description  String?
+  category     String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("store_settings")
 }
 
 model TaxRate {
-  id          String    @id @default(uuid())
-  name        String
-  rate        Decimal   @db.Decimal(5, 4)
-  country     String?
-  state       String?
-  city        String?
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String
+  rate      Decimal  @db.Decimal(5, 4)
+  country   String?
+  state     String?
+  city      String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("tax_rates")
 }
@@ -813,11 +814,11 @@ model Image {
   entityType   String?  @map("entity_type")
   entityId     String?  @map("entity_id")
   createdAt    DateTime @default(now()) @map("created_at")
-  
+
   // SVG specific fields
-  dimensions   String?  // JSON string for {width, height}
-  viewBox      String?  @map("view_box")
-  optimized    Boolean  @default(false)
+  dimensions String? // JSON string for {width, height}
+  viewBox    String? @map("view_box")
+  optimized  Boolean @default(false)
 
   @@map("images")
 }
@@ -905,4 +906,144 @@ enum RewardPointType {
   redeemed
   expired
   bonus
+}
+
+// =====================================================
+// RBAC MODELS (Odoo-inspired, Migration A — additive only)
+// Owner: user-service / happy_baby_user DB
+// =====================================================
+
+// RecordRuleMode: operation that a record rule restricts
+enum RecordRuleMode {
+  read   @map("read")
+  write  @map("write")
+  create @map("create")
+  unlink @map("unlink")
+
+  @@map("record_rule_mode")
+}
+
+// AuthGroup: a named set of permissions, analogous to Odoo res.groups.
+// is_system=true groups are seed-protected; never DELETE them via cascade or UI.
+model AuthGroup {
+  id          String   @id @default(uuid())
+  code        String   @unique // kebab-case, e.g. "administrators", "sales-manager"
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // M:N to permissions via group_permissions pivot
+  groupPermissions GroupPermission[]
+  // M:N self-ref: groups this group implies (transitively inherits perms from)
+  implies          GroupImplication[] @relation("GroupImplies")
+  // M:N self-ref: groups that imply this group
+  impliedBy        GroupImplication[] @relation("GroupImpliedBy")
+  // M:N to users via user_groups pivot
+  userGroups       UserGroup[]
+  // 1:N record rules scoped to this group
+  recordRules      AuthRecordRule[]
+
+  @@index([code])
+  @@map("groups")
+}
+
+// AuthPermission: a single named capability, e.g. "create:product".
+// category is a free-form string (product|order|user|system|analytics) — kept
+// as String for extensibility without requiring a DB migration on new domains.
+model AuthPermission {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g. "create:product"
+  name        String
+  description String?
+  category    String // "product" | "order" | "user" | "system" | "analytics"
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  groupPermissions GroupPermission[]
+
+  @@index([code])
+  @@index([category])
+  @@map("permissions")
+}
+
+// GroupPermission: pivot table linking groups to permissions (M:N).
+model GroupPermission {
+  groupId      String   @map("group_id")
+  permissionId String   @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  group      AuthGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  permission AuthPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, permissionId])
+  @@index([groupId])
+  @@index([permissionId])
+  @@map("group_permissions")
+}
+
+// GroupImplication: M:N self-referential pivot expressing Odoo-style group inheritance.
+// group_id ("parent") implies implied_group_id ("child") — i.e. the parent inherits
+// all permissions of the child group transitively.
+//
+// App-level constraints (cannot express in Prisma DDL):
+//   1. group_id != implied_group_id (no self-implication) — enforce in service layer.
+//   2. No cycles (e.g. A->B->A) — the application must detect cycles before inserting.
+model GroupImplication {
+  groupId        String   @map("group_id")
+  impliedGroupId String   @map("implied_group_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  group        AuthGroup @relation("GroupImplies", fields: [groupId], references: [id], onDelete: Cascade)
+  impliedGroup AuthGroup @relation("GroupImpliedBy", fields: [impliedGroupId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, impliedGroupId])
+  @@index([groupId])
+  @@index([impliedGroupId])
+  @@map("group_implications")
+}
+
+// UserGroup: pivot table linking users to groups (M:N).
+// onDelete: Restrict on group side — explicitly unassign all users before deleting
+// a group to avoid silent data loss.
+model UserGroup {
+  userId    String   @map("user_id")
+  groupId   String   @map("group_id")
+  grantedAt DateTime @default(now()) @map("granted_at")
+  grantedBy String?  @map("granted_by") // userId of admin who assigned (audit trail)
+
+  user  UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group AuthGroup   @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  @@id([userId, groupId])
+  @@index([userId])
+  @@index([groupId])
+  @@map("user_groups")
+}
+
+// AuthRecordRule: row-level access rule scoped to a model + group + mode.
+// group_id=null means the rule applies globally (all groups/users).
+// domain_expression is a JSON tree evaluated at query time in the application layer.
+//
+// RISK: domain_expression has no DB-level schema validation — application MUST
+// validate shape before insert/update (use Zod or equivalent in the use case layer).
+model AuthRecordRule {
+  id               String         @id @default(uuid())
+  name             String
+  description      String?
+  modelName        String         @map("model_name") // PascalCase entity name, e.g. "Order"
+  groupId          String?        @map("group_id") // null = global rule
+  mode             RecordRuleMode
+  domainExpression Json           @map("domain_expression")
+  isActive         Boolean        @default(true) @map("is_active")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  group AuthGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([modelName])
+  @@index([groupId])
+  @@index([modelName, mode, isActive])
+  @@map("record_rules")
 }

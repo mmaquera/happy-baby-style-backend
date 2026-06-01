@@ -35,6 +35,7 @@ model UserProfile {
   rewardPoints        RewardPoint[]
   savedPaymentMethods SavedPaymentMethod[]
   securityEvents      SecurityEvent[]
+  groups              UserGroup[]
 
   @@map("user_profiles")
 }
@@ -191,16 +192,16 @@ model PushNotification {
 }
 
 model AuditLog {
-  id        String    @id @default(uuid())
-  userId    String?   @map("user_id")
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
   action    String
-  tableName String?   @map("table_name")
-  recordId  String?   @map("record_id")
-  oldValues Json?     @map("old_values")
-  newValues Json?     @map("new_values")
-  ipAddress String?   @map("ip_address")
-  userAgent String?   @map("user_agent")
-  createdAt DateTime  @default(now()) @map("created_at")
+  tableName String?  @map("table_name")
+  recordId  String?  @map("record_id")
+  oldValues Json?    @map("old_values")
+  newValues Json?    @map("new_values")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
 
   user UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -223,18 +224,18 @@ model SecurityEvent {
 }
 
 model AppEvent {
-  id         String    @id @default(uuid())
-  userId     String?   @map("user_id")
-  sessionId  String?   @map("session_id")
-  eventType  String    @map("event_type")
-  eventData  Json?     @map("event_data")
-  productId  String?   @map("product_id")
-  categoryId String?   @map("category_id")
-  deviceInfo Json?     @map("device_info")
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  sessionId  String?  @map("session_id")
+  eventType  String   @map("event_type")
+  eventData  Json?    @map("event_data")
+  productId  String?  @map("product_id")
+  categoryId String?  @map("category_id")
+  deviceInfo Json?    @map("device_info")
   location   Json?
-  userAgent  String?   @map("user_agent")
-  ipAddress  String?   @map("ip_address")
-  createdAt  DateTime  @default(now()) @map("created_at")
+  userAgent  String?  @map("user_agent")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   user UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -291,15 +292,162 @@ enum PaymentMethodType {
 }
 
 model UserFavorite {
-  id        String      @id @default(uuid())
-  userId    String      @map("user_id")
-  productId String      @map("product_id")
-  createdAt DateTime    @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
 
   user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@map("user_favorites")
+}
+
+// =====================================================
+// RBAC MODELS (Odoo-inspired, Migration A)
+// =====================================================
+
+// RecordRuleMode: operation that a record rule restricts
+enum RecordRuleMode {
+  read   @map("read")
+  write  @map("write")
+  create @map("create")
+  unlink @map("unlink")
+
+  @@map("record_rule_mode")
+}
+
+// AuthGroup: a named set of permissions, analogous to Odoo res.groups.
+// is_system=true groups are seed-protected; never DELETE them via cascade or UI.
+model AuthGroup {
+  id          String   @id @default(uuid())
+  code        String   @unique // kebab-case, e.g. "administrators", "sales-manager"
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // M:N to permissions via group_permissions pivot
+  groupPermissions GroupPermission[]
+  // M:N self-ref: groups this group implies (transitively inherits perms from)
+  implies          GroupImplication[] @relation("GroupImplies")
+  // M:N self-ref: groups that imply this group
+  impliedBy        GroupImplication[] @relation("GroupImpliedBy")
+  // M:N to users via user_groups pivot
+  userGroups       UserGroup[]
+  // 1:N record rules scoped to this group
+  recordRules      AuthRecordRule[]
+
+  @@index([code])
+  @@map("groups")
+}
+
+// AuthPermission: a single named capability, e.g. "create:product".
+// category is a free-form string (product|order|user|system|analytics) — kept
+// as String for extensibility without requiring a DB migration on new domains.
+model AuthPermission {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g. "create:product"
+  name        String
+  description String?
+  category    String // "product" | "order" | "user" | "system" | "analytics"
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  groupPermissions GroupPermission[]
+
+  @@index([code])
+  @@index([category])
+  @@map("permissions")
+}
+
+// GroupPermission: pivot table linking groups to permissions (M:N).
+model GroupPermission {
+  groupId      String   @map("group_id")
+  permissionId String   @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  group      AuthGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  permission AuthPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, permissionId])
+  @@index([groupId])
+  @@index([permissionId])
+  @@map("group_permissions")
+}
+
+// GroupImplication: M:N self-referential pivot expressing Odoo-style group inheritance.
+// group_id ("parent") implies implied_group_id ("child") — i.e. the parent inherits
+// all permissions of the child group transitively.
+//
+// App-level constraints (cannot express in Prisma DDL):
+//   1. group_id != implied_group_id (no self-implication) — enforce in service layer.
+//   2. No cycles (e.g. A→B→A) — the application must detect cycles before inserting.
+model GroupImplication {
+  groupId        String   @map("group_id")
+  impliedGroupId String   @map("implied_group_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  group        AuthGroup @relation("GroupImplies", fields: [groupId], references: [id], onDelete: Cascade)
+  impliedGroup AuthGroup @relation("GroupImpliedBy", fields: [impliedGroupId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, impliedGroupId])
+  @@index([groupId])
+  @@index([impliedGroupId])
+  @@map("group_implications")
+}
+
+// UserGroup: pivot table linking users to groups (M:N).
+// onDelete: Restrict on group side — explicitly unassign all users before deleting
+// a group to avoid silent data loss.
+model UserGroup {
+  userId    String   @map("user_id")
+  groupId   String   @map("group_id")
+  grantedAt DateTime @default(now()) @map("granted_at")
+  grantedBy String?  @map("granted_by") // userId of admin who assigned (audit trail)
+
+  user  UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group AuthGroup   @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  @@id([userId, groupId])
+  @@index([userId])
+  @@index([groupId])
+  @@map("user_groups")
+}
+
+// AuthRecordRule: row-level access rule scoped to a model + group + mode.
+// group_id=null means the rule applies globally (all groups/users).
+// domain_expression is a JSON tree evaluated at query time in the application layer.
+//
+// Example domain_expression:
+//   { "op": "eq", "field": "userId", "value": { "$ctx": "current_user.id" } }
+//   { "op": "and", "args": [
+//       { "op": "eq", "field": "status", "value": "active" },
+//       { "op": "in", "field": "regionId", "value": { "$ctx": "current_user.region_ids" } }
+//     ]
+//   }
+//
+// RISK: domain_expression has no DB-level schema validation — application MUST
+// validate shape before insert/update (use Zod or equivalent in the use case layer).
+model AuthRecordRule {
+  id               String         @id @default(uuid())
+  name             String
+  description      String?
+  modelName        String         @map("model_name") // PascalCase entity name, e.g. "Order"
+  groupId          String?        @map("group_id") // null = global rule
+  mode             RecordRuleMode
+  domainExpression Json           @map("domain_expression")
+  isActive         Boolean        @default(true) @map("is_active")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  group AuthGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([modelName])
+  @@index([groupId])
+  @@index([modelName, mode, isActive])
+  @@map("record_rules")
 }
 
 model LoyaltyProgram {

@@ -1,0 +1,23 @@
+{
+  "name": "@hbs/authz",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hbs/auth": "workspace:*",
+    "@hbs/logging": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "ioredis": "^5.3.2"
+  },
+  "peerDependenciesMeta": {
+    "ioredis": {
+      "optional": true
+    }
+  }
+}

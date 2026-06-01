@@ -216,6 +216,12 @@ importers:
       '@apollo/subgraph':
         specifier: ^2.14.0
         version: 2.14.0(graphql@16.14.0)
+      '@hbs/auth':
+        specifier: workspace:*
+        version: link:../../libs/auth
+      '@hbs/authz':
+        specifier: workspace:*
+        version: link:../../libs/authz
       '@hbs/logging':
         specifier: workspace:*
         version: link:../../libs/logging
@@ -243,6 +249,9 @@ importers:
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.10.1
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -265,6 +274,12 @@ importers:
       '@apollo/subgraph':
         specifier: ^2.14.0
         version: 2.14.0(graphql@16.14.0)
+      '@hbs/auth':
+        specifier: workspace:*
+        version: link:../../libs/auth
+      '@hbs/authz':
+        specifier: workspace:*
+        version: link:../../libs/authz
       '@hbs/logging':
         specifier: workspace:*
         version: link:../../libs/logging
@@ -295,6 +310,9 @@ importers:
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.10.1
 
   apps/order-service:
     dependencies:
@@ -304,6 +322,12 @@ importers:
       '@apollo/subgraph':
         specifier: ^2.14.0
         version: 2.14.0(graphql@16.14.0)
+      '@hbs/auth':
+        specifier: workspace:*
+        version: link:../../libs/auth
+      '@hbs/authz':
+        specifier: workspace:*
+        version: link:../../libs/authz
       '@hbs/logging':
         specifier: workspace:*
         version: link:../../libs/logging
@@ -343,6 +367,12 @@ importers:
       '@apollo/subgraph':
         specifier: ^2.14.0
         version: 2.14.0(graphql@16.14.0)
+      '@hbs/auth':
+        specifier: workspace:*
+        version: link:../../libs/auth
+      '@hbs/authz':
+        specifier: workspace:*
+        version: link:../../libs/authz
       '@hbs/logging':
         specifier: workspace:*
         version: link:../../libs/logging
@@ -385,6 +415,9 @@ importers:
       '@hbs/auth':
         specifier: workspace:*
         version: link:../../libs/auth
+      '@hbs/authz':
+        specifier: workspace:*
+        version: link:../../libs/authz
       '@hbs/logging':
         specifier: workspace:*
         version: link:../../libs/logging
@@ -418,14 +451,39 @@ importers:
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.10.1
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
       nodemailer:
         specifier: ^7.0.10
         version: 7.0.13
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
-  libs/auth: {}
+  libs/auth:
+    dependencies:
+      jsonwebtoken:
+        specifier: ^9.0.2
+        version: 9.0.3
+
+  libs/authz:
+    dependencies:
+      '@hbs/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@hbs/logging':
+        specifier: workspace:*
+        version: link:../logging
+      ioredis:
+        specifier: ^5.3.2
+        version: 5.10.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   libs/logging: {}
 
@@ -4872,6 +4930,9 @@ packages:
 
   zen-observable@0.8.15:
     resolution: {integrity: sha512-PQ2PC7R9rslx84ndNBZB/Dkv8V8fZEpk83RLgXtYd0fwUgEjseMn1Dgajh2x6S8QbZAFa9p2qVCEuYZNgve0dQ==}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -10227,3 +10288,5 @@ snapshots:
       zen-observable: 0.8.15
 
   zen-observable@0.8.15: {}
+
+  zod@4.4.3: {}

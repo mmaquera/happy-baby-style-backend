@@ -5,7 +5,8 @@
       "@hbs/shared-kernel": ["libs/shared-kernel/src/index.ts"],
       "@hbs/logging": ["libs/logging/src/index.ts"],
       "@hbs/prisma": ["libs/prisma/src/index.ts"],
-      "@hbs/auth": ["libs/auth/src/index.ts"]
+      "@hbs/auth": ["libs/auth/src/index.ts"],
+      "@hbs/authz": ["libs/authz/src/index.ts"]
     }
   }
 }
