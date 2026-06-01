@@ -188,7 +188,8 @@ After completing a task, each agent proactively flags one improvement opportunit
 domain (architect: layer/DDD violations & cross-service smells; backend: N+1, unbounded queries,
 heavy sync work in request path; database: index/migration/query issues; security: missing
 authz, unvalidated input, secret/token leaks; devops: missing health checks, no resource
-limits, secrets in plain env, missing DLQ/observability). One bullet, do NOT implement unless asked.
+limits, secrets in plain env, missing DLQ/observability; bruno: collection drift from schema,
+missing requests for new mutations, stale env vars). One bullet, do NOT implement unless asked.
 
 Format: "Improvement opportunity: [what] — [why/risk]"
 
@@ -208,6 +209,7 @@ before launching agents, list which ones will run, in what order, and wait for a
 | Prisma schema, migrations, indexes, N+1, query optimization        | database-expert         | Owns schema, migrations, indexes, repo query shape. Hands typed interface to backend.  |
 | Auth flows, authz, threat modeling, crypto, file upload, RBAC      | security-analyst        | Gates auth/authz, validates input boundaries, signs off on tokens/secrets/admin fields.|
 | docker-compose, CI/CD, env vars, health, observability, Redis ops  | senior-devops-expert    | Owns docker-compose, CI workflows, deploy strategy, env/secrets, monitoring, prod readiness. |
+| Bruno collection sync after schema/resolver/env/auth changes       | bruno-collections-curator | Owns `.bru` files in `bruno/`. Keeps requests, variables, auth headers, response examples in sync with subgraph schemas. |
 | Codebase search, file/symbol lookup, "where is X"                  | Explore                 | —                                                                                      |
 | Claude Code CLI, Agent SDK, Anthropic API questions                | claude-code-guide       | —                                                                                      |
 
@@ -234,6 +236,7 @@ from invoking the same skill with conflicting intent.
 | database-expert         | `database-architect` (owner), `senior-backend`              | `senior-backend`: query context only.            |
 | security-analyst        | `senior-security` (owner), `security-review`, `code-review` | Owns all auth/authz/pentest decisions.           |
 | senior-devops-expert    | `senior-devops` (owner), `code-review`                      | No application logic or DB schema — escalate.    |
+| bruno-collections-curator | `code-review`                                             | Only touches `bruno/`. Triggered by upstream schema/resolver/env/auth changes. |
 
 Shared skills (`database-architect`, `senior-backend`) are split by phase: architect uses them
 pre-implementation (design), specialists use them during/post-implementation (build, audit).
