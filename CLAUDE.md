@@ -187,7 +187,8 @@ Adding a new event type:
 After completing a task, each agent proactively flags one improvement opportunity in its own
 domain (architect: layer/DDD violations & cross-service smells; backend: N+1, unbounded queries,
 heavy sync work in request path; database: index/migration/query issues; security: missing
-authz, unvalidated input, secret/token leaks). One bullet, do NOT implement unless asked.
+authz, unvalidated input, secret/token leaks; devops: missing health checks, no resource
+limits, secrets in plain env, missing DLQ/observability). One bullet, do NOT implement unless asked.
 
 Format: "Improvement opportunity: [what] — [why/risk]"
 
@@ -206,6 +207,7 @@ before launching agents, list which ones will run, in what order, and wait for a
 | Use cases, resolvers, repositories, adapters, messaging, refactors | backend-expert          | Implements application/infrastructure/graphql layers + Jest tests. No Prisma schema.   |
 | Prisma schema, migrations, indexes, N+1, query optimization        | database-expert         | Owns schema, migrations, indexes, repo query shape. Hands typed interface to backend.  |
 | Auth flows, authz, threat modeling, crypto, file upload, RBAC      | security-analyst        | Gates auth/authz, validates input boundaries, signs off on tokens/secrets/admin fields.|
+| docker-compose, CI/CD, env vars, health, observability, Redis ops  | senior-devops-expert    | Owns docker-compose, CI workflows, deploy strategy, env/secrets, monitoring, prod readiness. |
 | Codebase search, file/symbol lookup, "where is X"                  | Explore                 | —                                                                                      |
 | Claude Code CLI, Agent SDK, Anthropic API questions                | claude-code-guide       | —                                                                                      |
 
@@ -231,6 +233,7 @@ from invoking the same skill with conflicting intent.
 | backend-expert          | `senior-backend`, `verify`, `run`, `code-review`            | No auth/authz decisions — escalate to security-analyst. |
 | database-expert         | `database-architect` (owner), `senior-backend`              | `senior-backend`: query context only.            |
 | security-analyst        | `senior-security` (owner), `security-review`, `code-review` | Owns all auth/authz/pentest decisions.           |
+| senior-devops-expert    | `senior-devops` (owner), `code-review`                      | No application logic or DB schema — escalate.    |
 
 Shared skills (`database-architect`, `senior-backend`) are split by phase: architect uses them
 pre-implementation (design), specialists use them during/post-implementation (build, audit).
