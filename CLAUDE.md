@@ -184,50 +184,12 @@ Adding a new event type:
 
 ## Suggesting Improvements
 
-After completing a task, proactively flag (one bullet, do NOT implement unless asked):
-
-Architecture smells:
-- Use case with >1 responsibility → suggest split
-- Repository returning raw Prisma types to domain → suggest entity mapping
-- Service importing directly from another service's source → suggest port/adapter or event
-
-Performance:
-- N+1 in resolvers → suggest DataLoader
-- Unbounded list query → suggest pagination
-- Heavy sync work in request path → suggest async background job
-
-Resilience:
-- HTTP call without timeout → suggest axios with timeout config
-- Event consumer without dead-letter handling → suggest DLQ stream
-
-Security:
-- Resolver exposing admin fields without role check → flag explicitly
-- User input reaching use case without validation → suggest guard at application boundary
+After completing a task, each agent proactively flags one improvement opportunity in its own
+domain (architect: layer/DDD violations & cross-service smells; backend: N+1, unbounded queries,
+heavy sync work in request path; database: index/migration/query issues; security: missing
+authz, unvalidated input, secret/token leaks). One bullet, do NOT implement unless asked.
 
 Format: "Improvement opportunity: [what] — [why/risk]"
-
----
-
-## Claude Code Skills — Use on Every Request
-
-Use the available skills at the start of every prompt/request, not just when explicitly asked.
-
-  /plan         → ALWAYS before implementing anything non-trivial.
-                  New service, new use case, schema change, event contract, cross-service flow,
-                  adding a shared lib feature, or any change touching >2 files.
-  /ultrareview  → ALWAYS after completing an implementation.
-                  Run on the current branch (or /ultrareview <PR#> for a GitHub PR) before
-                  considering the task done. Catches architecture violations, missed edge cases,
-                  security issues, and pattern inconsistencies.
-
-Default behavior for every user request:
-  1. If the request requires writing or changing code → invoke /plan first.
-  2. Implement once the plan is approved.
-  3. After implementation → invoke /ultrareview.
-  4. Address any findings from the review before reporting the task as complete.
-
-Never skip /plan for cross-service changes (event contracts, federation schema, shared libs).
-Never skip /ultrareview before marking a feature or fix as done.
 
 ---
 
@@ -236,47 +198,42 @@ Never skip /ultrareview before marking a feature or fix as done.
 Project-defined agents must be used to execute approved plans. Dispatch is **consultive**:
 before launching agents, list which ones will run, in what order, and wait for approval.
 
-### Routing table
+### Routing & ownership
 
-| Trigger                                                                 | Agent                   |
-|-------------------------------------------------------------------------|-------------------------|
-| /plan, /ultrareview, cross-service design, federation, supergraph       | microservices-architect |
-| Use cases, resolvers, repositories, adapters, messaging, refactors      | backend-expert          |
-| Prisma schema, migrations, indexes, N+1, query optimization             | database-expert         |
-| Auth flows, authz, threat modeling, crypto, file upload risk, RBAC      | security-analyst        |
-| Codebase search, file/symbol lookup, "where is X" questions             | Explore                 |
-| Questions about Claude Code CLI, Agent SDK, or Anthropic API            | claude-code-guide       |
+| Trigger                                                            | Agent                   | Owns during execution                                                                  |
+|--------------------------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------|
+| /plan, /ultrareview, cross-service design, federation, supergraph  | microservices-architect | Splits plan into tasks, assigns specialists, runs `/ultrareview`, decides re-work.     |
+| Use cases, resolvers, repositories, adapters, messaging, refactors | backend-expert          | Implements application/infrastructure/graphql layers + Jest tests. No Prisma schema.   |
+| Prisma schema, migrations, indexes, N+1, query optimization        | database-expert         | Owns schema, migrations, indexes, repo query shape. Hands typed interface to backend.  |
+| Auth flows, authz, threat modeling, crypto, file upload, RBAC      | security-analyst        | Gates auth/authz, validates input boundaries, signs off on tokens/secrets/admin fields.|
+| Codebase search, file/symbol lookup, "where is X"                  | Explore                 | —                                                                                      |
+| Claude Code CLI, Agent SDK, Anthropic API questions                | claude-code-guide       | —                                                                                      |
 
 Fallback to `general-purpose` only when no specialist fits.
 
-### Per-agent responsibility on plan execution
-
-- **microservices-architect** — owns the plan. Splits approved plan into tasks, assigns each
-  task to the owning specialist, runs `/ultrareview` at the end, decides re-work.
-- **backend-expert** — implements application/infrastructure/graphql layers for assigned tasks.
-  Writes Jest tests for every new use case. Must not touch Prisma schema directly.
-- **database-expert** — owns Prisma schema, migrations, indexes, and repository query shape.
-  Hands back typed repository interface + impl to backend-expert.
-- **security-analyst** — gates auth/authz, validates input boundaries, signs off on any task
-  touching tokens, secrets, uploads, or admin fields before merge.
-
 ### Workflow (post-/plan approval)
 
-1. **architect** splits the approved plan into per-agent tasks and posts the dispatch list.
-2. **Wait for user approval of the dispatch list** (consultive mode).
-3. Run independent tasks in parallel — single message, multiple Agent tool uses:
-   - schema/migration → **database-expert**
-   - use cases/resolvers/repos → **backend-expert**
-   - auth/authz/threat surface → **security-analyst**
-4. **architect** runs `/ultrareview` on the merged result.
-5. Any finding is routed back to the owning agent (backend / db / security) for the fix.
-6. Task is done only after `/ultrareview` reports no blocking findings.
+1. **architect** splits approved plan into per-agent tasks → posts dispatch list → waits for approval.
+2. Independent tasks run in parallel (one message, multiple Agent calls); sequential when an
+   agent's output feeds the next (e.g. db schema → backend repo). Never run two agents that
+   write to the same files concurrently.
+3. **architect** runs `/ultrareview`, routes findings back to the owning agent, marks done only
+   when no blocking findings remain.
 
-### Parallelization rules
+### Agent → Skills composition
 
-- Independent agents → parallel (one message, multiple Agent calls).
-- Sequential when an agent's output is the next agent's input (e.g. db schema → backend repo).
-- Never run two agents that write to the same files concurrently.
+Each agent composes a fixed set of Claude Code skills. Scope restrictions prevent two agents
+from invoking the same skill with conflicting intent.
+
+| Agent                   | Primary skills                                              | Scope restriction                                |
+|-------------------------|-------------------------------------------------------------|--------------------------------------------------|
+| microservices-architect | `senior-architect`, `database-architect`, `senior-security`, `code-review` | DB: design decisions only, not schema/indexes. Security: threat modeling only, not pentest. |
+| backend-expert          | `senior-backend`, `verify`, `run`, `code-review`            | No auth/authz decisions — escalate to security-analyst. |
+| database-expert         | `database-architect` (owner), `senior-backend`              | `senior-backend`: query context only.            |
+| security-analyst        | `senior-security` (owner), `security-review`, `code-review` | Owns all auth/authz/pentest decisions.           |
+
+Shared skills (`database-architect`, `senior-backend`) are split by phase: architect uses them
+pre-implementation (design), specialists use them during/post-implementation (build, audit).
 
 ---
 
