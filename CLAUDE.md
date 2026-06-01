@@ -267,6 +267,139 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 
 ---
 
+## Odoo-Aligned Design Framework (apply to EVERY feature)
+
+Este proyecto está **inspirado en Odoo** no solo en RBAC, sino como filosofía de diseño tipo ERP.
+Todo `/plan` y todo análisis de implementación debe pasar por esta lente **antes** de escribir código.
+No todos los conceptos aplican a todo feature — pero cada uno debe ser **considerado y descartado conscientemente**, no ignorado.
+
+### Mapa conceptual: Odoo → este monorepo
+
+| Concepto Odoo                     | Equivalente aquí / cómo aplicarlo                                                                 | Cuándo es obligatorio                                              |
+|-----------------------------------|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
+| `res.groups` + `ir.model.access`  | `groups` + `group_permissions` (`verb:noun`) — acceso a **nivel modelo** (CRUD)                   | Todo entity nuevo expuesto por GraphQL                            |
+| `ir.rule` (record rules)          | `record_rules.domain_expr` + `RecordRuleResolver` — acceso a **nivel fila**                       | Todo entity con dueño/scoping (orders, media, reviews…)          |
+| `domain` (lenguaje de filtros)    | `compileDomainExpr` (Zod, `@hbs/authz`) — usar el **mismo lenguaje** para filtros, no solo authz  | Cualquier filtrado declarativo reutilizable                      |
+| `state` + transiciones controladas| Máquina de estados explícita (enum snake_case) + transición centralizada en use-case             | Todo entity con ciclo de vida (order, payment, shipment, review) |
+| `ir.sequence`                     | Generador de folios legibles (`ORD-2026-000123`), gap-tolerant, por servicio                      | Todo documento de negocio visible al usuario                     |
+| `mail.thread` / chatter / tracking| Audit trail: quién/cuándo/qué cambió (tabla audit o evento de dominio)                            | Entities sensibles (orders, pagos, permisos, precios)            |
+| `ir.cron` (scheduled actions)     | Jobs recurrentes (cron/Redis): reconciliación stock, carritos abandonados, limpieza de tokens     | Trabajo diferido o periódico — nunca en el request path          |
+| campos `computed`/`stored`        | Valores derivados (total de orden, disponibilidad): decidir compute-on-read vs stored+invalidado  | Cualquier dato derivado consultado con frecuencia                |
+| `res.company` (multi-company)     | `tenant_id`/`company_id` en cada modelo, auto-inyectado vía record rule con `$ctx`                | Si/ cuando aparezca multi-tenant                                 |
+| `res.config.settings`            | Configuración centralizada / feature flags por servicio (no env vars dispersas)                   | Comportamiento conmutable por entorno o tenant                   |
+| `@api.constrains` / SQL constraints| Invariantes de dominio en entity/use-case **y** en DB — lanzar `DomainError` tipado              | Toda regla de negocio invariable                                 |
+| Wizards (transient models)        | Operaciones multi-paso / mass actions modeladas explícitamente (import masivo, acción en lote)    | Flujos de varios pasos o acciones masivas                        |
+| Approvals / activities            | Paso de aprobación antes de acciones sensibles (reembolsos, descuentos altos, borrados)           | Acciones de alto impacto o irreversibles                         |
+| `@api.onchange`                   | Validación/derivación reactiva en el boundary (resolver/use-case), no en el cliente               | Inputs con dependencias entre campos                             |
+
+### Checklist obligatorio por feature (responder en el `/plan`)
+
+**1. Acceso en dos capas (siempre)**
+- [ ] ¿Qué **permisos `verb:noun`** (nivel modelo) autorizan la operación?
+- [ ] ¿Necesita **record rule** (nivel fila)? Si lee/lista/muta datos con dueño → sí.
+- [ ] ¿La regla se **propaga** a todos los subgraphs que la consumen (evento + snapshot-on-boot)?
+
+**2. Ciclo de vida**
+- [ ] ¿El entity tiene **estados**? Defínelos como enum snake_case y **centraliza las transiciones** (una sola puerta, no `status =` disperso).
+- [ ] ¿Cada transición está **guardada** por permiso/grupo y **emite evento**?
+
+**3. Identidad y trazabilidad del documento**
+- [ ] ¿Necesita **folio legible** (`ir.sequence`) además del UUID?
+- [ ] ¿Es sensible? → **audit trail** (quién/cuándo/qué) vía evento o tabla.
+
+**4. Datos derivados y consistencia**
+- [ ] ¿Hay **campos computados** (totales, disponibilidad)? Decide compute-on-read vs stored+invalidación.
+- [ ] ¿Qué **invariantes** (`constrains`) protegen el modelo? Decláralas en use-case y DB.
+
+**5. Trabajo diferido**
+- [ ] ¿Algo debería ser **cron/scheduled** o **evento async** en vez de síncrono en el request path?
+
+**6. Multi-tenant / configuración (futuro-proof)**
+- [ ] ¿El modelo debería llevar **scoping** (`tenant_id`) desde ya para no migrar después?
+- [ ] ¿El comportamiento es **conmutable** (feature flag/config) en lugar de hardcodeado?
+
+### Regla de oro
+
+> **Toda feature que lea, liste o mute datos con dueño debe responder 3 preguntas Odoo:**
+> 1. ¿Qué **grupos/permisos** la autorizan? (nivel modelo)
+> 2. ¿Necesita una **record rule**? (nivel fila)
+> 3. ¿La regla y los eventos se **propagan** a todos los subgraphs que los consumen?
+>
+> Y antes de cerrar el plan: **¿hay estado, folio, auditoría, derivados, cron o scoping que Odoo modelaría y aquí estamos omitiendo?**
+
+---
+
+## Roadmap de Microservicios — alineado a Odoo
+
+Servicios actuales cubren **catálogo + orden + usuario + media**. Faltan los que **cierran el ciclo de venta**
+y los de **operación/omnicanal**. Cada servicio nuevo sigue "Adding a New Microservice" + el "Odoo-Aligned Design Framework".
+Prioridad de adopción: **payment → invoicing → inventory → shipping → pos → resto según negocio.**
+
+### Tier 1 — Cierran el ciclo de venta (crítico)
+
+| Servicio              | Puerto | Módulo Odoo                  | Responsabilidad                                                                 | Eventos / conexión                          |
+|-----------------------|--------|------------------------------|---------------------------------------------------------------------------------|---------------------------------------------|
+| **payment-service**   | :3007  | `payment`, `payment_*`       | Cobros vía gateways (Culqi, Niubiz, MercadoPago, Stripe), reembolsos, webhooks  | consume `order.created` → emite `order.paid`|
+| **invoicing-service** | :3008  | `account` + `l10n_pe_*`      | **Facturación electrónica SUNAT** (ver detalle abajo)                           | consume `order.paid` → emite `invoice.issued`|
+| **shipping-service**  | :3009  | `stock_delivery`, `delivery_*`| Costos de envío, carriers, guías, tracking, estados de entrega                  | consume `order.paid` → emite `shipment.*`   |
+
+### Tier 2 — Omnicanal y operaciones
+
+| Servicio               | Puerto | Módulo Odoo        | Responsabilidad                                                                   |
+|------------------------|--------|--------------------|-----------------------------------------------------------------------------------|
+| **inventory-service**  | :3010  | `stock`            | Extraer de product-service: multi-almacén, reservas, movimientos, reabastecimiento, valuación |
+| **pos-service**        | :3011  | `point_of_sale`    | Tienda física: sesiones de caja (apertura/cierre/arqueo), modo offline + sync, descuento de stock en tiempo real |
+| **purchase-service**   | :3012  | `purchase`         | Órdenes de compra a proveedores, recepción de mercadería, costos                  |
+
+### Tier 3 — Crecimiento y cliente
+
+| Servicio                  | Puerto | Módulo Odoo                  | Responsabilidad                                                       |
+|---------------------------|--------|------------------------------|----------------------------------------------------------------------|
+| **promotions-service**    | :3013  | `loyalty`, `sale_loyalty`    | Cupones, listas de precios, descuentos, programas de lealtad/puntos   |
+| **subscription-service**  | :3014  | `sale_subscription`          | Suscripciones recurrentes (caja mensual de bebé, club de pañales)     |
+| **crm-service**           | :3015  | `crm`                        | Leads, oportunidades, segmentación de clientes                       |
+| **notification-service**  | :3016  | `mail`, `sms`                | Extraer email de user-service: email/SMS/push transaccional + marketing, plantillas |
+
+### Tier 4 — Soporte y contenido
+
+| Servicio              | Puerto | Módulo Odoo         | Responsabilidad                                  |
+|-----------------------|--------|---------------------|--------------------------------------------------|
+| **helpdesk-service**  | :3017  | `helpdesk`          | Tickets, RMA/devoluciones, garantías             |
+| **review-service**    | :3018  | rating/comments     | Extraer de product-service: reseñas + moderación (state machine) |
+| **cms-service**       | :3019  | `website`, `blog`   | Banners, contenido, blog, landing pages          |
+| **analytics-service** | :3020  | BI/reporting        | Dashboards, KPIs, reportes                        |
+
+> Puertos sugeridos (3007+) — confirmar al implementar para evitar colisión en docker-compose y gateway.
+
+### invoicing-service — Facturación Electrónica SUNAT (Perú)
+
+**No es un módulo genérico**: es regulatorio y específico de SUNAT. Equivale a `l10n_pe_edi` en Odoo.
+
+**Comprobantes a soportar:**
+- **Factura** (serie `F001`, correlativo) — ventas con RUC.
+- **Boleta de Venta** (serie `B001`) — consumidor final (DNI o sin documento).
+- **Nota de Crédito** (`FC01`/`BC01`) — devoluciones, anulaciones, descuentos.
+- **Nota de Débito** (`FD01`/`BD01`) — cargos adicionales, intereses.
+
+**Requisitos técnicos (todos obligatorios):**
+- **Formato UBL 2.1** (XML firmado) según especificación SEE de SUNAT.
+- **Firma digital** con certificado digital (`.pfx`/PKCS#12) — **nunca** commitear el cert; va en secret manager.
+- **Envío**: vía SEE-SOL, **OSE** (Operador de Servicios Electrónicos) o **PSE** — definir proveedor. Respuesta = **CDR** (Constancia de Recepción).
+- **Series y correlativos** → usar el patrón `ir.sequence` del framework: gap-tolerant, **por serie**, persistente y atómico (nunca reusar correlativo).
+- **Resumen Diario de Boletas (RC)** — job **cron** que agrupa boletas del día y las comunica a SUNAT.
+- **Comunicación de Baja** — anulación de facturas (genera estado `voided` + XML de baja).
+- **Catálogos SUNAT**: tipo de documento (01/03/07/08), unidad de medida, moneda (`PEN`/`USD`), tipo de afectación IGV.
+- **IGV 18%** — cálculo de impuestos, base imponible, operaciones gravadas/exoneradas/inafectas.
+- **Validación de RUC** (11 dígitos) / DNI (8 dígitos) en el boundary antes de emitir.
+
+**Patrones Odoo aplicados (obligatorios para este servicio):**
+- **Máquina de estados**: `draft → signed → sent → accepted | rejected | voided`. Transición centralizada, cada paso emite evento.
+- **Audit trail completo**: quién emitió/anuló, timestamp, hash del XML, CDR — requerido para fiscalización.
+- **Idempotencia fuerte**: un `order.paid` jamás debe generar dos comprobantes (InboxEvent + unique constraint en `order_id`).
+- **RBAC**: emisión guarda por permiso `invoices:write`; anulación por grupo `accounting-manager`; record rule por sucursal/almacén si hay multi-local.
+
+---
+
 ## Event-Driven Patterns (Redis Streams)
 
 Transport: Redis Streams (XADD/XREADGROUP/XACK). Never pub/sub for durable events.
