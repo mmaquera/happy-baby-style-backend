@@ -1,15 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import jwt from 'jsonwebtoken';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
 import { LoggerFactory, RequestLogger } from '@hbs/logging';
-import { extractTokenFromAuthHeader } from '@hbs/auth';
-import type { TokenPayload } from '@hbs/auth';
+import { buildAuthContext } from '@hbs/auth';
+import { RecordRuleResolver, RecordRulesEventsConsumer } from '@hbs/authz';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaUserProfileRepository } from './infrastructure/repositories/PrismaUserProfileRepository';
@@ -43,6 +43,30 @@ import { GetUserSessionAnalyticsUseCase } from './application/use-cases/user/Get
 import { RevokeUserSessionUseCase } from './application/use-cases/user/RevokeUserSessionUseCase';
 import { RevokeAllUserSessionsUseCase } from './application/use-cases/user/RevokeAllUserSessionsUseCase';
 import { ManageUserFavoritesUseCase } from './application/use-cases/user/ManageUserFavoritesUseCase';
+import { EffectivePermissionsResolver } from './infrastructure/repositories/EffectivePermissionsResolver';
+import { PrismaRecordRuleSource } from './infrastructure/repositories/PrismaRecordRuleSource';
+import { RedisRecordRulesEventPublisher } from './infrastructure/messaging/RecordRulesEventPublisher';
+import { PrismaAuthzRepository } from './infrastructure/repositories/PrismaAuthzRepository';
+import { CreateGroupUseCase } from './application/use-cases/authz/CreateGroupUseCase';
+import { UpdateGroupUseCase } from './application/use-cases/authz/UpdateGroupUseCase';
+import { DeleteGroupUseCase } from './application/use-cases/authz/DeleteGroupUseCase';
+import { ListGroupsUseCase } from './application/use-cases/authz/ListGroupsUseCase';
+import { CreatePermissionUseCase } from './application/use-cases/authz/CreatePermissionUseCase';
+import { UpdatePermissionUseCase } from './application/use-cases/authz/UpdatePermissionUseCase';
+import { DeletePermissionUseCase } from './application/use-cases/authz/DeletePermissionUseCase';
+import { ListPermissionsUseCase } from './application/use-cases/authz/ListPermissionsUseCase';
+import { AssignUserToGroupUseCase } from './application/use-cases/authz/AssignUserToGroupUseCase';
+import { RemoveUserFromGroupUseCase } from './application/use-cases/authz/RemoveUserFromGroupUseCase';
+import { ListUserGroupsUseCase } from './application/use-cases/authz/ListUserGroupsUseCase';
+import { AssignPermissionToGroupUseCase } from './application/use-cases/authz/AssignPermissionToGroupUseCase';
+import { RevokePermissionFromGroupUseCase } from './application/use-cases/authz/RevokePermissionFromGroupUseCase';
+import { ListGroupPermissionsUseCase } from './application/use-cases/authz/ListGroupPermissionsUseCase';
+import { AddGroupImplicationUseCase } from './application/use-cases/authz/AddGroupImplicationUseCase';
+import { RemoveGroupImplicationUseCase } from './application/use-cases/authz/RemoveGroupImplicationUseCase';
+import { CreateRecordRuleUseCase } from './application/use-cases/authz/CreateRecordRuleUseCase';
+import { UpdateRecordRuleUseCase } from './application/use-cases/authz/UpdateRecordRuleUseCase';
+import { DeleteRecordRuleUseCase } from './application/use-cases/authz/DeleteRecordRuleUseCase';
+import { ListRecordRulesUseCase } from './application/use-cases/authz/ListRecordRulesUseCase';
 
 dotenv.config();
 
@@ -51,8 +75,16 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+if (!process.env.REDIS_URL) {
+  console.error('FATAL: REDIS_URL environment variable is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const PORT = parseInt(process.env.USER_SERVICE_PORT || '3006', 10);
+const RBAC_STREAM_NAME = process.env.RBAC_STREAM_NAME ?? 'stream:record-rules-updated';
+const RBAC_CACHE_TTL_MS = parseInt(process.env.RBAC_CACHE_TTL_MS ?? '300000', 10);
 const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').split(',');
+const HOSTNAME = process.env.HOSTNAME ?? `user-service-${process.pid}`;
 
 // Stub: order history queries route to order-service via federation in production
 class StubUserOrderRepository implements IUserOrderRepository {
@@ -86,13 +118,37 @@ async function start() {
 
   const prisma = new PrismaClient();
   const useCaseLogger = LoggerFactory.getInstance().createUseCaseLogger('user-service');
+  const serviceLogger = LoggerFactory.getInstance().createServiceLogger('user-service');
 
+  // Redis — required for RBAC cache invalidation events (Fase 5.7)
+  const redisClient = new Redis(process.env.REDIS_URL!);
+  redisClient.on('error', err =>
+    serviceLogger.error('Redis client error', err as Error, { service: 'user-service' }),
+  );
+
+  // RBAC — RecordRule publisher + resolver (wired to mutations in Fase 5.10, to repos in Fase 5.8)
+  const recordRulePublisher = new RedisRecordRulesEventPublisher(redisClient, serviceLogger, {
+    streamName: RBAC_STREAM_NAME,
+  });
+  // user-service has direct DB access → use real Prisma source (not EmptyRecordRuleSource).
+  const recordRuleSource = new PrismaRecordRuleSource(prisma);
+  const recordRuleResolver = new RecordRuleResolver(recordRuleSource, {
+    cacheTtlMs: RBAC_CACHE_TTL_MS,
+  });
+  // Consumer: user-service is the publisher, but still needs to refresh its own cache
+  // when rules change (in case of multi-replica deployments).
+  const rbacConsumer = new RecordRulesEventsConsumer(redisClient, recordRuleResolver, serviceLogger, {
+    streamName: RBAC_STREAM_NAME,
+    consumerGroup: 'user-service-rbac-cg',
+    consumerName: HOSTNAME,
+  });
   // Repositories
   const userRepository = new PrismaUserProfileRepository(prisma);
   const authRepository = new PrismaAuthRepository(prisma);
   const auditRepository = new PrismaAuditRepository(prisma);
   const securityEventRepository = new PrismaSecurityEventRepository(prisma);
   const userFavoritesRepository = new PrismaUserFavoritesRepository(prisma);
+  const effectivePermissionsResolver = new EffectivePermissionsResolver(prisma);
 
   // Email service
   const emailService = new NodemailerEmailService(
@@ -121,6 +177,7 @@ async function start() {
     userRepository,
     authRepository,
     useCaseLogger,
+    effectivePermissionsResolver,
   );
   const updateUserPasswordUseCase = new UpdateUserPasswordUseCase(
     authRepository,
@@ -136,7 +193,11 @@ async function start() {
     useCaseLogger,
   );
   const logoutUserUseCase = new LogoutUserUseCase(authRepository, useCaseLogger);
-  const refreshTokenUseCase = new RefreshTokenUseCase(authRepository, useCaseLogger);
+  const refreshTokenUseCase = new RefreshTokenUseCase(
+    authRepository,
+    useCaseLogger,
+    effectivePermissionsResolver,
+  );
   const createUserAddressUseCase = new CreateUserAddressUseCase(userRepository);
   const updateUserAddressUseCase = new UpdateUserAddressUseCase(userRepository);
   const deleteUserAddressUseCase = new DeleteUserAddressUseCase(userRepository);
@@ -161,6 +222,36 @@ async function start() {
     useCaseLogger,
   );
   const manageUserFavoritesUseCase = new ManageUserFavoritesUseCase(userFavoritesRepository);
+
+  // RBAC admin infrastructure + use cases (Fase 5.10)
+  const authzRepository = new PrismaAuthzRepository(prisma);
+
+  const createGroupUseCase = new CreateGroupUseCase(authzRepository);
+  const updateGroupUseCase = new UpdateGroupUseCase(authzRepository);
+  const deleteGroupUseCase = new DeleteGroupUseCase(authzRepository);
+  const listGroupsUseCase = new ListGroupsUseCase(authzRepository);
+
+  const createPermissionUseCase = new CreatePermissionUseCase(authzRepository);
+  const updatePermissionUseCase = new UpdatePermissionUseCase(authzRepository);
+  const deletePermissionUseCase = new DeletePermissionUseCase(authzRepository);
+  const listPermissionsUseCase = new ListPermissionsUseCase(authzRepository);
+
+  const assignUserToGroupUseCase = new AssignUserToGroupUseCase(authzRepository);
+  const removeUserFromGroupUseCase = new RemoveUserFromGroupUseCase(authzRepository);
+  const listUserGroupsUseCase = new ListUserGroupsUseCase(authzRepository);
+
+  const assignPermissionToGroupUseCase = new AssignPermissionToGroupUseCase(authzRepository);
+  const revokePermissionFromGroupUseCase = new RevokePermissionFromGroupUseCase(authzRepository);
+  const listGroupPermissionsUseCase = new ListGroupPermissionsUseCase(authzRepository);
+
+  const addGroupImplicationUseCase = new AddGroupImplicationUseCase(authzRepository);
+  const removeGroupImplicationUseCase = new RemoveGroupImplicationUseCase(authzRepository);
+
+  // Record rule use cases — inject publisher for cache invalidation events.
+  const createRecordRuleUseCase = new CreateRecordRuleUseCase(authzRepository, recordRulePublisher);
+  const updateRecordRuleUseCase = new UpdateRecordRuleUseCase(authzRepository, recordRulePublisher);
+  const deleteRecordRuleUseCase = new DeleteRecordRuleUseCase(authzRepository, recordRulePublisher);
+  const listRecordRulesUseCase = new ListRecordRulesUseCase(authzRepository);
 
   const resolvers = createResolvers({
     prisma,
@@ -190,6 +281,27 @@ async function start() {
     revokeUserSessionUseCase,
     revokeAllUserSessionsUseCase,
     manageUserFavoritesUseCase,
+    // RBAC admin use cases
+    createGroupUseCase,
+    updateGroupUseCase,
+    deleteGroupUseCase,
+    listGroupsUseCase,
+    createPermissionUseCase,
+    updatePermissionUseCase,
+    deletePermissionUseCase,
+    listPermissionsUseCase,
+    assignUserToGroupUseCase,
+    removeUserFromGroupUseCase,
+    listUserGroupsUseCase,
+    assignPermissionToGroupUseCase,
+    revokePermissionFromGroupUseCase,
+    listGroupPermissionsUseCase,
+    addGroupImplicationUseCase,
+    removeGroupImplicationUseCase,
+    createRecordRuleUseCase,
+    updateRecordRuleUseCase,
+    deleteRecordRuleUseCase,
+    listRecordRulesUseCase,
   });
 
   const server = new ApolloServer({
@@ -200,28 +312,46 @@ async function start() {
 
   await server.start();
 
+  // Internal endpoint for subgraph snapshot-on-boot of record rules.
+  // NOT exposed via gateway. Protected by Docker network isolation.
+  // See Fase 5.7.x + Gap #6 design.
+  app.get('/internal/record-rules', async (_req, res) => {
+    try {
+      const rules = await recordRuleSource.loadAllActive();
+      res.json({ rules });
+    } catch (error) {
+      serviceLogger.error('Failed to serve record-rules snapshot', error as Error);
+      res.status(500).json({ error: 'snapshot_failed' });
+    }
+  });
+
+  // Start RBAC consumer — fire-and-forget after ensureGroup() + initial refresh.
+  await rbacConsumer.start();
+
   app.use(
     '/graphql',
     express.json({ limit: '10mb' }),
     expressMiddleware(server, {
       context: async ({ req }) => {
-        const token = extractTokenFromAuthHeader(req.headers.authorization);
-        let currentUser: TokenPayload | null = null;
-        if (token) {
-          try {
-            currentUser = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
-          } catch {
-            currentUser = null;
-          }
-        }
+        const { currentUser } = buildAuthContext(req.headers.authorization);
         return { req, currentUser };
       },
     }),
   );
 
-  app.listen(PORT, () => {
+  const httpServer = app.listen(PORT, () => {
     logger.info(`User Service running at http://localhost:${PORT}/graphql`);
   });
+
+  const shutdown = async () => {
+    serviceLogger.info('User Service shutting down…');
+    await rbacConsumer.stop();
+    await redisClient.quit().catch(() => undefined);
+    await prisma.$disconnect().catch(() => undefined);
+    httpServer.close(() => process.exit(0));
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 start().catch((err) => {

@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { resolvePermissions, UserRole as AuthUserRole } from '@hbs/auth';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
+import { EffectiveAuthz } from '@domain/interfaces/IEffectiveAuthz';
 import {
   UserAccount,
   UserSession,
@@ -295,7 +298,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     await this.updateUserLastLogin(user.id);
 
     const userProfile = this.mapToUserProfile(user);
-    const tokens = await this.generateTokens(user.id);
+    const tokens = this.generateTokens({ id: user.id, email: user.email, role: user.role });
 
     return {
       user: userProfile,
@@ -379,7 +382,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     // Update last login
     await this.updateUserLastLogin(user.id);
 
-    const tokens = await this.generateTokens(user.id);
+    const tokens = this.generateTokens({ id: user.id, email: user.email, role: user.role });
 
     return {
       user,
@@ -427,7 +430,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     });
 
     const userProfile = this.mapToUserProfile(result);
-    const tokens = await this.generateTokens(result.id);
+    const tokens = this.generateTokens({ id: result.id, email: result.email, role: result.role });
 
     return {
       user: userProfile,
@@ -481,7 +484,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     };
   }
 
-  async refreshUserSession(refreshToken: string): Promise<AuthResult> {
+  async refreshUserSession(refreshToken: string, effective?: EffectiveAuthz): Promise<AuthResult> {
     try {
       // Buscar sesión con refresh token
       const session = await this.prisma.userSession.findUnique({
@@ -513,8 +516,15 @@ export class PrismaAuthRepository implements IAuthRepository {
         throw new Error('User is inactive or not found');
       }
 
-      // Generar nuevos tokens seguros
-      const tokens = await this.generateTokens(session.userId);
+      // Generar nuevos tokens con RBAC effective permissions (o fallback legacy)
+      const tokens = this.generateTokens(
+        {
+          id: session.userId,
+          email: session.user.email,
+          role: session.user.role,
+        },
+        effective,
+      );
 
       // Calcular nueva fecha de expiración (30 días)
       const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -541,13 +551,6 @@ export class PrismaAuthRepository implements IAuthRepository {
         provider: primaryProvider,
       };
     } catch (error) {
-      // Log del error para debugging
-      console.error('Error refreshing user session:', {
-        refreshToken: refreshToken ? '[REDACTED]' : 'undefined',
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString(),
-      });
-
       // Re-lanzar el error para que sea manejado por el use case
       throw error;
     }
@@ -729,16 +732,49 @@ export class PrismaAuthRepository implements IAuthRepository {
   }
 
   // Helper methods
-  private async generateTokens(userId: string): Promise<AuthTokens> {
-    // Generar tokens seguros usando crypto.randomUUID() para mayor seguridad
-    const timestamp = Date.now();
-    const randomId = crypto.randomUUID();
 
-    // Access token: formato más seguro con timestamp y UUID
-    const accessToken = `access_${userId}_${timestamp}_${randomId}`;
+  /**
+   * Signs and returns a fresh pair of tokens.
+   *
+   * When `effective` is provided (post-Fase-5.5 RBAC path), the access token
+   * embeds the resolved group codes and permission codes from the RBAC tables.
+   * When `effective` is absent or the user has no groups, the legacy
+   * role-based ROLE_PERMISSIONS mapping is used as a fallback — this covers
+   * newly registered users and users whose backfill has not yet been executed.
+   */
+  generateTokens(
+    user: { id: string; email: string; role: string },
+    effective?: EffectiveAuthz,
+  ): AuthTokens {
+    const jwtSecret = process.env.JWT_SECRET!;
 
-    // Refresh token: formato más seguro con timestamp y UUID
-    const refreshToken = `refresh_${userId}_${timestamp}_${randomId}`;
+    const hasRbacGroups = (effective?.groupCodes.length ?? 0) > 0;
+    const permissions: string[] = hasRbacGroups
+      ? effective!.permissionCodes
+      : (resolvePermissions(user.role as AuthUserRole) as unknown as string[]);
+    const groups: string[] = hasRbacGroups ? effective!.groupCodes : [];
+
+    const accessToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        groups,
+        permissions,
+      },
+      jwtSecret,
+      { expiresIn: '1h' },
+    );
+
+    const refreshToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        type: 'refresh',
+      },
+      jwtSecret,
+      { expiresIn: '7d' },
+    );
 
     return {
       accessToken,

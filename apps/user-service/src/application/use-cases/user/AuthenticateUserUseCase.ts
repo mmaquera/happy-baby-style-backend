@@ -12,6 +12,8 @@ import {
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { resolvePermissions } from '@hbs/auth';
+import type { IEffectivePermissionsResolver } from '../../../domain/interfaces/IEffectivePermissionsResolver';
 
 export interface AuthenticateUserRequest {
   email: string;
@@ -35,6 +37,7 @@ export class AuthenticateUserUseCase {
     private userRepository: IUserRepository,
     private authRepository: IAuthRepository,
     private logger: ILogger,
+    private effectivePermissionsResolver: IEffectivePermissionsResolver,
   ) {}
 
   // @LoggingDecorator.logUseCase({
@@ -79,6 +82,26 @@ export class AuthenticateUserUseCase {
         throw new UnauthorizedError('Invalid email or password');
       }
 
+      // Resolve RBAC groups + permissions (with legacy fallback for pre-backfill users)
+      const effective = await this.effectivePermissionsResolver.resolveForUser(user.id);
+
+      let permissions: string[];
+      let groups: string[];
+
+      if (effective.groupCodes.length === 0) {
+        // Fallback: user has no RBAC groups assigned yet (backfill not yet executed
+        // or user created before RBAC migration).  Use legacy role-based permissions.
+        permissions = resolvePermissions(user.role) as unknown as string[];
+        groups = [];
+        this.logger.warn('User has no RBAC groups, using legacy role-based permissions', {
+          userId: user.id,
+          role: user.role,
+        });
+      } else {
+        permissions = effective.permissionCodes;
+        groups = effective.groupCodes;
+      }
+
       // Generate JWT tokens
       const jwtSecret = process.env.JWT_SECRET!;
       const accessToken = jwt.sign(
@@ -86,6 +109,8 @@ export class AuthenticateUserUseCase {
           userId: user.id,
           email: user.email,
           role: user.role,
+          groups,
+          permissions,
         },
         jwtSecret,
         { expiresIn: '1h' },

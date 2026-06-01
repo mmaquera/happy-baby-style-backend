@@ -1,6 +1,6 @@
-import { GraphQLScalarType, Kind } from 'graphql';
+import { GraphQLScalarType, GraphQLError, Kind } from 'graphql';
 import { PrismaClient } from '@prisma/client';
-import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { NotFoundError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
 import { CreateUserUseCase } from '@application/use-cases/user/CreateUserUseCase';
 import { GetUsersUseCase } from '@application/use-cases/user/GetUsersUseCase';
 import { GetUserByIdUseCase } from '@application/use-cases/user/GetUserByIdUseCase';
@@ -28,7 +28,74 @@ import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { UserRole } from '@domain/entities/User';
-import { requireAdmin } from '@hbs/auth';
+import { requireRole, assertOwnerOrAdmin, UserRole as AuthUserRole, type TokenPayload } from '@hbs/auth';
+// RBAC admin use cases
+import { CreateGroupUseCase } from '@application/use-cases/authz/CreateGroupUseCase';
+import { UpdateGroupUseCase } from '@application/use-cases/authz/UpdateGroupUseCase';
+import { DeleteGroupUseCase } from '@application/use-cases/authz/DeleteGroupUseCase';
+import { ListGroupsUseCase } from '@application/use-cases/authz/ListGroupsUseCase';
+import { CreatePermissionUseCase } from '@application/use-cases/authz/CreatePermissionUseCase';
+import { UpdatePermissionUseCase } from '@application/use-cases/authz/UpdatePermissionUseCase';
+import { DeletePermissionUseCase } from '@application/use-cases/authz/DeletePermissionUseCase';
+import { ListPermissionsUseCase } from '@application/use-cases/authz/ListPermissionsUseCase';
+import { AssignUserToGroupUseCase } from '@application/use-cases/authz/AssignUserToGroupUseCase';
+import { RemoveUserFromGroupUseCase } from '@application/use-cases/authz/RemoveUserFromGroupUseCase';
+import { ListUserGroupsUseCase } from '@application/use-cases/authz/ListUserGroupsUseCase';
+import { AssignPermissionToGroupUseCase } from '@application/use-cases/authz/AssignPermissionToGroupUseCase';
+import { RevokePermissionFromGroupUseCase } from '@application/use-cases/authz/RevokePermissionFromGroupUseCase';
+import { ListGroupPermissionsUseCase } from '@application/use-cases/authz/ListGroupPermissionsUseCase';
+import { AddGroupImplicationUseCase } from '@application/use-cases/authz/AddGroupImplicationUseCase';
+import { RemoveGroupImplicationUseCase } from '@application/use-cases/authz/RemoveGroupImplicationUseCase';
+import { CreateRecordRuleUseCase } from '@application/use-cases/authz/CreateRecordRuleUseCase';
+import { UpdateRecordRuleUseCase } from '@application/use-cases/authz/UpdateRecordRuleUseCase';
+import { DeleteRecordRuleUseCase } from '@application/use-cases/authz/DeleteRecordRuleUseCase';
+import { ListRecordRulesUseCase } from '@application/use-cases/authz/ListRecordRulesUseCase';
+
+// ── requireAdministrator guard ──────────────────────────────────────────────
+// Accepts BOTH:
+//   1. Token with groups including 'administrators' (post-backfill / Fase 5.5 users)
+//   2. Legacy token with role=admin (pre-backfill / chicken-egg bootstrap)
+// This dual-path guard prevents lockout when nobody has been assigned to the
+// administrators group yet (classic chicken-egg problem).
+function requireAdministrator(currentUser: TokenPayload | null | undefined): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  const inAdministratorsGroup = currentUser.groups?.includes('administrators') ?? false;
+  const isLegacyAdmin = currentUser.role === AuthUserRole.ADMIN;
+  if (!inAdministratorsGroup && !isLegacyAdmin) {
+    throw new GraphQLError('Insufficient privileges — administrators group required', {
+      extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+    });
+  }
+}
+
+// ── requireUserManagementAccess guard ───────────────────────────────────────
+// For administrative list/read queries (users, searchUsers, activeUsers, etc.).
+// Accepts any group that has read:user permission OR legacy STAFF/ADMIN role.
+const USER_MANAGEMENT_GROUPS = [
+  'administrators',
+  'customer-service',
+] as const;
+
+function requireUserManagementAccess(currentUser: TokenPayload | null | undefined): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  if (currentUser.groups?.some((g) => (USER_MANAGEMENT_GROUPS as readonly string[]).includes(g))) {
+    return;
+  }
+  if (currentUser.role === AuthUserRole.ADMIN || currentUser.role === AuthUserRole.STAFF) {
+    return;
+  }
+  throw new GraphQLError('Insufficient privileges', {
+    extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+  });
+}
 
 // ── Scalars ─────────────────────────────────────────────────────────────────
 
@@ -179,6 +246,27 @@ export interface UserServiceDeps {
   revokeUserSessionUseCase: RevokeUserSessionUseCase;
   revokeAllUserSessionsUseCase: RevokeAllUserSessionsUseCase;
   manageUserFavoritesUseCase: ManageUserFavoritesUseCase;
+  // RBAC admin use cases (Fase 5.10)
+  createGroupUseCase: CreateGroupUseCase;
+  updateGroupUseCase: UpdateGroupUseCase;
+  deleteGroupUseCase: DeleteGroupUseCase;
+  listGroupsUseCase: ListGroupsUseCase;
+  createPermissionUseCase: CreatePermissionUseCase;
+  updatePermissionUseCase: UpdatePermissionUseCase;
+  deletePermissionUseCase: DeletePermissionUseCase;
+  listPermissionsUseCase: ListPermissionsUseCase;
+  assignUserToGroupUseCase: AssignUserToGroupUseCase;
+  removeUserFromGroupUseCase: RemoveUserFromGroupUseCase;
+  listUserGroupsUseCase: ListUserGroupsUseCase;
+  assignPermissionToGroupUseCase: AssignPermissionToGroupUseCase;
+  revokePermissionFromGroupUseCase: RevokePermissionFromGroupUseCase;
+  listGroupPermissionsUseCase: ListGroupPermissionsUseCase;
+  addGroupImplicationUseCase: AddGroupImplicationUseCase;
+  removeGroupImplicationUseCase: RemoveGroupImplicationUseCase;
+  createRecordRuleUseCase: CreateRecordRuleUseCase;
+  updateRecordRuleUseCase: UpdateRecordRuleUseCase;
+  deleteRecordRuleUseCase: DeleteRecordRuleUseCase;
+  listRecordRulesUseCase: ListRecordRulesUseCase;
 }
 
 // ── Resolver factory ─────────────────────────────────────────────────────────
@@ -211,6 +299,27 @@ export function createResolvers(deps: UserServiceDeps) {
     revokeUserSessionUseCase,
     revokeAllUserSessionsUseCase,
     manageUserFavoritesUseCase,
+    // RBAC admin use cases
+    createGroupUseCase,
+    updateGroupUseCase,
+    deleteGroupUseCase,
+    listGroupsUseCase,
+    createPermissionUseCase,
+    updatePermissionUseCase,
+    deletePermissionUseCase,
+    listPermissionsUseCase,
+    assignUserToGroupUseCase,
+    removeUserFromGroupUseCase,
+    listUserGroupsUseCase,
+    assignPermissionToGroupUseCase,
+    revokePermissionFromGroupUseCase,
+    listGroupPermissionsUseCase,
+    addGroupImplicationUseCase,
+    removeGroupImplicationUseCase,
+    createRecordRuleUseCase,
+    updateRecordRuleUseCase,
+    deleteRecordRuleUseCase,
+    listRecordRulesUseCase,
   } = deps;
 
   return {
@@ -247,6 +356,7 @@ export function createResolvers(deps: UserServiceDeps) {
       health: () => 'user-service running',
 
       users: async (_: any, { filter, pagination }: any, context: any) => {
+        requireUserManagementAccess(context.currentUser);
         const startTime = Date.now();
         const traceId = `users-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
@@ -302,7 +412,7 @@ export function createResolvers(deps: UserServiceDeps) {
       currentUser: async (_: any, __: any, context: any) => {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `current-user-${Date.now()}`;
-        if (!context.user) {
+        if (!context.currentUser) {
           return ResponseFactory.createErrorResponse(
             'Authentication required',
             RESPONSE_CODES.AUTHENTICATION_FAILED,
@@ -311,7 +421,7 @@ export function createResolvers(deps: UserServiceDeps) {
           );
         }
         try {
-          const user = await getUserByIdUseCase.execute(context.user.id);
+          const user = await getUserByIdUseCase.execute(context.currentUser.userId);
           if (!user) {
             return ResponseFactory.createErrorResponse(
               'User not found',
@@ -336,7 +446,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      searchUsers: async (_: any, { query }: { query: string }) => {
+      searchUsers: async (_: any, { query }: { query: string }, context: any) => {
+        requireUserManagementAccess(context.currentUser);
         try {
           const users = await deps.userRepository.searchUsers(query);
           return users.map(transformUser);
@@ -345,7 +456,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      activeUsers: async () => {
+      activeUsers: async (_: any, __: any, context: any) => {
+        requireUserManagementAccess(context.currentUser);
         try {
           const users = await deps.userRepository.getActiveUsers();
           return users.map(transformUser);
@@ -354,7 +466,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      usersByRole: async (_: any, { role }: { role: string }) => {
+      usersByRole: async (_: any, { role }: { role: string }, context: any) => {
+        requireUserManagementAccess(context.currentUser);
         try {
           const users = await deps.userRepository.getUsersByRole(role as any);
           return users.map(transformUser);
@@ -364,6 +477,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       usersByProvider: async (_: any, { provider }: { provider: string }, context: any) => {
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `users-by-provider-${Date.now()}`;
         try {
@@ -385,6 +499,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userStats: async (_: any, __: any, context: any) => {
+        requireUserManagementAccess(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `user-stats-${Date.now()}`;
         const startTime = Date.now();
@@ -413,6 +528,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userAnalytics: async (_: any, __: any, context: any) => {
+        requireUserManagementAccess(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `user-analytics-${Date.now()}`;
         try {
@@ -438,6 +554,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userAddresses: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `user-addresses-${Date.now()}`;
         try {
@@ -488,7 +605,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      userAccounts: async (_: any, { userId }: { userId: string }) => {
+      userAccounts: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           return await authRepository.findUserAccountsByUserId(userId);
         } catch {
@@ -496,7 +614,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      userSessions: async (_: any, { userId }: { userId: string }) => {
+      userSessions: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           return await authRepository.findSessionsByUserId(userId);
         } catch {
@@ -504,7 +623,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      activeSessions: async (_: any, { userId }: { userId: string }) => {
+      activeSessions: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const sessions = await authRepository.findSessionsByUserId(userId);
           return sessions.filter((s: any) => s.isActive && new Date(s.expiresAt) > new Date());
@@ -524,7 +644,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      userOrderHistory: async (_: any, { userId, filter, pagination }: any) => {
+      userOrderHistory: async (_: any, { userId, filter, pagination }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const result = await getUserOrderHistoryUseCase.execute({
             userId,
@@ -589,6 +710,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userAuditLogs: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `audit-logs-${Date.now()}`;
         try {
@@ -610,6 +732,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userSecurityEvents: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `security-events-${Date.now()}`;
         try {
@@ -632,7 +755,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       // ── Favorites queries ────────────────────────────────────────────────
 
-      userFavorites: async (_: any, { userId }: { userId: string }) => {
+      userFavorites: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const favs = await manageUserFavoritesUseCase.getUserFavorites(userId);
           return favs.map((f) => ({
@@ -645,7 +769,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      isProductFavorited: async (_: any, { userId, productId }: any) => {
+      isProductFavorited: async (_: any, { userId, productId }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           return await deps.prisma.userFavorite
             .count({ where: { userId, productId } })
@@ -657,7 +782,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       // ── Saved payment methods queries ────────────────────────────────────
 
-      savedPaymentMethods: async (_: any, { userId }: { userId: string }) => {
+      savedPaymentMethods: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const methods = await prisma.savedPaymentMethod.findMany({
             where: { userId, isActive: true },
@@ -682,7 +808,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      userRewardPoints: async (_: any, { userId }: { userId: string }) => {
+      userRewardPoints: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const points = await prisma.rewardPoint.findMany({
             where: { userId },
@@ -697,7 +824,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      userRewardBalance: async (_: any, { userId }: { userId: string }) => {
+      userRewardBalance: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const result = await prisma.rewardPoint.groupBy({
             by: ['type'],
@@ -717,7 +845,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       // ── Notification queries ─────────────────────────────────────────────
 
-      userNotifications: async (_: any, { userId }: { userId: string }) => {
+      userNotifications: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const notifs = await prisma.pushNotification.findMany({
             where: { userId },
@@ -732,7 +861,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      unreadNotifications: async (_: any, { userId }: { userId: string }) => {
+      unreadNotifications: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const notifs = await prisma.pushNotification.findMany({
             where: { userId, isRead: false },
@@ -794,7 +924,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       // ── App events queries ───────────────────────────────────────────────
 
-      userAppEvents: async (_: any, { userId }: { userId: string }) => {
+      userAppEvents: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           const events = await prisma.appEvent.findMany({
             where: { userId },
@@ -824,6 +955,118 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch {
           return [];
         }
+      },
+
+      // ── RBAC admin queries ───────────────────────────────────────────────
+
+      groups: async (_: any, { pagination }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `list-groups-${Date.now()}`;
+        const result = await listGroupsUseCase.execute({
+          limit: pagination?.limit ?? 50,
+          offset: pagination?.offset ?? 0,
+        });
+        return ResponseFactory.createSuccessResponse(
+          {
+            items: result.items,
+            total: result.total,
+            limit: pagination?.limit ?? 50,
+            offset: pagination?.offset ?? 0,
+          },
+          'Groups retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      permissions: async (_: any, { pagination }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `list-permissions-${Date.now()}`;
+        const result = await listPermissionsUseCase.execute({
+          limit: pagination?.limit ?? 50,
+          offset: pagination?.offset ?? 0,
+        });
+        return ResponseFactory.createSuccessResponse(
+          {
+            items: result.items,
+            total: result.total,
+            limit: pagination?.limit ?? 50,
+            offset: pagination?.offset ?? 0,
+          },
+          'Permissions retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      recordRules: async (_: any, { modelName, pagination }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `list-record-rules-${Date.now()}`;
+        const result = await listRecordRulesUseCase.execute(
+          { modelName: modelName ?? undefined },
+          {
+            limit: pagination?.limit ?? 50,
+            offset: pagination?.offset ?? 0,
+          },
+        );
+        return ResponseFactory.createSuccessResponse(
+          {
+            items: result.items,
+            total: result.total,
+            limit: pagination?.limit ?? 50,
+            offset: pagination?.offset ?? 0,
+          },
+          'Record rules retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      userGroups: async (_: any, { userId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `list-user-groups-${Date.now()}`;
+        const memberships = await listUserGroupsUseCase.execute(userId);
+        return ResponseFactory.createSuccessResponse(
+          {
+            items: memberships.map((m) => ({
+              userId: m.userId,
+              groupId: m.groupId,
+              group: null,
+              grantedAt: m.grantedAt,
+              grantedBy: m.grantedBy,
+            })),
+            total: memberships.length,
+          },
+          'User groups retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      groupPermissions: async (_: any, { groupId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `list-group-permissions-${Date.now()}`;
+        const links = await listGroupPermissionsUseCase.execute(groupId);
+        return ResponseFactory.createSuccessResponse(
+          {
+            items: links.map((l) => ({
+              groupId: l.groupId,
+              permissionId: l.permissionId,
+              permission: null,
+              group: null,
+              createdAt: l.createdAt,
+            })),
+            total: links.length,
+          },
+          'Group permissions retrieved successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
       },
     },
 
@@ -904,8 +1147,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       logoutUser: async (_: any, __: any, context: any) => {
         try {
-          if (context.user?.id) {
-            await logoutUserUseCase.execute(context.user.id);
+          if (context.currentUser?.userId) {
+            await logoutUserUseCase.execute(context.currentUser.userId);
           }
           return { success: true, message: 'Logged out successfully' };
         } catch {
@@ -939,6 +1182,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       createUser: async (_: any, { input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `create-user-${Date.now()}`;
         const startTime = Date.now();
@@ -978,11 +1222,10 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      updateUser: async (_: any, { id, input }: any) => {
+      updateUser: async (_: any, { id, input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
         const user = await updateUserUseCase.execute(id, {
           email: input.email,
-          role: input.role,
-          isActive: input.isActive,
           profile: {
             firstName: input.firstName,
             lastName: input.lastName,
@@ -994,8 +1237,14 @@ export function createResolvers(deps: UserServiceDeps) {
         return transformUser(user);
       },
 
+      updateUserRole: async (_: any, { id, input }: any, context: any) => {
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        const user = await updateUserUseCase.execute(id, { role: input.role });
+        return transformUser(user);
+      },
+
       deleteUser: async (_: any, { id }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
         try {
           await deps.userRepository.deleteUser(id);
           return { success: true, message: 'User deleted successfully' };
@@ -1005,13 +1254,13 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       activateUser: async (_: any, { id }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireAdministrator(context.currentUser);
         const user = await updateUserUseCase.execute(id, { isActive: true });
         return transformUser(user);
       },
 
       deactivateUser: async (_: any, { id }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireAdministrator(context.currentUser);
         const user = await updateUserUseCase.execute(id, { isActive: false });
         return transformUser(user);
       },
@@ -1021,6 +1270,19 @@ export function createResolvers(deps: UserServiceDeps) {
         { email, currentPassword, newPassword }: any,
         context: any,
       ) => {
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        if (
+          context.currentUser.role !== UserRole.ADMIN &&
+          context.currentUser.email !== email
+        ) {
+          throw new GraphQLError('Forbidden: not the owner', {
+            extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+          });
+        }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `update-password-${Date.now()}`;
         try {
@@ -1079,14 +1341,14 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       setUserPassword: async (_: any, { userId, newPassword }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `set-password-${Date.now()}`;
         try {
           await setUserPasswordUseCase.execute({
             userId,
             newPassword,
-            adminUserId: context?.req?.user?.id || 'system',
+            adminUserId: context?.currentUser?.userId || 'system',
           });
           return ResponseFactory.createSuccessResponse(
             { userId, timestamp: new Date().toISOString(), passwordUpdated: true },
@@ -1104,7 +1366,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      createUserProfile: async (_: any, { input }: any) => {
+      createUserProfile: async (_: any, { input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
         const user = await createUserUseCase.execute({
           email: input.email,
           password: input.password,
@@ -1122,7 +1385,8 @@ export function createResolvers(deps: UserServiceDeps) {
           : transformUserProfile({ ...user, firstName: input.firstName, lastName: input.lastName });
       },
 
-      updateUserProfile: async (_: any, { userId, input }: any) => {
+      updateUserProfile: async (_: any, { userId, input }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const user = await updateUserUseCase.execute(userId, {
           profile: {
             firstName: input.firstName,
@@ -1135,7 +1399,8 @@ export function createResolvers(deps: UserServiceDeps) {
         return user.profile ? transformUserProfile(user.profile) : null;
       },
 
-      deleteUserProfile: async (_: any, { userId }: any) => {
+      deleteUserProfile: async (_: any, { userId }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           await deps.userRepository.deleteUserProfile(userId);
           return { success: true, message: 'Profile deleted' };
@@ -1145,6 +1410,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       createUserAddress: async (_: any, { input }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, input.userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `create-address-${Date.now()}`;
         const startTime = Date.now();
@@ -1182,6 +1448,9 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       updateUserAddress: async (_: any, { id, input }: any, context: any) => {
+        const existing = await prisma.userAddress.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundError('UserAddress', id);
+        assertOwnerOrAdmin(context.currentUser, existing.userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `update-address-${Date.now()}`;
         try {
@@ -1220,6 +1489,9 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       deleteUserAddress: async (_: any, { id }: any, context: any) => {
+        const existing = await prisma.userAddress.findUnique({ where: { id } });
+        if (!existing) return ResponseFactory.createErrorResponse('Address not found', RESPONSE_CODES.RESOURCE_NOT_FOUND, {});
+        assertOwnerOrAdmin(context.currentUser, existing.userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `delete-address-${Date.now()}`;
         try {
@@ -1241,6 +1513,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       setDefaultAddress: async (_: any, { userId, addressId }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `set-default-address-${Date.now()}`;
         try {
@@ -1262,6 +1535,13 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       revokeUserSession: async (_: any, { sessionId, userId, reason }: any, context: any) => {
+        // When a specific userId is provided: owner or admin may revoke (STAFF excluded — sessions are PII).
+        // When no userId: admin-only path (e.g. revoking by sessionId without knowing the owner).
+        if (userId) {
+          assertOwnerOrAdmin(context.currentUser, userId);
+        } else {
+          requireRole(context.currentUser, AuthUserRole.ADMIN);
+        }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `revoke-session-${Date.now()}`;
         try {
@@ -1292,6 +1572,7 @@ export function createResolvers(deps: UserServiceDeps) {
         { userId, requestingUserId, reason, excludeCurrentSession }: any,
         context: any,
       ) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `revoke-all-sessions-${Date.now()}`;
         try {
@@ -1323,7 +1604,10 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      unlinkUserAccount: async (_: any, { accountId }: any) => {
+      unlinkUserAccount: async (_: any, { accountId }: any, context: any) => {
+        const account = await prisma.userAccount.findUnique({ where: { id: accountId } });
+        if (!account) return { success: false, message: 'Account not found' };
+        assertOwnerOrAdmin(context.currentUser, account.userId);
         try {
           await authRepository.deleteUserAccount(accountId);
           return { success: true, message: 'Account unlinked' };
@@ -1333,12 +1617,12 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       forcePasswordReset: async (_: any, { userId }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
         return { success: true, message: 'Password reset forced' };
       },
 
       impersonateUser: async (_: any, { userId }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `impersonate-${Date.now()}`;
         return ResponseFactory.createErrorResponse(
@@ -1423,7 +1707,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       // ── Favorites mutations ──────────────────────────────────────────────
 
-      addToFavorites: async (_: any, { userId, productId }: any) => {
+      addToFavorites: async (_: any, { userId, productId }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const fav = await manageUserFavoritesUseCase.addToFavorites({ userId, productId });
         return {
           ...fav,
@@ -1432,7 +1717,8 @@ export function createResolvers(deps: UserServiceDeps) {
         };
       },
 
-      removeFromFavorites: async (_: any, { userId, productId }: any) => {
+      removeFromFavorites: async (_: any, { userId, productId }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           await manageUserFavoritesUseCase.removeFromFavorites({ userId, productId });
           return { success: true, message: 'Removed from favorites' };
@@ -1441,7 +1727,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      toggleFavorite: async (_: any, { userId, productId }: any) => {
+      toggleFavorite: async (_: any, { userId, productId }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         const result = await manageUserFavoritesUseCase.toggleFavorite(userId, productId);
         if (result.action === 'removed') return null;
         return {
@@ -1453,7 +1740,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       // ── Saved payment methods mutations ──────────────────────────────────
 
-      createSavedPaymentMethod: async (_: any, { input }: any) => {
+      createSavedPaymentMethod: async (_: any, { input }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, input.userId);
         const method = await prisma.savedPaymentMethod.create({
           data: {
             userId: input.userId,
@@ -1470,7 +1758,10 @@ export function createResolvers(deps: UserServiceDeps) {
         return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
       },
 
-      updateSavedPaymentMethod: async (_: any, { id, input }: any) => {
+      updateSavedPaymentMethod: async (_: any, { id, input }: any, context: any) => {
+        const existing = await prisma.savedPaymentMethod.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundError('SavedPaymentMethod', id);
+        assertOwnerOrAdmin(context.currentUser, existing.userId);
         const method = await prisma.savedPaymentMethod.update({
           where: { id },
           data: {
@@ -1482,7 +1773,10 @@ export function createResolvers(deps: UserServiceDeps) {
         return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
       },
 
-      deleteSavedPaymentMethod: async (_: any, { id }: any) => {
+      deleteSavedPaymentMethod: async (_: any, { id }: any, context: any) => {
+        const existing = await prisma.savedPaymentMethod.findUnique({ where: { id } });
+        if (!existing) return { success: false, message: 'Payment method not found' };
+        assertOwnerOrAdmin(context.currentUser, existing.userId);
         try {
           await prisma.savedPaymentMethod.update({ where: { id }, data: { isActive: false } });
           return { success: true, message: 'Payment method deleted' };
@@ -1493,7 +1787,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       // ── Notification mutations ───────────────────────────────────────────
 
-      createPushNotification: async (_: any, { input }: any) => {
+      createPushNotification: async (_: any, { input }: any, context: any) => {
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
         const notif = await prisma.pushNotification.create({
           data: {
             userId: input.userId,
@@ -1506,15 +1801,19 @@ export function createResolvers(deps: UserServiceDeps) {
         return { ...notif, user: { __typename: 'UserProfile', id: notif.userId } };
       },
 
-      markNotificationAsRead: async (_: any, { id }: any) => {
-        const notif = await prisma.pushNotification.update({
+      markNotificationAsRead: async (_: any, { id }: any, context: any) => {
+        const notif = await prisma.pushNotification.findUnique({ where: { id } });
+        if (!notif) throw new NotFoundError('PushNotification', id);
+        assertOwnerOrAdmin(context.currentUser, notif.userId);
+        const updated = await prisma.pushNotification.update({
           where: { id },
           data: { isRead: true, readAt: new Date() },
         });
-        return { ...notif, user: { __typename: 'UserProfile', id: notif.userId } };
+        return { ...updated, user: { __typename: 'UserProfile', id: updated.userId } };
       },
 
-      markAllNotificationsAsRead: async (_: any, { userId }: any) => {
+      markAllNotificationsAsRead: async (_: any, { userId }: any, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
         try {
           await prisma.pushNotification.updateMany({
             where: { userId, isRead: false },
@@ -1526,7 +1825,8 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      createNotificationTemplate: async (_: any, { input }: any) => {
+      createNotificationTemplate: async (_: any, { input }: any, context: any) => {
+        requireRole(context.currentUser, AuthUserRole.ADMIN);
         const template = await prisma.notificationTemplate.create({
           data: {
             name: input.name,
@@ -1573,6 +1873,182 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch {
           return { success: false, message: 'Failed to unsubscribe' };
         }
+      },
+
+      // ── RBAC admin mutations ───────────────────────────────────────────────
+
+      createGroup: async (_: any, { input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `create-group-${Date.now()}`;
+        const group = await createGroupUseCase.execute(input);
+        return ResponseFactory.createSuccessResponse(
+          group,
+          'Group created successfully',
+          RESPONSE_CODES.CREATED,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      updateGroup: async (_: any, { id, input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `update-group-${Date.now()}`;
+        const group = await updateGroupUseCase.execute(id, input);
+        return ResponseFactory.createSuccessResponse(
+          group,
+          'Group updated successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      deleteGroup: async (_: any, { id }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        await deleteGroupUseCase.execute(id);
+        return { success: true, message: 'Group deleted successfully' };
+      },
+
+      assignUserToGroup: async (_: any, { userId, groupId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `assign-user-group-${Date.now()}`;
+        const membership = await assignUserToGroupUseCase.execute({
+          userId,
+          groupId,
+          grantedBy: context.currentUser?.userId,
+        });
+        return ResponseFactory.createSuccessResponse(
+          {
+            userId: membership.userId,
+            groupId: membership.groupId,
+            group: null,
+            grantedAt: membership.grantedAt,
+            grantedBy: membership.grantedBy,
+          },
+          'User assigned to group',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      removeUserFromGroup: async (_: any, { userId, groupId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        await removeUserFromGroupUseCase.execute(userId, groupId);
+        return { success: true, message: 'User removed from group' };
+      },
+
+      assignPermissionToGroup: async (_: any, { groupId, permissionId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `assign-perm-group-${Date.now()}`;
+        const link = await assignPermissionToGroupUseCase.execute(groupId, permissionId);
+        return ResponseFactory.createSuccessResponse(
+          {
+            groupId: link.groupId,
+            permissionId: link.permissionId,
+            permission: null,
+            group: null,
+            createdAt: link.createdAt,
+          },
+          'Permission assigned to group',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      revokePermissionFromGroup: async (_: any, { groupId, permissionId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        await revokePermissionFromGroupUseCase.execute(groupId, permissionId);
+        return { success: true, message: 'Permission revoked from group' };
+      },
+
+      addGroupImplication: async (_: any, { groupId, impliedGroupId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `add-implication-${Date.now()}`;
+        const implication = await addGroupImplicationUseCase.execute({ groupId, impliedGroupId });
+        return ResponseFactory.createSuccessResponse(
+          {
+            groupId: implication.groupId,
+            impliedGroupId: implication.impliedGroupId,
+            impliedGroup: null,
+            createdAt: implication.createdAt,
+          },
+          'Group implication added',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      removeGroupImplication: async (_: any, { groupId, impliedGroupId }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        await removeGroupImplicationUseCase.execute(groupId, impliedGroupId);
+        return { success: true, message: 'Group implication removed' };
+      },
+
+      createPermission: async (_: any, { input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `create-permission-${Date.now()}`;
+        const permission = await createPermissionUseCase.execute(input);
+        return ResponseFactory.createSuccessResponse(
+          permission,
+          'Permission created successfully',
+          RESPONSE_CODES.CREATED,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      updatePermission: async (_: any, { id, input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `update-permission-${Date.now()}`;
+        const permission = await updatePermissionUseCase.execute(id, input);
+        return ResponseFactory.createSuccessResponse(
+          permission,
+          'Permission updated successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      deletePermission: async (_: any, { id }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        await deletePermissionUseCase.execute(id);
+        return { success: true, message: 'Permission deleted successfully' };
+      },
+
+      createRecordRule: async (_: any, { input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `create-record-rule-${Date.now()}`;
+        const rule = await createRecordRuleUseCase.execute(input);
+        return ResponseFactory.createSuccessResponse(
+          rule,
+          'Record rule created successfully',
+          RESPONSE_CODES.CREATED,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      updateRecordRule: async (_: any, { id, input }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `update-record-rule-${Date.now()}`;
+        const rule = await updateRecordRuleUseCase.execute(id, input);
+        return ResponseFactory.createSuccessResponse(
+          rule,
+          'Record rule updated successfully',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      deleteRecordRule: async (_: any, { id }: any, context: any) => {
+        requireAdministrator(context.currentUser);
+        await deleteRecordRuleUseCase.execute(id);
+        return { success: true, message: 'Record rule deleted successfully' };
       },
     },
   };

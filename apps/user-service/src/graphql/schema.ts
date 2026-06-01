@@ -766,13 +766,15 @@ export const typeDefs = gql`
 
   input UpdateUserInput {
     email: String
-    role: UserRole
-    isActive: Boolean
     firstName: String
     lastName: String
     phone: String
     dateOfBirth: DateTime
     avatarUrl: String
+  }
+
+  input UpdateUserRoleInput {
+    role: UserRole!
   }
 
   input UpdateUserProfileInput {
@@ -905,6 +907,249 @@ export const typeDefs = gql`
     # Audit & security queries
     userAuditLogs(userId: ID!): GetUserAuditLogsResponse!
     userSecurityEvents(userId: ID!): GetUserSecurityEventsResponse!
+
+    # RBAC admin queries (requires administrators group or legacy role=admin)
+    groups(pagination: PaginationInput): GroupsListResponse!
+    permissions(pagination: PaginationInput): PermissionsListResponse!
+    recordRules(modelName: String, pagination: PaginationInput): RecordRulesListResponse!
+    userGroups(userId: ID!): UserGroupsListResponse!
+    groupPermissions(groupId: ID!): GroupPermissionsListResponse!
+  }
+
+  # ── RBAC Admin types ─────────────────────────────────────────────────────────
+
+  type AuthGroup {
+    id: ID!
+    code: String!
+    name: String!
+    description: String
+    isSystem: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type AuthPermission {
+    id: ID!
+    code: String!
+    name: String!
+    description: String
+    category: String!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type UserGroupMembership {
+    userId: ID!
+    groupId: ID!
+    group: AuthGroup
+    grantedAt: DateTime!
+    grantedBy: String
+  }
+
+  type GroupPermissionLink {
+    groupId: ID!
+    permissionId: ID!
+    permission: AuthPermission
+    group: AuthGroup
+    createdAt: DateTime!
+  }
+
+  type GroupImplicationLink {
+    groupId: ID!
+    impliedGroupId: ID!
+    impliedGroup: AuthGroup
+    createdAt: DateTime!
+  }
+
+  type AuthRecordRule {
+    id: ID!
+    name: String!
+    description: String
+    modelName: String!
+    groupId: ID
+    mode: String!
+    domainExpression: JSON!
+    isActive: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  # ── RBAC Response types ───────────────────────────────────────────────────────
+
+  type GroupResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: AuthGroup
+    metadata: ResponseMetadata
+  }
+
+  type PermissionResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: AuthPermission
+    metadata: ResponseMetadata
+  }
+
+  type UserGroupResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UserGroupMembership
+    metadata: ResponseMetadata
+  }
+
+  type GroupPermissionResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GroupPermissionLink
+    metadata: ResponseMetadata
+  }
+
+  type GroupImplicationResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GroupImplicationLink
+    metadata: ResponseMetadata
+  }
+
+  type RecordRuleResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: AuthRecordRule
+    metadata: ResponseMetadata
+  }
+
+  type GroupsListData {
+    items: [AuthGroup!]!
+    total: Int!
+    limit: Int!
+    offset: Int!
+  }
+
+  type GroupsListResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GroupsListData
+    metadata: ResponseMetadata
+  }
+
+  type PermissionsListData {
+    items: [AuthPermission!]!
+    total: Int!
+    limit: Int!
+    offset: Int!
+  }
+
+  type PermissionsListResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: PermissionsListData
+    metadata: ResponseMetadata
+  }
+
+  type RecordRulesListData {
+    items: [AuthRecordRule!]!
+    total: Int!
+    limit: Int!
+    offset: Int!
+  }
+
+  type RecordRulesListResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: RecordRulesListData
+    metadata: ResponseMetadata
+  }
+
+  type UserGroupsListData {
+    items: [UserGroupMembership!]!
+    total: Int!
+  }
+
+  type UserGroupsListResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UserGroupsListData
+    metadata: ResponseMetadata
+  }
+
+  type GroupPermissionsListData {
+    items: [GroupPermissionLink!]!
+    total: Int!
+  }
+
+  type GroupPermissionsListResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: GroupPermissionsListData
+    metadata: ResponseMetadata
+  }
+
+  # ── RBAC Inputs ───────────────────────────────────────────────────────────────
+
+  input CreateGroupInput {
+    code: String!
+    name: String!
+    description: String
+  }
+
+  input UpdateGroupInput {
+    name: String
+    description: String
+  }
+
+  input CreatePermissionInput {
+    code: String!
+    name: String!
+    description: String
+    category: String!
+  }
+
+  input UpdatePermissionInput {
+    name: String
+    description: String
+    category: String
+  }
+
+  input CreateRecordRuleInput {
+    name: String!
+    description: String
+    modelName: String!
+    groupId: ID
+    mode: String!
+    domainExpression: JSON!
+    isActive: Boolean
+  }
+
+  input UpdateRecordRuleInput {
+    name: String
+    description: String
+    modelName: String
+    groupId: ID
+    mode: String
+    domainExpression: JSON
+    isActive: Boolean
   }
 
   # ── Mutations ────────────────────────────────────────────────────────────────
@@ -919,6 +1164,7 @@ export const typeDefs = gql`
     # User mutations
     createUser(input: CreateUserProfileInput!): CreateUserResponse!
     updateUser(id: ID!, input: UpdateUserInput!): User!
+    updateUserRole(id: ID!, input: UpdateUserRoleInput!): User!
     deleteUser(id: ID!): SuccessResponse!
     activateUser(id: ID!): User!
     deactivateUser(id: ID!): User!
@@ -983,5 +1229,34 @@ export const typeDefs = gql`
     # Newsletter mutations
     subscribeToNewsletter(email: String!, userId: String): NewsletterSubscription!
     unsubscribeFromNewsletter(email: String!): SuccessResponse!
+
+    # RBAC admin mutations (requires administrators group or legacy role=admin)
+
+    # Groups CRUD
+    createGroup(input: CreateGroupInput!): GroupResponse!
+    updateGroup(id: ID!, input: UpdateGroupInput!): GroupResponse!
+    deleteGroup(id: ID!): SuccessResponse!
+
+    # User membership
+    assignUserToGroup(userId: ID!, groupId: ID!): UserGroupResponse!
+    removeUserFromGroup(userId: ID!, groupId: ID!): SuccessResponse!
+
+    # Group ↔ Permission
+    assignPermissionToGroup(groupId: ID!, permissionId: ID!): GroupPermissionResponse!
+    revokePermissionFromGroup(groupId: ID!, permissionId: ID!): SuccessResponse!
+
+    # Group implications / inheritance
+    addGroupImplication(groupId: ID!, impliedGroupId: ID!): GroupImplicationResponse!
+    removeGroupImplication(groupId: ID!, impliedGroupId: ID!): SuccessResponse!
+
+    # Permissions CRUD
+    createPermission(input: CreatePermissionInput!): PermissionResponse!
+    updatePermission(id: ID!, input: UpdatePermissionInput!): PermissionResponse!
+    deletePermission(id: ID!): SuccessResponse!
+
+    # Record rules CRUD
+    createRecordRule(input: CreateRecordRuleInput!): RecordRuleResponse!
+    updateRecordRule(id: ID!, input: UpdateRecordRuleInput!): RecordRuleResponse!
+    deleteRecordRule(id: ID!): SuccessResponse!
   }
 `;

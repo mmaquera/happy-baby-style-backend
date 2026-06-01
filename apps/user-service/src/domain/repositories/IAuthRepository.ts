@@ -13,6 +13,7 @@ import {
   UpdateUserSessionAnalyticsRequest,
 } from '@domain/entities/Auth';
 import { UserProfile } from '@domain/entities/User';
+import { EffectiveAuthz } from '@domain/interfaces/IEffectiveAuthz';
 
 export interface IAuthRepository {
   // OAuth Account Management
@@ -61,7 +62,7 @@ export interface IAuthRepository {
 
   // Session Validation
   validateSession(sessionToken: string): Promise<SessionInfo | null>;
-  refreshUserSession(refreshToken: string): Promise<AuthResult>;
+  refreshUserSession(refreshToken: string, effective?: EffectiveAuthz): Promise<AuthResult>;
 
   // Logout Management
   logoutUser(userId: string, sessionId?: string): Promise<void>;

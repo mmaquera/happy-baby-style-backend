@@ -2,6 +2,8 @@ import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { ILogger } from '@hbs/logging';
 import { ValidationError } from '@domain/errors/DomainError';
 import { LoggingDecorator } from '@hbs/logging';
+import { resolvePermissions } from '@hbs/auth';
+import type { IEffectivePermissionsResolver } from '@domain/interfaces/IEffectivePermissionsResolver';
 
 export interface RefreshTokenRequest {
   refreshToken: string;
@@ -29,6 +31,7 @@ export class RefreshTokenUseCase {
   constructor(
     private authRepository: IAuthRepository,
     private logger: ILogger,
+    private effectivePermissionsResolver: IEffectivePermissionsResolver,
   ) {}
 
   @LoggingDecorator.logUseCase({
@@ -55,8 +58,38 @@ export class RefreshTokenUseCase {
       // Validar formato del token (debe ser un UUID válido o JWT válido)
       this.validateTokenFormat(request.refreshToken);
 
-      // Intentar refrescar la sesión del usuario
-      const authResult = await this.authRepository.refreshUserSession(request.refreshToken);
+      // Pre-resolve userId from refresh token to fetch RBAC effective permissions.
+      // We need the session first — partial validation occurs inside the repo.
+      // Strategy: resolve after initial session lookup inside the repo by getting
+      // the userId from the decoded JWT (refresh token carries userId).
+      // The refresh JWT is opaque to callers, so we decode without verification
+      // only to extract userId for the resolver — the repo still verifies fully.
+      let preResolvedUserId: string | null = null;
+      try {
+        const decoded = JSON.parse(
+          Buffer.from(request.refreshToken.split('.')[1] ?? '', 'base64url').toString('utf8'),
+        ) as { userId?: string };
+        preResolvedUserId = decoded.userId ?? null;
+      } catch {
+        // Malformed token — the repo will throw the appropriate validation error
+      }
+
+      // Resolve RBAC effective permissions if we have a userId
+      const effective = preResolvedUserId
+        ? await this.effectivePermissionsResolver.resolveForUser(preResolvedUserId)
+        : undefined;
+
+      if (preResolvedUserId && (!effective || effective.groupCodes.length === 0)) {
+        this.logger.warn('User has no RBAC groups during token refresh, using legacy permissions', {
+          userId: preResolvedUserId,
+        });
+      }
+
+      // Intentar refrescar la sesión del usuario (re-signs tokens with effective authz)
+      const authResult = await this.authRepository.refreshUserSession(
+        request.refreshToken,
+        effective,
+      );
 
       // Validar que la sesión sea válida
       if (!authResult.user || !authResult.tokens) {
