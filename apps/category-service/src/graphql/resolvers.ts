@@ -7,8 +7,28 @@ import { UpdateCategoryUseCase } from '../application/use-cases/UpdateCategoryUs
 import { DeleteCategoryUseCase } from '../application/use-cases/DeleteCategoryUseCase';
 import { transformCategory } from './transformers/categoryTransformer';
 import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
-import { requireAdmin } from '@hbs/auth';
-import { GraphQLScalarType, Kind } from 'graphql';
+import { UserRole, type TokenPayload } from '@hbs/auth';
+import { GraphQLScalarType, Kind, GraphQLError } from 'graphql';
+
+// ── Category admin guard ─────────────────────────────────────────────────────
+// Category mutations are restricted to administrators only (Fase 3.1 decision).
+// Accepts 'administrators' group (new RBAC token) OR legacy ADMIN role.
+function requireCategoryAdmin(currentUser: TokenPayload | null | undefined): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  if (currentUser.groups?.includes('administrators')) {
+    return;
+  }
+  if (currentUser.role === UserRole.ADMIN) {
+    return;
+  }
+  throw new GraphQLError('Insufficient privileges', {
+    extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+  });
+}
 
 const DateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
@@ -140,7 +160,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
 
     Mutation: {
       createCategory: async (_: any, { input }: { input: any }, context: any) => {
-        requireAdmin(context.currentUser);
+        requireCategoryAdmin(context.currentUser);
         const startTime = Date.now();
         const traceId = `create-category-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
@@ -178,7 +198,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
       },
 
       updateCategory: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
-        requireAdmin(context.currentUser);
+        requireCategoryAdmin(context.currentUser);
         const startTime = Date.now();
         const traceId = `update-category-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
@@ -218,7 +238,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
       },
 
       deleteCategory: async (_: any, { id }: { id: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requireCategoryAdmin(context.currentUser);
         const startTime = Date.now();
         const traceId = `delete-category-${Date.now()}`;
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;

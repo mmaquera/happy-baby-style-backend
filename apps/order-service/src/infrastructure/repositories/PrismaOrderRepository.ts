@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import type { TokenPayload } from '@hbs/auth';
+import type { RecordRuleResolver } from '@hbs/authz';
 import {
   IOrderRepository,
   OrderFilters,
@@ -17,15 +19,25 @@ import { LoggerFactory, ILogger } from '@hbs/logging';
 export class PrismaOrderRepository implements IOrderRepository {
   private readonly logger: ILogger;
 
-  constructor(private readonly prisma: PrismaClient) {
+  /**
+   * @param prisma - Singleton PrismaClient from @hbs/prisma.
+   * @param recordRuleResolver - Optional RecordRuleResolver for applying record-level
+   *   access rules on read operations. When absent (e.g. in tests without RBAC),
+   *   reads are unrestricted. When present, findAll and findById merge the resolved
+   *   `where` clause before querying.
+   */
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly recordRuleResolver?: RecordRuleResolver,
+  ) {
     this.logger = LoggerFactory.getInstance().createRepositoryLogger('PrismaOrderRepository');
   }
 
-  async create(orderData: CreateOrderRequest, total: number, userId?: string): Promise<Order> {
+  async create(orderData: CreateOrderRequest, total: number): Promise<Order> {
     try {
       const order = await this.prisma.order.create({
         data: {
-          userId: userId || 'guest',
+          userId: orderData.userId,
           orderNumber: this.generateOrderNumber(),
           customerEmail: orderData.customerEmail,
           customerName: orderData.customerName,
@@ -71,10 +83,19 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
-  async findById(id: string): Promise<Order | null> {
+  async findById(id: string, currentUser: TokenPayload | null = null): Promise<Order | null> {
     try {
-      const order = await this.prisma.order.findUnique({
-        where: { id },
+      // Apply record-level access rule filter for the calling user.
+      // resolveWhere returns {} (no restriction) when no rules exist for Order/read,
+      // or DENY_WHERE when the user has no matching group rule.
+      const ruleWhere = this.recordRuleResolver
+        ? await this.recordRuleResolver.resolveWhere('Order', 'read', currentUser)
+        : {};
+
+      // Use findFirst with AND[{id}, ruleWhere] instead of findUnique so we can
+      // compose the record-rule where clause without Prisma's unique-constraint check.
+      const order = await this.prisma.order.findFirst({
+        where: { AND: [{ id }, ruleWhere] },
         include: { items: true },
       });
       if (!order) return null;
@@ -88,21 +109,33 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
-  async findAll(filters?: OrderFilters): Promise<Order[]> {
+  async findAll(filters?: OrderFilters, currentUser?: TokenPayload | null): Promise<Order[]> {
     try {
-      const where: any = {};
-      if (filters?.status) where.status = filters.status;
-      if (filters?.userId) where.userId = filters.userId;
-      if (filters?.orderNumber) where.orderNumber = filters.orderNumber;
-      if (filters?.customerEmail) where.customerEmail = filters.customerEmail;
+      const filterWhere: Record<string, unknown> = {};
+      if (filters?.status) filterWhere['status'] = filters.status;
+      if (filters?.userId) filterWhere['userId'] = filters.userId;
+      if (filters?.orderNumber) filterWhere['orderNumber'] = filters.orderNumber;
+      if (filters?.customerEmail) filterWhere['customerEmail'] = filters.customerEmail;
       if (filters?.startDate || filters?.endDate) {
-        where.createdAt = {};
-        if (filters.startDate) where.createdAt.gte = filters.startDate;
-        if (filters.endDate) where.createdAt.lte = filters.endDate;
+        const createdAt: Record<string, Date> = {};
+        if (filters.startDate) createdAt['gte'] = filters.startDate;
+        if (filters.endDate) createdAt['lte'] = filters.endDate;
+        filterWhere['createdAt'] = createdAt;
       }
 
+      // Apply record-level access rule filter for the calling user.
+      const ruleWhere = this.recordRuleResolver
+        ? await this.recordRuleResolver.resolveWhere('Order', 'read', currentUser ?? null)
+        : {};
+
+      // Merge filter conditions and rule-based where using AND.
+      const where =
+        Object.keys(ruleWhere).length === 0
+          ? filterWhere
+          : { AND: [filterWhere, ruleWhere] };
+
       const orders = await this.prisma.order.findMany({
-        where,
+        where: where as any,
         include: { items: true },
         orderBy: { createdAt: 'desc' },
         take: filters?.limit,
@@ -113,6 +146,23 @@ export class PrismaOrderRepository implements IOrderRepository {
     } catch (error) {
       this.logger.error(
         'Error finding orders',
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      throw error;
+    }
+  }
+
+  async findByIdUnrestricted(id: string): Promise<Order | null> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!order) return null;
+      return this.mapToOrder(order, order.items);
+    } catch (error) {
+      this.logger.error(
+        'Error finding order (unrestricted)',
         error instanceof Error ? error : new Error(String(error)),
       );
       throw error;

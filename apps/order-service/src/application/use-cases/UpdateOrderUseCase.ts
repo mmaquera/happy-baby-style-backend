@@ -7,7 +7,11 @@ export class UpdateOrderUseCase {
   async execute(id: string, orderData: UpdateOrderRequest): Promise<Order> {
     if (!id) throw new Error('Order ID is required');
 
-    const existing = await this.orderRepository.findById(id);
+    // Use findByIdUnrestricted for the pre-fetch: update operations are guarded by
+    // requirePermission(UPDATE_ORDER) at the resolver layer, so record-rule read
+    // filters must NOT apply here (passing null would trigger DENY_WHERE for any
+    // active Order/read rule and break all updates even for admin/staff).
+    const existing = await this.orderRepository.findByIdUnrestricted(id);
     if (!existing) throw new Error('Order not found');
 
     if (orderData.status) {

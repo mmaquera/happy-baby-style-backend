@@ -255,7 +255,7 @@ export const typeDefs = gql`
   }
 
   input CreateOrderInput {
-    customerEmail: String!
+    # customerEmail is derived from the authenticated JWT — not accepted from client input.
     customerName: String!
     customerPhone: String
     items: [CreateOrderItemInput!]!

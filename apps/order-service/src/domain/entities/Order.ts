@@ -55,7 +55,11 @@ export interface Order {
 }
 
 export interface CreateOrderRequest {
+  /** Derived from JWT — never accepted from client input. */
+  userId: string;
+  /** Derived from JWT — never accepted from client input. */
   customerEmail: string;
+  /** Provided by the client for shipping/delivery purposes. Not available in the JWT. */
   customerName: string;
   customerPhone?: string;
   items: {

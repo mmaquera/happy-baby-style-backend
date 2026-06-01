@@ -8,7 +8,45 @@ import { GetOrderByIdUseCase } from '../application/use-cases/GetOrderByIdUseCas
 import { UpdateOrderUseCase } from '../application/use-cases/UpdateOrderUseCase';
 import { GetOrderStatsUseCase } from '../application/use-cases/GetOrderStatsUseCase';
 import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
-import { requireAdmin } from '@hbs/auth';
+import { GraphQLError } from 'graphql';
+import { requirePermission, requireRole, Permission, UserRole, TokenPayload } from '@hbs/auth';
+
+// ── Local hybrid guard (Fase 5.9) ────────────────────────────────────────────
+// Supports BOTH new tokens (with `groups`) and legacy tokens (role only).
+// Used for admin-scoped order listings that were previously STAFF/ADMIN only.
+const ORDER_MANAGEMENT_GROUPS = [
+  'administrators',
+  'sales-manager',
+  'sales-user',
+  'customer-service',
+] as const;
+
+/**
+ * Grants access to administrative order listings.
+ * Passes when the user belongs to any order management group (new token)
+ * OR has role ADMIN/STAFF (legacy token without groups).
+ * CUSTOMER + no management group → FORBIDDEN.
+ */
+function requireOrderManagementAccess(
+  currentUser: TokenPayload | null | undefined,
+): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  // New token path: group-based check
+  if (currentUser.groups?.some((g) => (ORDER_MANAGEMENT_GROUPS as readonly string[]).includes(g))) {
+    return;
+  }
+  // Legacy token path: role-based fallback
+  if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAFF) {
+    return;
+  }
+  throw new GraphQLError('Insufficient privileges', {
+    extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+  });
+}
 
 function transformOrder(order: any) {
   return {
@@ -105,8 +143,13 @@ export function createResolvers(
   return {
     Query: {
       // ── Orders ──────────────────────────────────────────────────────────
-      orders: async (_: any, { filter, pagination }: any) => {
-        const result = await getOrdersUseCase.execute({ filters: filter, pagination });
+      orders: async (_: any, { filter, pagination }: any, context: any) => {
+        requireOrderManagementAccess(context.currentUser);
+        const result = await getOrdersUseCase.execute({
+          filters: filter,
+          pagination,
+          currentUser: context.currentUser ?? null,
+        });
         return {
           orders: result.orders.map(transformOrder),
           total: result.total,
@@ -114,14 +157,15 @@ export function createResolvers(
         };
       },
 
-      order: async (_: any, { id }: { id: string }) => {
-        const order = await getOrderByIdUseCase.execute(id);
+      order: async (_: any, { id }: { id: string }, context: any) => {
+        const order = await getOrderByIdUseCase.execute(id, context.currentUser ?? null);
         return order ? transformOrder(order) : null;
       },
 
       orderStats: async () => getOrderStatsUseCase.execute(),
 
-      ordersByStatus: async (_: any, { status }: { status: string }) => {
+      ordersByStatus: async (_: any, { status }: { status: string }, context: any) => {
+        requireOrderManagementAccess(context.currentUser);
         const orders = await orderRepository.findByStatus(status);
         return orders.map(transformOrder);
       },
@@ -301,8 +345,14 @@ export function createResolvers(
     Mutation: {
       // ── Orders ──────────────────────────────────────────────────────────
       createOrder: async (_: any, { input }: { input: any }, context: any) => {
+        // customerEmail and userId are always derived from the authenticated JWT —
+        // never accepted from client input (prevents BOLA / CWE-639).
+        if (!context.currentUser) {
+          throw new GraphQLError('Not authenticated', { extensions: { code: 'UNAUTHENTICATED' } });
+        }
         const order = await createOrderUseCase.execute({
-          customerEmail: input.customerEmail,
+          userId: context.currentUser.userId,
+          customerEmail: context.currentUser.email,
           customerName: input.customerName,
           customerPhone: input.customerPhone,
           items: input.items,
@@ -312,7 +362,7 @@ export function createResolvers(
       },
 
       updateOrder: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_ORDER);
         const order = await updateOrderUseCase.execute(id, {
           status: input.status,
           customerEmail: input.customerEmail,
@@ -323,13 +373,13 @@ export function createResolvers(
       },
 
       updateOrderStatus: async (_: any, { id, status }: { id: string; status: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_ORDER);
         const order = await updateOrderUseCase.execute(id, { status: status as any });
         return transformOrder(order);
       },
 
       deleteOrder: async (_: any, { id }: { id: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         return orderRepository.delete(id);
       },
 
@@ -338,7 +388,7 @@ export function createResolvers(
         { orders, status }: { orders: string[]; status: string },
         context: any,
       ) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_ORDER);
         const updated = await Promise.all(
           orders.map((id) => updateOrderUseCase.execute(id, { status: status as any })),
         );
@@ -378,7 +428,7 @@ export function createResolvers(
 
       // ── Coupons ──────────────────────────────────────────────────────────
       createCoupon: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         const c = await prisma.coupon.create({
           data: {
             code: input.code,
@@ -401,7 +451,7 @@ export function createResolvers(
       },
 
       updateCoupon: async (_: any, { id, input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         const updateData: any = {};
         if (input.name) updateData.name = input.name;
         if (input.description !== undefined) updateData.description = input.description;
@@ -421,14 +471,14 @@ export function createResolvers(
       },
 
       deleteCoupon: async (_: any, { id }: { id: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         await prisma.coupon.delete({ where: { id } });
         return true;
       },
 
       // ── Carriers ─────────────────────────────────────────────────────────
       createCarrier: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         const c = await prisma.carrier.create({
           data: {
             name: input.name,
@@ -441,7 +491,7 @@ export function createResolvers(
       },
 
       updateCarrier: async (_: any, { id, name, code, trackingUrlTemplate, isActive }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         const updateData: any = {};
         if (name !== undefined) updateData.name = name;
         if (code !== undefined) updateData.code = code;
@@ -452,14 +502,14 @@ export function createResolvers(
       },
 
       deleteCarrier: async (_: any, { id }: { id: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         await prisma.carrier.delete({ where: { id } });
         return true;
       },
 
       // ── Shipping zones & rates ────────────────────────────────────────────
       createShippingZone: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         const z = await prisma.shippingZone.create({
           data: {
             name: input.name,
@@ -474,7 +524,7 @@ export function createResolvers(
       },
 
       createShippingRate: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireRole(context.currentUser, UserRole.ADMIN);
         const r = await prisma.shippingRate.create({
           data: {
             zoneId: input.zoneId,
@@ -539,8 +589,11 @@ export function createResolvers(
     },
 
     Order: {
-      __resolveReference: async ({ id }: { id: string }) => {
-        const order = await orderRepository.findById(id);
+      // __resolveReference is called by the federation gateway.
+      // The gateway forwards the Authorization header, so context.currentUser is set
+      // for authenticated requests — record-rule filters apply correctly here.
+      __resolveReference: async ({ id }: { id: string }, context: any) => {
+        const order = await orderRepository.findById(id, context?.currentUser ?? null);
         return order ? transformOrder(order) : null;
       },
       user: (parent: any) => ({ __typename: 'User', id: parent.userId }),
@@ -560,8 +613,8 @@ export function createResolvers(
         return items[0] || null;
       },
       product: (parent: any) => ({ __typename: 'Product', id: parent.productId }),
-      order: async (parent: any) => {
-        const order = await orderRepository.findById(parent.orderId);
+      order: async (parent: any, _args: any, context: any) => {
+        const order = await orderRepository.findById(parent.orderId, context?.currentUser ?? null);
         return order ? transformOrder(order) : null;
       },
     },

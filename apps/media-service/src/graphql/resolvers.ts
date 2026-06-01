@@ -6,6 +6,7 @@ import { UploadSvgUseCase } from '../application/use-cases/UploadSvgUseCase';
 import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
 import { ImageEntityType } from '../domain/entities/Image';
 import { SvgEntityType } from '../domain/entities/Svg';
+import { requireRole, UserRole } from '@hbs/auth';
 
 const STORAGE_BASE_URL = process.env.STORAGE_BASE_URL || 'http://localhost:3001';
 
@@ -220,7 +221,8 @@ export function createResolvers(
         }
       },
 
-      deleteImage: async (_: any, { id }: { id: string }) => {
+      deleteImage: async (_: any, { id }: { id: string }, context: any) => {
+        requireRole(context?.currentUser, UserRole.ADMIN);
         try {
           await imageRepository.delete(id);
           return true;
@@ -229,7 +231,8 @@ export function createResolvers(
         }
       },
 
-      deleteSvg: async (_: any, { id }: { id: string }) => {
+      deleteSvg: async (_: any, { id }: { id: string }, context: any) => {
+        requireRole(context?.currentUser, UserRole.ADMIN);
         try {
           return await svgRepository.delete(id);
         } catch {

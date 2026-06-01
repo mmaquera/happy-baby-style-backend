@@ -7,6 +7,8 @@
   "dependencies": {
     "@apollo/server": "^4.11.2",
     "@apollo/subgraph": "^2.14.0",
+    "@hbs/auth": "workspace:*",
+    "@hbs/authz": "workspace:*",
     "@hbs/logging": "workspace:*",
     "@hbs/prisma": "workspace:*",
     "@hbs/shared-kernel": "workspace:*",

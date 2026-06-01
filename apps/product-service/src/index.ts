@@ -2,16 +2,15 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import jwt from 'jsonwebtoken';
 import { GraphQLError } from 'graphql';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import Redis from 'ioredis';
 import { prisma } from '@hbs/prisma';
-import { extractTokenFromAuthHeader } from '@hbs/auth';
-import type { TokenPayload } from '@hbs/auth';
-import { RequestLogger } from '@hbs/logging';
+import { buildAuthContext } from '@hbs/auth';
+import { LoggerFactory, RequestLogger } from '@hbs/logging';
+import { EmptyRecordRuleSource, RecordRuleResolver, RecordRulesEventsConsumer } from '@hbs/authz';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaProductRepository } from './infrastructure/repositories/PrismaProductRepository';
@@ -23,10 +22,19 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+if (!process.env.REDIS_URL) {
+  console.error('FATAL: REDIS_URL is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const PORT = parseInt(process.env.PRODUCT_SERVICE_PORT || '3003', 10);
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL;
+const RBAC_STREAM_NAME = process.env.RBAC_STREAM_NAME ?? 'stream:record-rules-updated';
+const HOSTNAME = process.env.HOSTNAME ?? `product-service-${process.pid}`;
 
 async function start() {
+  const serviceLogger = LoggerFactory.getInstance().createServiceLogger('product-service');
+
   const productRepository = new PrismaProductRepository(prisma);
   const resolvers = createResolvers(productRepository, prisma);
 
@@ -55,18 +63,26 @@ async function start() {
   await server.start();
 
   const redisClient = new Redis(REDIS_URL);
-  redisClient.on('error', (err) => console.error('Redis error:', err));
+  redisClient.on('error', (err) =>
+    serviceLogger.error('Redis client error', err as Error, { service: 'product-service' }),
+  );
+
+  // Business event consumer: order-events → apply stock
   const applyOrderStock = new ApplyOrderStockUseCase(prisma);
   const orderEventsConsumer = new OrderEventsConsumer(redisClient, applyOrderStock);
   await orderEventsConsumer.start();
 
-  const shutdown = async () => {
-    orderEventsConsumer.stop();
-    await redisClient.quit().catch(() => undefined);
-    process.exit(0);
-  };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  // RBAC cache invalidation consumer.
+  // TODO Fase 5.10: replace EmptyRecordRuleSource with a hydrated source that
+  // fetches rules from user-service on boot and re-fetches on invalidation events.
+  const recordRuleSource = new EmptyRecordRuleSource();
+  const recordRuleResolver = new RecordRuleResolver(recordRuleSource);
+  const rbacConsumer = new RecordRulesEventsConsumer(redisClient, recordRuleResolver, serviceLogger, {
+    streamName: RBAC_STREAM_NAME,
+    consumerGroup: 'product-service-rbac-cg',
+    consumerName: HOSTNAME,
+  });
+  await rbacConsumer.start();
 
   const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000')
     .split(',')
@@ -95,23 +111,25 @@ async function start() {
     '/graphql',
     expressMiddleware(server, {
       context: async ({ req }) => {
-        const token = extractTokenFromAuthHeader(req.headers.authorization);
-        let currentUser: TokenPayload | null = null;
-        if (token) {
-          try {
-            currentUser = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
-          } catch {
-            currentUser = null;
-          }
-        }
+        const { currentUser } = buildAuthContext(req.headers.authorization);
         return { req, currentUser };
       },
     }),
   );
 
-  app.listen(PORT, () => {
-    console.log(`🚀 product-service running at http://localhost:${PORT}/graphql`);
+  const httpServer = app.listen(PORT, () => {
+    serviceLogger.info(`product-service running at http://localhost:${PORT}/graphql`);
   });
+
+  const shutdown = async () => {
+    serviceLogger.info('product-service shutting down…');
+    orderEventsConsumer.stop();
+    await rbacConsumer.stop();
+    await redisClient.quit().catch(() => undefined);
+    httpServer.close(() => process.exit(0));
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 start().catch((err) => {

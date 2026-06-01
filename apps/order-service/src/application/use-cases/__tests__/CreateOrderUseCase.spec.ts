@@ -51,6 +51,8 @@ const makeOrder = (): Order => ({
 });
 
 const makeRequest = (): CreateOrderRequest => ({
+  // userId and customerEmail are caller-supplied from JWT (not client input).
+  userId: 'user-1',
   customerEmail: 'test@test.com',
   customerName: 'Test User',
   items: [{ productId: 'prod-1', quantity: 2, size: 'M', color: 'blue' }],

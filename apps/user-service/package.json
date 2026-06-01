@@ -2,12 +2,15 @@
   "name": "@hbs/user-service",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=22 <23" },
+  "engines": {
+    "node": ">=22 <23"
+  },
   "main": "dist/src/index.js",
   "dependencies": {
     "@apollo/server": "^4.11.2",
     "@apollo/subgraph": "^2.14.0",
     "@hbs/auth": "workspace:*",
+    "@hbs/authz": "workspace:*",
     "@hbs/logging": "workspace:*",
     "@hbs/prisma": "workspace:*",
     "@hbs/shared-kernel": "workspace:*",
@@ -19,7 +22,9 @@
     "graphql": "^16.8.1",
     "graphql-tag": "^2.12.6",
     "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^7.0.10"
+    "nodemailer": "^7.0.10",
+    "zod": "^4.4.3"
   }
 }

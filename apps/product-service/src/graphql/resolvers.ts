@@ -1,4 +1,4 @@
-import { GraphQLScalarType, Kind } from 'graphql';
+import { GraphQLScalarType, GraphQLError, Kind } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import { IProductRepository } from '../domain/repositories/IProductRepository';
 import { GetProductsUseCase } from '../application/use-cases/GetProductsUseCase';
@@ -8,8 +8,35 @@ import { UpdateProductUseCase } from '../application/use-cases/UpdateProductUseC
 import { DeleteProductUseCase } from '../application/use-cases/DeleteProductUseCase';
 import { transformProduct, transformVariant } from './transformers/productTransformer';
 import { DomainError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
-import { requireAdmin } from '@hbs/auth';
+import { requirePermission, Permission, UserRole, type TokenPayload } from '@hbs/auth';
 import { LoggerFactory } from '@hbs/logging';
+
+// ── Product management access guard ─────────────────────────────────────────
+// Accepts new-style RBAC group membership OR legacy STAFF/ADMIN role.
+const PRODUCT_MANAGEMENT_GROUPS = [
+  'administrators',
+  'sales-manager',
+  'sales-user',
+  'inventory-user',
+  'customer-service',
+] as const;
+
+function requireProductManagementAccess(currentUser: TokenPayload | null | undefined): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  if (currentUser.groups?.some((g) => (PRODUCT_MANAGEMENT_GROUPS as readonly string[]).includes(g))) {
+    return;
+  }
+  if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAFF) {
+    return;
+  }
+  throw new GraphQLError('Insufficient privileges', {
+    extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+  });
+}
 
 const DateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
@@ -171,7 +198,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         return variants.length > 0 ? transformVariant(variants[0]) : null;
       },
 
-      productStats: async () => {
+      productStats: async (_: any, __: any, context: any) => {
+        requirePermission(context.currentUser, Permission.VIEW_ANALYTICS);
         const [totalProducts, activeProducts, lowStockCount, outOfStockCount] = await Promise.all([
           prisma.product.count(),
           prisma.product.count({ where: { isActive: true } }),
@@ -185,7 +213,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         );
       },
 
-      lowStockProducts: async () => {
+      lowStockProducts: async (_: any, __: any, context: any) => {
+        requirePermission(context.currentUser, Permission.VIEW_ANALYTICS);
         const result = await getProductsUseCase.execute({
           filters: { isActive: true },
           pagination: { limit: 10000, offset: 0 },
@@ -195,7 +224,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
           .map(transformProduct);
       },
 
-      outOfStockProducts: async () => {
+      outOfStockProducts: async (_: any, __: any, context: any) => {
+        requirePermission(context.currentUser, Permission.VIEW_ANALYTICS);
         const result = await getProductsUseCase.execute({
           filters: { isActive: true },
           pagination: { limit: 10000, offset: 0 },
@@ -203,7 +233,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         return result.products.filter((p) => p.stockQuantity === 0).map(transformProduct);
       },
 
-      inventoryTransactions: async (_: any, { productId }: { productId: string }) => {
+      inventoryTransactions: async (_: any, { productId }: { productId: string }, context: any) => {
+        requireProductManagementAccess(context.currentUser);
         const txs = await prisma.inventoryTransaction.findMany({
           where: { productId },
           orderBy: { createdAt: 'desc' },
@@ -211,7 +242,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         return txs.map((tx) => ({ ...tx, createdAt: tx.createdAt.toISOString() }));
       },
 
-      stockAlerts: async () => {
+      stockAlerts: async (_: any, __: any, context: any) => {
+        requirePermission(context.currentUser, Permission.VIEW_ANALYTICS);
         const alerts = await prisma.stockAlert.findMany({ orderBy: { createdAt: 'desc' } });
         return alerts.map((a) => ({
           ...a,
@@ -303,7 +335,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
     Mutation: {
       createProduct: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.CREATE_PRODUCT);
         try {
           const product = await createProductUseCase.execute({
             categoryId: input.categoryId,
@@ -334,7 +366,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       updateProduct: async (_: any, { id, input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         try {
           const product = await updateProductUseCase.execute({ id, ...input });
           const transformed = transformProduct(product);
@@ -359,7 +391,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       deleteProduct: async (_: any, { id }: { id: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
         try {
           await deleteProductUseCase.execute(id);
           return ResponseFactory.createSuccessResponse(
@@ -377,25 +409,25 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       createProductVariant: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.CREATE_PRODUCT);
         const variant = await productRepository.createVariant(input);
         return transformVariant(variant);
       },
 
       updateProductVariant: async (_: any, { id, input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         const variant = await productRepository.updateVariant(id, input);
         return transformVariant(variant);
       },
 
       deleteProductVariant: async (_: any, { id }: { id: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
         await productRepository.deleteVariant(id);
         return { success: true, message: 'Product variant deleted successfully' };
       },
 
       bulkUpdateProducts: async (_: any, { ids, input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         const updated = await Promise.all(
           ids.map((id: string) => updateProductUseCase.execute({ id, ...input })),
         );
@@ -404,7 +436,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       // ── Inventory transactions ───────────────────────────────────────────
       createInventoryTransaction: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requireProductManagementAccess(context.currentUser);
         const tx = await prisma.inventoryTransaction.create({
           data: {
             productId: input.productId,
@@ -419,7 +451,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       // ── Stock alerts ─────────────────────────────────────────────────────
       createStockAlert: async (_: any, { input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.CREATE_PRODUCT);
         const alert = await prisma.stockAlert.create({
           data: {
             productId: input.productId,
@@ -437,7 +469,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       updateStockAlert: async (_: any, { id, isActive }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         const alert = await prisma.stockAlert.update({
           where: { id },
           data: { isActive },
@@ -450,14 +482,18 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       deleteStockAlert: async (_: any, { id }: { id: string }, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
         await prisma.stockAlert.delete({ where: { id } });
         return { success: true, message: 'Stock alert deleted successfully' };
       },
 
       // ── Review mutations ─────────────────────────────────────────────────
 
-      createProductReview: async (_: any, { input }: any) => {
+      createProductReview: async (_: any, { input }: any, context: any) => {
+        // Any authenticated user may create a review; unauthenticated requests are rejected.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
+        }
         const review = await prisma.productReview.create({
           data: {
             productId: input.productId,
@@ -478,7 +514,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       updateProductReview: async (_: any, { id, input }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         const review = await prisma.productReview.update({
           where: { id },
           data: { rating: input.rating, title: input.title, comment: input.comment, isApproved: input.isApproved },
@@ -494,13 +530,13 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       deleteProductReview: async (_: any, { id }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
         await prisma.productReview.delete({ where: { id } });
         return { success: true, message: 'Review deleted' };
       },
 
       approveReview: async (_: any, { id }: any, context: any) => {
-        requireAdmin(context.currentUser);
+        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         const review = await prisma.productReview.update({
           where: { id },
           data: { isApproved: true },

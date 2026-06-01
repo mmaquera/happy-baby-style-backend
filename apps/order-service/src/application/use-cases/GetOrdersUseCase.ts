@@ -1,3 +1,4 @@
+import type { TokenPayload } from '@hbs/auth';
 import { IOrderRepository, OrderFilters } from '../../domain/repositories/IOrderRepository';
 import { Order } from '../../domain/entities/Order';
 
@@ -13,6 +14,8 @@ export interface GetOrdersRequest {
     limit?: number;
     offset?: number;
   };
+  /** Authenticated caller — forwarded to the repo for record-rule filtering. */
+  currentUser?: TokenPayload | null;
 }
 
 export interface GetOrdersResponse {
@@ -38,7 +41,7 @@ export class GetOrdersUseCase {
       offset,
     };
 
-    const orders = await this.orderRepository.findAll(filters);
+    const orders = await this.orderRepository.findAll(filters, request.currentUser ?? null);
     const hasMore = orders.length === limit;
 
     return {
