@@ -12,6 +12,7 @@ ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placehol
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc prisma.config.ts tsconfig.base.json ./
 COPY libs/auth/package.json          libs/auth/
+COPY libs/authz/package.json         libs/authz/
 COPY libs/logging/package.json       libs/logging/
 COPY libs/prisma/package.json        libs/prisma/
 COPY libs/prisma/schema.prisma       libs/prisma/
@@ -23,6 +24,7 @@ COPY libs/ libs/
 COPY apps/user-service ./apps/user-service
 
 RUN pnpm exec nx build user-service --skip-nx-cache
+RUN pnpm exec nx build authz --skip-nx-cache
 
 # ---- runner ----
 FROM base AS runner
@@ -31,6 +33,8 @@ ENV NODE_ENV=production
 
 COPY --from=builder /app/libs/auth/package.json          ./libs/auth/package.json
 COPY --from=builder /app/libs/auth/dist                  ./libs/auth/dist
+COPY --from=builder /app/libs/authz/package.json         ./libs/authz/package.json
+COPY --from=builder /app/libs/authz/dist                 ./libs/authz/dist
 COPY --from=builder /app/libs/logging/package.json       ./libs/logging/package.json
 COPY --from=builder /app/libs/logging/dist               ./libs/logging/dist
 COPY --from=builder /app/libs/prisma/package.json        ./libs/prisma/package.json
@@ -39,6 +43,8 @@ COPY --from=builder /app/libs/shared-kernel/package.json ./libs/shared-kernel/pa
 COPY --from=builder /app/libs/shared-kernel/dist         ./libs/shared-kernel/dist
 
 COPY --from=builder /app/node_modules ./node_modules
+# Ensure zod is accessible at the hoisted level (authz lib dependency)
+RUN ln -sf /app/node_modules/.pnpm/zod@4.4.3/node_modules/zod /app/node_modules/zod
 COPY --from=builder /app/apps/user-service/node_modules ./apps/user-service/node_modules
 COPY --from=builder /app/apps/user-service/dist ./apps/user-service/dist
 COPY apps/user-service/tsconfig.production.json apps/user-service/tsconfig.production.json

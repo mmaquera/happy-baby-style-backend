@@ -23,6 +23,7 @@ COPY libs/ libs/
 COPY apps/order-service ./apps/order-service
 
 RUN pnpm exec nx build order-service --skip-nx-cache
+RUN pnpm exec nx build authz --skip-nx-cache
 
 # ---- runner ----
 FROM base AS runner
@@ -31,6 +32,8 @@ ENV NODE_ENV=production
 
 COPY --from=builder /app/libs/auth/package.json          ./libs/auth/package.json
 COPY --from=builder /app/libs/auth/dist                  ./libs/auth/dist
+COPY --from=builder /app/libs/authz/package.json         ./libs/authz/package.json
+COPY --from=builder /app/libs/authz/dist                 ./libs/authz/dist
 COPY --from=builder /app/libs/logging/package.json       ./libs/logging/package.json
 COPY --from=builder /app/libs/logging/dist               ./libs/logging/dist
 COPY --from=builder /app/libs/prisma/package.json        ./libs/prisma/package.json
@@ -39,6 +42,8 @@ COPY --from=builder /app/libs/shared-kernel/package.json ./libs/shared-kernel/pa
 COPY --from=builder /app/libs/shared-kernel/dist         ./libs/shared-kernel/dist
 
 COPY --from=builder /app/node_modules ./node_modules
+# Ensure zod is accessible at the hoisted level (authz lib dependency)
+RUN ln -sf /app/node_modules/.pnpm/zod@4.4.3/node_modules/zod /app/node_modules/zod
 COPY --from=builder /app/apps/order-service/node_modules ./apps/order-service/node_modules
 COPY --from=builder /app/apps/order-service/dist ./apps/order-service/dist
 COPY --from=builder /app/apps/order-service/prisma/schema.prisma ./apps/order-service/prisma/schema.prisma

@@ -25,6 +25,7 @@ services:
     image: redis:7-alpine
     container_name: happy_baby_redis
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -61,6 +62,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       db-init:
         condition: service_completed_successfully
     ports:
@@ -71,6 +74,12 @@ services:
       CATEGORY_SERVICE_PORT:     3002
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_category
       JWT_SECRET:                ${JWT_SECRET}
+      REDIS_URL:                 redis://redis:6379
+      RBAC_STREAM_NAME:          ${RBAC_STREAM_NAME:-stream:record-rules-updated}
+      RBAC_STREAM_MAXLEN:        ${RBAC_STREAM_MAXLEN:-10000}
+      RBAC_CACHE_TTL_MS:         ${RBAC_CACHE_TTL_MS:-300000}
+      RBAC_CONSUMER_GROUP:       category-service-rbac-cg
+      USER_SERVICE_INTERNAL_URL: http://user-service:3006
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3001}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
     healthcheck:
@@ -103,6 +112,11 @@ services:
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_product
       JWT_SECRET:                ${JWT_SECRET}
       REDIS_URL:                 redis://redis:6379
+      RBAC_STREAM_NAME:          ${RBAC_STREAM_NAME:-stream:record-rules-updated}
+      RBAC_STREAM_MAXLEN:        ${RBAC_STREAM_MAXLEN:-10000}
+      RBAC_CACHE_TTL_MS:         ${RBAC_CACHE_TTL_MS:-300000}
+      RBAC_CONSUMER_GROUP:       product-service-rbac-cg
+      USER_SERVICE_INTERNAL_URL: http://user-service:3006
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3001}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
     healthcheck:
@@ -135,6 +149,11 @@ services:
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_order
       JWT_SECRET:                ${JWT_SECRET}
       REDIS_URL:                 redis://redis:6379
+      RBAC_STREAM_NAME:          ${RBAC_STREAM_NAME:-stream:record-rules-updated}
+      RBAC_STREAM_MAXLEN:        ${RBAC_STREAM_MAXLEN:-10000}
+      RBAC_CACHE_TTL_MS:         ${RBAC_CACHE_TTL_MS:-300000}
+      RBAC_CONSUMER_GROUP:       order-service-rbac-cg
+      USER_SERVICE_INTERNAL_URL: http://user-service:3006
       PRODUCT_SERVICE_URL:       http://product-service:3003/graphql
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
     healthcheck:
@@ -154,6 +173,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       db-init:
         condition: service_completed_successfully
     ports:
@@ -164,6 +185,12 @@ services:
       MEDIA_SERVICE_PORT:        3004
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_media
       JWT_SECRET:                ${JWT_SECRET}
+      REDIS_URL:                 redis://redis:6379
+      RBAC_STREAM_NAME:          ${RBAC_STREAM_NAME:-stream:record-rules-updated}
+      RBAC_STREAM_MAXLEN:        ${RBAC_STREAM_MAXLEN:-10000}
+      RBAC_CACHE_TTL_MS:         ${RBAC_CACHE_TTL_MS:-300000}
+      RBAC_CONSUMER_GROUP:       media-service-rbac-cg
+      USER_SERVICE_INTERNAL_URL: http://user-service:3006
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3004}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
     volumes:
@@ -185,6 +212,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       db-init:
         condition: service_completed_successfully
     ports:
@@ -195,6 +224,11 @@ services:
       USER_SERVICE_PORT:         3006
       DATABASE_URL:              postgresql://${DOCKER_DB_USER:-postgres}:${DOCKER_DB_PASSWORD}@postgres:5432/happy_baby_user
       JWT_SECRET:                ${JWT_SECRET}
+      REDIS_URL:                 redis://redis:6379
+      RBAC_STREAM_NAME:          ${RBAC_STREAM_NAME:-stream:record-rules-updated}
+      RBAC_STREAM_MAXLEN:        ${RBAC_STREAM_MAXLEN:-10000}
+      RBAC_CACHE_TTL_MS:         ${RBAC_CACHE_TTL_MS:-300000}
+      RBAC_CONSUMER_GROUP:       user-service-rbac-cg
       SMTP_HOST:                 ${SMTP_HOST:-}
       SMTP_PORT:                 ${SMTP_PORT:-587}
       SMTP_SECURE:               ${SMTP_SECURE:-false}

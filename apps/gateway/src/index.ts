@@ -100,6 +100,10 @@ async function start() {
         { name: 'order', url: ORDER_SERVICE_URL },
         { name: 'user', url: USER_SERVICE_URL },
       ],
+      // Re-introspect all subgraphs every 10s so schema changes propagate
+      // automatically without a gateway restart. Each poll makes 5 lightweight
+      // introspection requests (one per subgraph) — negligible overhead.
+      pollIntervalInMs: 10_000,
     }),
     buildService({ url }) {
       return new AuthenticatedDataSource({ url });

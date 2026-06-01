@@ -21,7 +21,8 @@ apps/
   gateway           :4000   Apollo Federation router + rate limiting
 
 libs/
-  @hbs/auth          JWT extraction & types (TokenPayload, UserRole, Permission)
+  @hbs/auth          JWT extraction & types (TokenPayload, UserRole, Permission) + RBAC guards
+  @hbs/authz         Non-throwing RBAC helpers, compileDomainExpr, RecordRuleResolver
   @hbs/logging       ILogger interface, LoggerFactory, Winston implementation
   @hbs/prisma        Shared PrismaClient singleton
   @hbs/shared-kernel DomainError hierarchy, ResponseFactory, ResponseCodes
@@ -102,8 +103,19 @@ Resolvers wrap results with ResponseFactory:
 ### @hbs/auth
   const token = extractTokenFromAuthHeader(req.headers.authorization);
   const currentUser = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
+  const ctx = buildAuthContext(currentUser);   // wraps TokenPayload with RBAC helpers
 Auth plugin in every subgraph guards all mutations: throw UNAUTHENTICATED if !currentUser.
 Every subgraph must process.exit(1) at startup if JWT_SECRET is not set.
+
+Throwing guards (use in resolvers — throw ForbiddenError on failure):
+  requireRole(ctx, UserRole.ADMIN)
+  requirePermission(ctx, 'orders:write')
+  requireGroup(ctx, 'sales-manager')
+  requireAnyGroup(ctx, ['sales-manager', 'sales-user'])
+  requireAdmin(ctx)
+  assertOwnerOrAdmin(ctx, resourceOwnerId)
+
+For non-throwing checks (conditions, use-case logic) use @hbs/authz: hasPermission, belongsToGroup, isAdmin.
 
 ### @hbs/prisma
   import { prisma } from '@hbs/prisma';  // singleton — never instantiate PrismaClient directly
@@ -145,6 +157,113 @@ Referenced entities (stub): `type Category @key(fields: "id") { id: ID! }`
 Cross-service lookups: implement __resolveReference on stub types.
 All list queries: require pagination (limit/offset). Never return unbounded arrays.
 All mutations: dedicated Input type + dedicated Response type. Never return raw entity.
+
+---
+
+## RBAC / Authorization Model
+
+Multi-group RBAC inspirado en Odoo: usuarios pertenecen a N grupos, grupos tienen permisos, herencia transitiva entre grupos (group_implications), y record rules para filtrado row-level. Reemplaza el enum plano `UserRole`; `user_profiles.role` se mantiene solo para backward compat durante rollout.
+
+### Data model (user-service DB)
+
+| Table               | Purpose                                                         |
+|---------------------|-----------------------------------------------------------------|
+| `groups`            | Named groups; `is_system=true` protects seeds from deletion     |
+| `permissions`       | `verb:noun` codes (e.g. `orders:write`)                         |
+| `group_permissions` | M:N groups ↔ permissions                                        |
+| `group_implications`| Transitiva: group A implies group B (CTE at login)              |
+| `user_groups`       | M:N users ↔ groups (assignment)                                 |
+| `record_rules`      | Row-level filter per group + model; domain expression JSON      |
+
+6 seeded groups: `administrators`, `sales-manager`, `sales-user`, `inventory-user`, `customer-service`, `customer`. 15 permissions seeded.
+
+### JWT shape
+
+```ts
+// TokenPayload (libs/auth/src/index.ts)
+{ userId, email, role,          // legacy — kept for compat
+  groups?: string[],             // group codes the user belongs to (effective, transitive)
+  permissions: string[] }        // permission codes (effective, transitive)
+```
+
+Login resolves effective groups + permissions via recursive CTE in Postgres. Falls back to `resolvePermissions(role)` if user has no groups assigned.
+
+### Guards — when to use which
+
+**Resolvers** (throw ForbiddenError): use `@hbs/auth` guards — `requirePermission`, `requireGroup`, `requireAnyGroup`, `requireAdmin`, `assertOwnerOrAdmin`.
+
+**Use-case conditions / partial filters**: use `@hbs/authz` non-throwing helpers — `hasPermission(ctx, code)`, `belongsToGroup(ctx, code)`, `isAdmin(ctx)`.
+
+**Hybrid helpers** (local per subgraph, accept new groups OR legacy role):
+- `requireOrderManagementAccess(ctx)` — order-service
+- `requireProductManagementAccess(ctx)` — product-service
+- `requireUserManagementAccess(ctx)` — user-service
+- `requireCategoryAdmin(ctx)` — category-service
+
+Prefer these over raw `requireRole` — they stay compatible during the rollout window.
+
+### Record rules — domain expression
+
+JSON stored in `record_rules.domain_expr`. Compiled to a Prisma `where` clause by `compileDomainExpr` (Zod-validated, `@hbs/authz`).
+
+```jsonc
+// leaf comparison
+{ "op": "=", "field": "customerId", "value": { "$ctx": "userId" } }
+// composite
+{ "AND": [ { "op": "=", "field": "status", "value": "active" }, ... ] }
+// universal deny (no records)
+{ "AND": [{ "NOT": {} }] }
+```
+
+Supported ops: `=`, `!=`, `in`, `not_in`, `<`, `>`, `<=`, `>=`. `$ctx` resolves against `RecordRuleContext` (userId, groups, permissions).
+
+`RecordRuleResolver.resolve(model, ctx)` aggregates all rules for the user's groups (singleflight + fail-closed: returns universal deny on error).
+
+### Record rules — propagation
+
+```
+admin mutation → use case → IEventPublisher.publishRecordRuleUpdated()
+  → XADD stream:record-rules-updated
+    → RecordRulesEventsConsumer (each subgraph)
+      → StreamRecordRuleSource.upsert()
+        → RecordRuleResolver.refresh()
+          → next repo query picks up new where clause
+```
+
+Snapshot-on-boot: call `fetchSnapshotAndPopulate(source)` in `index.ts` → hits `GET /internal/record-rules` on user-service. Currently wired only in order-service (pilot). Other subgraphs must add it before prod.
+
+### Adding groups / permissions / rules
+
+- **Seeds** (`libs/prisma/seed.ts`): for system groups + core permissions. Idempotent `upsert`. Run via `pnpm exec prisma db seed`.
+- **Admin mutations** (`user-service` GraphQL, guarded by `requireAdministrator`): runtime CRUD for tenant-specific groups, permissions, and record rules. 16 mutations + 5 queries.
+- Cycle detection in group_implications is enforced at use-case level before insert.
+
+### Debugging
+
+```bash
+# Decode live JWT (replace <token>)
+node -e "console.log(JSON.parse(Buffer.from('<token>'.split('.')[1],'base64').toString()))"
+# Inspect stream backlog
+redis-cli XPENDING stream:record-rules-updated record-rules-group - + 20
+# Consumer logs (order-service pilot)
+pnpm run docker:up && docker logs order-service -f | grep record-rule
+```
+
+### Migration & rollout state
+
+| Phase | Description                               | Status      |
+|-------|-------------------------------------------|-------------|
+| A     | Schema + seeds + login CTE                | Done        |
+| B     | JWT carries groups+permissions; auth lib guards; order-service pilot | Done |
+| C     | All subgraphs snapshot-on-boot + BOLA fixes + DROP legacy role column | Pending |
+
+### Known backlog (pre-prod required)
+
+- **BOLA in order-service**: `getOrderById` and `updateOrderStatus` lack per-record owner check — see security backlog memory.
+- **Snapshot-on-boot**: only order-service has `fetchSnapshotAndPopulate`; product/category/media/user subgraphs need it wired in `index.ts`.
+- **Migrations**: currently using `prisma db push`; must migrate to `prisma migrate deploy` before production.
+- **Drop `user_profiles.role`**: column kept for backward compat; schedule DROP after prod backfill confirms all users have group assignments.
+- **Stream consumer lag metrics**: no dashboards/alerts for `stream:record-rules-updated` consumer lag — blind to propagation failures.
 
 ---
 
