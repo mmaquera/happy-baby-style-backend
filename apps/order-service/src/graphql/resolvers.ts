@@ -51,9 +51,9 @@ import {
 // exported helpers from this module so both paths share one definition.
 import { assertOrderManagementAccess } from '../application/use-cases/guards/orderAuthGuards';
 
+import { assertModelAccess } from '@hbs/authz';
 import { NotFoundError, ForbiddenError } from '@hbs/shared-kernel';
 import { GraphQLError } from 'graphql';
-import { requirePermission, requireRole, Permission, UserRole } from '@hbs/auth';
 
 // ── Shared error mapper ───────────────────────────────────────────────────────
 
@@ -485,7 +485,7 @@ export function createResolvers(
       },
 
       updateOrder: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
-        requirePermission(context.currentUser, Permission.UPDATE_ORDER);
+        assertModelAccess(context.currentUser, 'Order', 'write');
         try {
           const order = await updateOrderUseCase.execute(
             id,
@@ -508,7 +508,7 @@ export function createResolvers(
         { id, status }: { id: string; status: string },
         context: any,
       ) => {
-        requirePermission(context.currentUser, Permission.UPDATE_ORDER);
+        assertModelAccess(context.currentUser, 'Order', 'write');
         try {
           const order = await updateOrderUseCase.execute(
             id,
@@ -522,7 +522,7 @@ export function createResolvers(
       },
 
       deleteOrder: async (_: any, { id }: { id: string }, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'Order', 'unlink');
         try {
           return await orderRepository.delete(id, context.currentUser ?? null);
         } catch (error) {
@@ -535,7 +535,7 @@ export function createResolvers(
         { orders, status }: { orders: string[]; status: string },
         context: any,
       ) => {
-        requirePermission(context.currentUser, Permission.UPDATE_ORDER);
+        assertModelAccess(context.currentUser, 'Order', 'write');
         try {
           const updated = await Promise.all(
             orders.map((id) =>
@@ -581,7 +581,7 @@ export function createResolvers(
 
       // ── Coupons ──────────────────────────────────────────────────────────
       createCoupon: async (_: any, { input }: any, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'Coupon', 'create');
         const c = await prisma.coupon.create({
           data: {
             code: input.code,
@@ -604,7 +604,7 @@ export function createResolvers(
       },
 
       updateCoupon: async (_: any, { id, input }: any, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'Coupon', 'write');
         const updateData: any = {};
         if (input.name) updateData.name = input.name;
         if (input.description !== undefined) updateData.description = input.description;
@@ -624,14 +624,14 @@ export function createResolvers(
       },
 
       deleteCoupon: async (_: any, { id }: { id: string }, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'Coupon', 'unlink');
         await prisma.coupon.delete({ where: { id } });
         return true;
       },
 
       // ── Carriers ─────────────────────────────────────────────────────────
       createCarrier: async (_: any, { input }: any, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'Carrier', 'create');
         const c = await prisma.carrier.create({
           data: {
             name: input.name,
@@ -648,7 +648,7 @@ export function createResolvers(
         { id, name, code, trackingUrlTemplate, isActive }: any,
         context: any,
       ) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'Carrier', 'write');
         const updateData: any = {};
         if (name !== undefined) updateData.name = name;
         if (code !== undefined) updateData.code = code;
@@ -659,14 +659,14 @@ export function createResolvers(
       },
 
       deleteCarrier: async (_: any, { id }: { id: string }, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'Carrier', 'unlink');
         await prisma.carrier.delete({ where: { id } });
         return true;
       },
 
       // ── Shipping zones & rates ────────────────────────────────────────────
       createShippingZone: async (_: any, { input }: any, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'ShippingZone', 'create');
         const z = await prisma.shippingZone.create({
           data: {
             name: input.name,
@@ -681,7 +681,7 @@ export function createResolvers(
       },
 
       createShippingRate: async (_: any, { input }: any, context: any) => {
-        requireRole(context.currentUser, UserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'ShippingRate', 'create');
         const r = await prisma.shippingRate.create({
           data: {
             zoneId: input.zoneId,

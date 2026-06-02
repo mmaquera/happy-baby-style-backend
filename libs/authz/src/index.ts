@@ -7,3 +7,5 @@ export * from './empty-record-rule-source';
 export * from './stream-record-rule-source';
 export * from './record-rules-events-consumer';
 export * from './snapshot-fetcher';
+export * from './model-access-map';
+export * from './assert-model-access';

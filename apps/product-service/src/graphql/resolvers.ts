@@ -8,35 +8,9 @@ import { UpdateProductUseCase } from '../application/use-cases/UpdateProductUseC
 import { DeleteProductUseCase } from '../application/use-cases/DeleteProductUseCase';
 import { transformProduct, transformVariant } from './transformers/productTransformer';
 import { DomainError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
-import { requirePermission, Permission, UserRole, type TokenPayload } from '@hbs/auth';
+import { requirePermission, Permission } from '@hbs/auth';
+import { assertModelAccess } from '@hbs/authz';
 import { LoggerFactory } from '@hbs/logging';
-
-// ── Product management access guard ─────────────────────────────────────────
-// Accepts new-style RBAC group membership OR legacy STAFF/ADMIN role.
-const PRODUCT_MANAGEMENT_GROUPS = [
-  'administrators',
-  'sales-manager',
-  'sales-user',
-  'inventory-user',
-  'customer-service',
-] as const;
-
-function requireProductManagementAccess(currentUser: TokenPayload | null | undefined): void {
-  if (!currentUser) {
-    throw new GraphQLError('Authentication required', {
-      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
-    });
-  }
-  if (currentUser.groups?.some((g) => (PRODUCT_MANAGEMENT_GROUPS as readonly string[]).includes(g))) {
-    return;
-  }
-  if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAFF) {
-    return;
-  }
-  throw new GraphQLError('Insufficient privileges', {
-    extensions: { code: 'FORBIDDEN', http: { status: 403 } },
-  });
-}
 
 const DateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
@@ -234,7 +208,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       inventoryTransactions: async (_: any, { productId }: { productId: string }, context: any) => {
-        requireProductManagementAccess(context.currentUser);
+        assertModelAccess(context.currentUser, 'InventoryTransaction', 'read');
         const txs = await prisma.inventoryTransaction.findMany({
           where: { productId },
           orderBy: { createdAt: 'desc' },
@@ -335,7 +309,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
     Mutation: {
       createProduct: async (_: any, { input }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.CREATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'Product', 'create');
         try {
           const product = await createProductUseCase.execute({
             categoryId: input.categoryId,
@@ -366,7 +340,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       updateProduct: async (_: any, { id, input }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'Product', 'write');
         try {
           const product = await updateProductUseCase.execute({ id, ...input, currentUser: context.currentUser });
           const transformed = transformProduct(product);
@@ -391,7 +365,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       deleteProduct: async (_: any, { id }: { id: string }, context: any) => {
-        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
+        assertModelAccess(context.currentUser, 'Product', 'unlink');
         try {
           await deleteProductUseCase.execute(id, context.currentUser);
           return ResponseFactory.createSuccessResponse(
@@ -409,25 +383,25 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       createProductVariant: async (_: any, { input }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.CREATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'Product', 'create');
         const variant = await productRepository.createVariant(input, context.currentUser);
         return transformVariant(variant);
       },
 
       updateProductVariant: async (_: any, { id, input }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'Product', 'write');
         const variant = await productRepository.updateVariant(id, input, context.currentUser);
         return transformVariant(variant);
       },
 
       deleteProductVariant: async (_: any, { id }: { id: string }, context: any) => {
-        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
+        assertModelAccess(context.currentUser, 'Product', 'unlink');
         await productRepository.deleteVariant(id, context.currentUser);
         return { success: true, message: 'Product variant deleted successfully' };
       },
 
       bulkUpdateProducts: async (_: any, { ids, input }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'Product', 'write');
         const updated = await Promise.all(
           ids.map((id: string) => updateProductUseCase.execute({ id, ...input, currentUser: context.currentUser })),
         );
@@ -436,7 +410,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       // ── Inventory transactions ───────────────────────────────────────────
       createInventoryTransaction: async (_: any, { input }: any, context: any) => {
-        requireProductManagementAccess(context.currentUser);
+        assertModelAccess(context.currentUser, 'InventoryTransaction', 'create');
         const tx = await prisma.inventoryTransaction.create({
           data: {
             productId: input.productId,
@@ -451,7 +425,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       // ── Stock alerts ─────────────────────────────────────────────────────
       createStockAlert: async (_: any, { input }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.CREATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'StockAlert', 'create');
         const alert = await prisma.stockAlert.create({
           data: {
             productId: input.productId,
@@ -469,7 +443,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       updateStockAlert: async (_: any, { id, isActive }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'StockAlert', 'write');
         const alert = await prisma.stockAlert.update({
           where: { id },
           data: { isActive },
@@ -482,7 +456,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       deleteStockAlert: async (_: any, { id }: { id: string }, context: any) => {
-        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
+        assertModelAccess(context.currentUser, 'StockAlert', 'unlink');
         await prisma.stockAlert.delete({ where: { id } });
         return { success: true, message: 'Stock alert deleted successfully' };
       },
@@ -514,7 +488,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       updateProductReview: async (_: any, { id, input }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'ProductReview', 'write');
         const review = await prisma.productReview.update({
           where: { id },
           data: { rating: input.rating, title: input.title, comment: input.comment, isApproved: input.isApproved },
@@ -530,13 +504,13 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       deleteProductReview: async (_: any, { id }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
+        assertModelAccess(context.currentUser, 'ProductReview', 'unlink');
         await prisma.productReview.delete({ where: { id } });
         return { success: true, message: 'Review deleted' };
       },
 
       approveReview: async (_: any, { id }: any, context: any) => {
-        requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
+        assertModelAccess(context.currentUser, 'ProductReview', 'write');
         const review = await prisma.productReview.update({
           where: { id },
           data: { isApproved: true },
