@@ -14,6 +14,7 @@ import { CreateOrderUseCase } from '../application/use-cases/CreateOrderUseCase'
 import { GetOrdersUseCase } from '../application/use-cases/GetOrdersUseCase';
 import { GetOrderByIdUseCase } from '../application/use-cases/GetOrderByIdUseCase';
 import { UpdateOrderUseCase } from '../application/use-cases/UpdateOrderUseCase';
+import { BulkUpdateOrderStatusUseCase } from '../application/use-cases/BulkUpdateOrderStatusUseCase';
 import { GetOrderStatsUseCase } from '../application/use-cases/GetOrderStatsUseCase';
 import { CreatePaymentMethodUseCase } from '../application/use-cases/CreatePaymentMethodUseCase';
 import { UpdatePaymentMethodUseCase } from '../application/use-cases/UpdatePaymentMethodUseCase';
@@ -52,7 +53,7 @@ import {
 import { assertOrderManagementAccess } from '../application/use-cases/guards/orderAuthGuards';
 
 import { assertModelAccess } from '@hbs/authz';
-import { NotFoundError, ForbiddenError } from '@hbs/shared-kernel';
+import { NotFoundError, ForbiddenError, ValidationError } from '@hbs/shared-kernel';
 import { GraphQLError } from 'graphql';
 
 // ── Shared error mapper ───────────────────────────────────────────────────────
@@ -66,6 +67,11 @@ function mapDomainError(error: unknown): never {
   if (error instanceof ForbiddenError) {
     throw new GraphQLError(error.message, {
       extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+    });
+  }
+  if (error instanceof ValidationError) {
+    throw new GraphQLError(error.message, {
+      extensions: { code: 'BAD_USER_INPUT', http: { status: 400 } },
     });
   }
   // GraphQLError (UNAUTHENTICATED / FORBIDDEN from use-case guards) passes through as-is.
@@ -189,6 +195,7 @@ export function createResolvers(
   const getOrdersUseCase = new GetOrdersUseCase(orderRepository);
   const getOrderByIdUseCase = new GetOrderByIdUseCase(orderRepository);
   const updateOrderUseCase = new UpdateOrderUseCase(orderRepository);
+  const bulkUpdateOrderStatusUseCase = new BulkUpdateOrderStatusUseCase(updateOrderUseCase);
   const getOrderStatsUseCase = new GetOrderStatsUseCase(orderRepository);
 
   // ── PaymentMethod use cases ────────────────────────────────────────────────
@@ -537,10 +544,15 @@ export function createResolvers(
       ) => {
         assertModelAccess(context.currentUser, 'Order', 'write');
         try {
-          const updated = await Promise.all(
-            orders.map((id) =>
-              updateOrderUseCase.execute(id, { status: status as any }, context.currentUser ?? null),
-            ),
+          // Delegates to BulkUpdateOrderStatusUseCase which:
+          //   1. Validates array size <= 100 (ValidationError -> BAD_USER_INPUT)
+          //   2. Uses Promise.allSettled: a denied/missing order does NOT abort the batch
+          //   3. Returns only successfully updated orders; logs failed IDs server-side
+          //      without exposing which IDs failed (preserves ambiguity-404)
+          const updated = await bulkUpdateOrderStatusUseCase.execute(
+            orders,
+            status,
+            context.currentUser ?? null,
           );
           return updated.map(transformOrder);
         } catch (error) {
