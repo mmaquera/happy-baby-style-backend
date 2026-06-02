@@ -150,6 +150,73 @@ describe('PrismaOrderRepository — findAll with RecordRuleResolver', () => {
   });
 });
 
+describe('PrismaOrderRepository — findByStatus with RecordRuleResolver', () => {
+  it('applies AND merge when resolver returns a non-empty filter', async () => {
+    const prisma = makeMockPrisma();
+    const ruleWhere = { userId: { equals: 'u1' } };
+    const resolver = makeMockResolver(ruleWhere);
+
+    const repo = new PrismaOrderRepository(prisma, resolver);
+    const user = makeMockUser();
+
+    await repo.findByStatus('pending', user);
+
+    expect(resolver.resolveWhere).toHaveBeenCalledWith('Order', 'read', user);
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { status: 'pending' },
+            ruleWhere,
+          ],
+        },
+      }),
+    );
+  });
+
+  it('passes statusWhere directly when resolver returns {} (no restriction)', async () => {
+    const prisma = makeMockPrisma();
+    const resolver = makeMockResolver({});
+
+    const repo = new PrismaOrderRepository(prisma, resolver);
+
+    await repo.findByStatus('shipped', makeMockUser());
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: 'shipped' },
+      }),
+    );
+    // Must NOT be wrapped in AND when ruleWhere is empty
+    const callArg = prisma.order.findMany.mock.calls[0][0];
+    expect(callArg.where).not.toHaveProperty('AND');
+  });
+
+  it('wraps statusWhere in AND with DENY_WHERE when resolver returns impossible filter', async () => {
+    const prisma = makeMockPrisma();
+    const denyWhere = { AND: [{ NOT: {} }] };
+    const resolver = makeMockResolver(denyWhere);
+
+    const repo = new PrismaOrderRepository(prisma, resolver);
+
+    await repo.findByStatus('pending', null);
+
+    const callArg = prisma.order.findMany.mock.calls[0][0];
+    expect(callArg.where).toMatchObject({ AND: expect.arrayContaining([denyWhere]) });
+  });
+
+  it('works without resolver — no ruleWhere applied (backward-compat)', async () => {
+    const prisma = makeMockPrisma();
+    const repo = new PrismaOrderRepository(prisma);
+
+    await repo.findByStatus('delivered', null);
+
+    const callArg = prisma.order.findMany.mock.calls[0][0];
+    expect(callArg.where).toEqual({ status: 'delivered' });
+    expect(callArg.where).not.toHaveProperty('AND');
+  });
+});
+
 describe('PrismaOrderRepository — findById with RecordRuleResolver', () => {
   it('uses findFirst with AND[{id}, ruleWhere] when resolver returns a filter', async () => {
     const prisma = makeMockPrisma();

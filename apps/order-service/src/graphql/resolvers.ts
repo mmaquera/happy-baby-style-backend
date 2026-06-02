@@ -269,7 +269,7 @@ export function createResolvers(
 
       ordersByStatus: async (_: any, { status }: { status: string }, context: any) => {
         assertOrderManagementAccess(context.currentUser);
-        const orders = await orderRepository.findByStatus(status);
+        const orders = await orderRepository.findByStatus(status, context.currentUser ?? null);
         return orders.map(transformOrder);
       },
 

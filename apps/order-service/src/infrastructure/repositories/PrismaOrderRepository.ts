@@ -246,10 +246,21 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
-  async findByStatus(status: string): Promise<Order[]> {
+  async findByStatus(status: string, currentUser: TokenPayload | null = null): Promise<Order[]> {
     try {
+      // Apply record-level access rule filter — same AND-merge pattern as findAll.
+      const ruleWhere = this.recordRuleResolver
+        ? await this.recordRuleResolver.resolveWhere('Order', 'read', currentUser)
+        : {};
+
+      const statusWhere = { status: status as OrderStatus };
+      const where =
+        Object.keys(ruleWhere).length === 0
+          ? statusWhere
+          : { AND: [statusWhere, ruleWhere] };
+
       const orders = await this.prisma.order.findMany({
-        where: { status: status as OrderStatus },
+        where: where as any,
         include: { items: true },
         orderBy: { createdAt: 'desc' },
       });
