@@ -61,11 +61,10 @@ export class UploadSvgUseCase {
     SvgValidationService.validateSvgMagicBytes(rawBuffer, fileInfo.mimetype);
 
     SvgValidationService.validateSvgFile(file, svgContent.length);
-    SvgValidationService.validateSvgContent(svgContent);
-
-    // ITEM B — sanitization is unconditional; no env var or flag may disable it.
-    // SvgValidationService.sanitizeSvgContent uses DOMPurify (isomorphic-dompurify).
-    const processedContent = SvgValidationService.sanitizeSvgContent(svgContent);
+    // validateAndSanitize enforces the mandatory pipeline in one call:
+    // structural validation (validateSvgContent) → DOMPurify strip + canary (sanitizeSvgContent).
+    // Using the composite prevents callers from accidentally validating without sanitizing.
+    const processedContent = SvgValidationService.validateAndSanitize(svgContent);
 
     const metadata = SvgEntity.extractSvgMetadata(processedContent);
 

@@ -364,6 +364,27 @@ export class SvgValidationService {
   }
 
   /**
+   * Composite method — enforces the mandatory security pipeline in one call.
+   *
+   * Sequence (non-negotiable):
+   *   1. validateSvgContent  — structural checks on raw input (presence of <svg>,
+   *      closing tag, XML structure, size bounds). Throws on malformed input.
+   *   2. sanitizeSvgContent  — DOMPurify strip + post-sanitize canary.
+   *      Throws if DOMPurify removes everything OR if the canary fires.
+   *
+   * Callers MUST use this method instead of orchestrating the two steps individually.
+   * The separation of validateSvgContent and sanitizeSvgContent is intentional
+   * (different concerns, independently testable), but calling them in isolation is
+   * unsafe: a caller that validates without sanitizing would serve unstripped XSS.
+   *
+   * Returns the sanitized SVG string ready for storage.
+   */
+  static validateAndSanitize(svgContent: string): string {
+    this.validateSvgContent(svgContent);
+    return this.sanitizeSvgContent(svgContent);
+  }
+
+  /**
    * ITEM A — DOMPurify-based sanitizer (replaces bypasseable regex approach).
    * ITEM B — Sanitization is UNCONDITIONAL. There is no flag to disable it.
    *

@@ -260,3 +260,70 @@ describe('PrismaOrderRepository — findById with RecordRuleResolver', () => {
     );
   });
 });
+
+describe('PrismaOrderRepository — findByCustomerEmail with RecordRuleResolver', () => {
+  it('applies AND merge when resolver returns a non-empty filter', async () => {
+    const prisma = makeMockPrisma();
+    const ruleWhere = { userId: { equals: 'u1' } };
+    const resolver = makeMockResolver(ruleWhere);
+
+    const repo = new PrismaOrderRepository(prisma, resolver);
+    const user = makeMockUser();
+
+    await repo.findByCustomerEmail('a@b.com', user);
+
+    expect(resolver.resolveWhere).toHaveBeenCalledWith('Order', 'read', user);
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: [
+            { customerEmail: 'a@b.com' },
+            ruleWhere,
+          ],
+        },
+      }),
+    );
+  });
+
+  it('passes emailWhere directly when resolver returns {} (no restriction)', async () => {
+    const prisma = makeMockPrisma();
+    const resolver = makeMockResolver({});
+
+    const repo = new PrismaOrderRepository(prisma, resolver);
+
+    await repo.findByCustomerEmail('a@b.com', makeMockUser());
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { customerEmail: 'a@b.com' },
+      }),
+    );
+    // Must NOT be wrapped in AND when ruleWhere is empty
+    const callArg = prisma.order.findMany.mock.calls[0][0];
+    expect(callArg.where).not.toHaveProperty('AND');
+  });
+
+  it('wraps emailWhere in AND with DENY_WHERE when resolver returns impossible filter', async () => {
+    const prisma = makeMockPrisma();
+    const denyWhere = { AND: [{ NOT: {} }] };
+    const resolver = makeMockResolver(denyWhere);
+
+    const repo = new PrismaOrderRepository(prisma, resolver);
+
+    await repo.findByCustomerEmail('a@b.com', null);
+
+    const callArg = prisma.order.findMany.mock.calls[0][0];
+    expect(callArg.where).toMatchObject({ AND: expect.arrayContaining([denyWhere]) });
+  });
+
+  it('works without resolver — no ruleWhere applied (backward-compat)', async () => {
+    const prisma = makeMockPrisma();
+    const repo = new PrismaOrderRepository(prisma);
+
+    await repo.findByCustomerEmail('a@b.com', null);
+
+    const callArg = prisma.order.findMany.mock.calls[0][0];
+    expect(callArg.where).toEqual({ customerEmail: 'a@b.com' });
+    expect(callArg.where).not.toHaveProperty('AND');
+  });
+});

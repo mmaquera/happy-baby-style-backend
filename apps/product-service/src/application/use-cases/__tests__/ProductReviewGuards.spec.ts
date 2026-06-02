@@ -52,15 +52,19 @@ jest.mock('@hbs/auth', () => ({
   Permission: {},
 }));
 
-jest.mock('@hbs/authz', () => ({
-  assertModelAccess: jest.fn(),
-  // isAdmin is used in updateProductReview for the owner-or-admin BOLA guard.
-  isAdmin: jest.fn((user: any) => {
-    if (!user) return false;
-    if (user.role === 'admin') return true;
-    return (user.groups ?? []).includes('administrators');
+jest.mock(
+  '@hbs/authz',
+  () => ({
+    assertModelAccess: jest.fn(),
+    // isAdmin is used in updateProductReview for the owner-or-admin BOLA guard.
+    isAdmin: jest.fn((user: any) => {
+      if (!user) return false;
+      if (user.role === 'admin') return true;
+      return (user.groups ?? []).includes('administrators');
+    }),
   }),
-}));
+  { virtual: true },
+);
 
 import { GraphQLError } from 'graphql';
 import { Prisma } from '@prisma/client';
@@ -264,6 +268,43 @@ describe('Review mutation security guards', () => {
       expect(msg).not.toMatch(/constraint/i);
       expect(msg).not.toMatch(/prisma/i);
       expect(msg.toLowerCase()).toContain('product');
+    });
+
+    it('maps Prisma P2002 (unique constraint — duplicate review) to GraphQLError CONFLICT (409), message must not expose internal details', async () => {
+      const prisma = makePrismaMock();
+      // Simulate Prisma throwing P2002 when the same user tries to review the same product twice.
+      // This is triggered by @@unique([productId, userId]) on ProductReview.
+      const uniqueError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+      });
+      prisma.productReview.create.mockRejectedValue(uniqueError);
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'createProductReview');
+
+      // Must surface as CONFLICT (not INTERNAL_SERVER_ERROR) so Apollo forwards 409.
+      await expect(
+        mutation(
+          null,
+          { input: { productId: 'prod-1', rating: 4 } },
+          { currentUser: makeUser() },
+        ),
+      ).rejects.toMatchObject({
+        extensions: { code: 'CONFLICT', http: { status: 409 } },
+      });
+
+      // Message must be user-friendly — no Prisma internals, no table/column names.
+      const thrown = await mutation(
+        null,
+        { input: { productId: 'prod-1', rating: 4 } },
+        { currentUser: makeUser() },
+      ).catch((e: unknown) => e);
+      const msg = (thrown as Error).message;
+      expect(msg).not.toMatch(/unique constraint/i);
+      expect(msg).not.toMatch(/prisma/i);
+      expect(msg).not.toMatch(/product_reviews/i);
+      expect(msg.toLowerCase()).toContain('already reviewed');
     });
 
     it('re-throws unknown non-Prisma errors without swallowing', async () => {

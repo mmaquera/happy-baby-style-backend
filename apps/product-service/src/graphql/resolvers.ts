@@ -20,6 +20,7 @@ import { LoggerFactory } from '@hbs/logging';
  * status and extension code to the client — non-GraphQLError exceptions are masked as
  * "Internal server error" by Apollo Server 4 unless a formatError hook is present.
  *
+ * P2002 — unique constraint violation: the record already exists (e.g. duplicate review).
  * P2003 — foreign key constraint violation: the referenced record does not exist.
  * P2025 — record to update/delete not found.
  *
@@ -27,6 +28,16 @@ import { LoggerFactory } from '@hbs/logging';
  */
 function mapPrismaReviewError(error: unknown, context: 'review' | 'vote'): never {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2002') {
+      // Unique constraint violation: for reviews this means the user already reviewed this product.
+      const message =
+        context === 'review'
+          ? 'You have already reviewed this product'
+          : 'You have already voted on this review';
+      throw new GraphQLError(message, {
+        extensions: { code: 'CONFLICT', http: { status: 409 } },
+      });
+    }
     if (error.code === 'P2003') {
       // FK violation: productId (for review) or reviewId (for vote) does not exist.
       const label = context === 'review' ? 'Product' : 'Review';

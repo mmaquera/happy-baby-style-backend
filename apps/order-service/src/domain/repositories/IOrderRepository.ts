@@ -47,7 +47,11 @@ export interface IOrderRepository {
    * @param currentUser - null for unauthenticated callers (will be denied by any rule).
    */
   findByStatus(status: string, currentUser: TokenPayload | null): Promise<Order[]>;
-  findByCustomerEmail(email: string): Promise<Order[]>;
+  /**
+   * List orders by customer email, applying record-level access rules for currentUser.
+   * @param currentUser - null for unauthenticated callers (will be denied by any active rule).
+   */
+  findByCustomerEmail(email: string, currentUser: TokenPayload | null): Promise<Order[]>;
   /**
    * Update only the status field of an order, enforcing write-mode record rules for currentUser.
    * Throws NotFoundError (ambiguous 404) when the record does not exist OR when

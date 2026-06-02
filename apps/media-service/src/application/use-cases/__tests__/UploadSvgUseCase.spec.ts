@@ -16,8 +16,10 @@ jest.mock(
 );
 
 // SvgValidationService performs real validation — mock it out so tests focus on security logic.
-// sanitizeSvgContent is a jest.fn() that passes the content through so the
-// use case can continue without DOMPurify, but is still spy-able.
+// validateAndSanitize is the composite that must be used by UploadSvgUseCase; it passes content
+// through so the use case can continue without DOMPurify, but is still spy-able.
+// validateSvgContent and sanitizeSvgContent remain in the mock so they can be asserted on
+// when testing the composite itself (in SvgValidationService.spec.ts).
 // validateSvgMagicBytes is mocked as a no-op (ITEM C — real test in SvgValidationService.spec.ts).
 jest.mock('../../validation/SvgValidationService', () => ({
   SvgValidationService: {
@@ -25,6 +27,7 @@ jest.mock('../../validation/SvgValidationService', () => ({
     validateSvgFile: jest.fn(),
     validateSvgContent: jest.fn(),
     sanitizeSvgContent: jest.fn((c: string) => c),
+    validateAndSanitize: jest.fn((c: string) => c),
     validateSvgMagicBytes: jest.fn(),
     validateSvgDimensions: jest.fn(),
     validateViewBox: jest.fn(),
@@ -165,7 +168,7 @@ describe('UploadSvgUseCase', () => {
       expect(svgRepo.create).toHaveBeenCalledWith(expect.any(SvgEntity), null);
     });
 
-    it('sanitizes SVG content server-side unconditionally — ITEM B', async () => {
+    it('uses validateAndSanitize composite instead of separate validate+sanitize calls — ITEM B', async () => {
       const { SvgValidationService } = require('../../validation/SvgValidationService');
       const file = makeUploadFile();
 
@@ -176,8 +179,11 @@ describe('UploadSvgUseCase', () => {
         // No sanitize arg — must always sanitize regardless
       });
 
-      // sanitizeSvgContent must have been called (ITEM B: unconditional)
-      expect(SvgValidationService.sanitizeSvgContent).toHaveBeenCalled();
+      // Must call the composite (enforces sequential pipeline)
+      expect(SvgValidationService.validateAndSanitize).toHaveBeenCalled();
+      // Must NOT call them individually (would allow callers to bypass the order)
+      expect(SvgValidationService.validateSvgContent).not.toHaveBeenCalled();
+      expect(SvgValidationService.sanitizeSvgContent).not.toHaveBeenCalled();
     });
 
     it('validates SVG magic bytes (ITEM C) — validateSvgMagicBytes is called', async () => {

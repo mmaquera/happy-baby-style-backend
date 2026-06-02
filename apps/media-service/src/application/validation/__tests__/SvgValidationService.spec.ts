@@ -61,6 +61,77 @@ function svgBuffer(content: string): Buffer {
 }
 
 // ---------------------------------------------------------------------------
+// validateAndSanitize — composite method tests
+// ---------------------------------------------------------------------------
+
+describe('SvgValidationService.validateAndSanitize — composite pipeline', () => {
+  beforeEach(() => {
+    mockSanitize.mockClear();
+    mockLoggerInstance.error.mockClear();
+  });
+
+  it('returns sanitized content for a valid safe SVG', () => {
+    const safe = '<svg xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"/></svg>';
+    const result = SvgValidationService.validateAndSanitize(safe);
+
+    expect(result).toContain('<circle');
+    expect(mockSanitize).toHaveBeenCalledTimes(1);
+  });
+
+  it('strips dangerous constructs: removes <script> and returns sanitized content', () => {
+    const malicious =
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>evil()</script><circle r="5"/></svg>';
+    const result = SvgValidationService.validateAndSanitize(malicious);
+
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('evil()');
+  });
+
+  it('strips on* event handlers and returns sanitized content', () => {
+    const malicious =
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><circle r="5"/></svg>';
+    const result = SvgValidationService.validateAndSanitize(malicious);
+
+    expect(result).not.toContain('onload');
+    expect(result).not.toContain('alert(1)');
+  });
+
+  it('throws when content has no <svg> tag — structural validation fires before sanitization', () => {
+    // validateSvgContent rejects non-SVG before DOMPurify is even called
+    expect(() =>
+      SvgValidationService.validateAndSanitize('<div>not an svg</div></div>'),
+    ).toThrow();
+
+    // DOMPurify must NOT have been called — the pipeline must abort at the validate step
+    expect(mockSanitize).not.toHaveBeenCalled();
+  });
+
+  it('throws when DOMPurify strips everything (fully malicious, no geometry)', () => {
+    // validateSvgContent passes (<svg> + </svg> are present); DOMPurify returns empty
+    mockSanitize.mockReturnValueOnce('');
+
+    expect(() =>
+      SvgValidationService.validateAndSanitize('<svg></svg>'),
+    ).toThrow();
+  });
+
+  it('throws and logs error when canary fires (DOMPurify bypass simulation)', () => {
+    // validateSvgContent passes; DOMPurify "fails" to remove script (bypass)
+    mockSanitize.mockReturnValueOnce(
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>evil()</script></svg>',
+    );
+
+    expect(() =>
+      SvgValidationService.validateAndSanitize(
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>evil()</script></svg>',
+      ),
+    ).toThrow();
+
+    expect(mockLoggerInstance.error).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // ITEM A — DOMPurify sanitizer tests
 // ---------------------------------------------------------------------------
 

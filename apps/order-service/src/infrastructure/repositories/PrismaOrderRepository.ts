@@ -274,10 +274,21 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
-  async findByCustomerEmail(email: string): Promise<Order[]> {
+  async findByCustomerEmail(email: string, currentUser: TokenPayload | null = null): Promise<Order[]> {
     try {
+      // Apply record-level access rule filter — same AND-merge pattern as findAll/findByStatus.
+      const ruleWhere = this.recordRuleResolver
+        ? await this.recordRuleResolver.resolveWhere('Order', 'read', currentUser)
+        : {};
+
+      const emailWhere = { customerEmail: email };
+      const where =
+        Object.keys(ruleWhere).length === 0
+          ? emailWhere
+          : { AND: [emailWhere, ruleWhere] };
+
       const orders = await this.prisma.order.findMany({
-        where: { customerEmail: email },
+        where: where as any,
         include: { items: true },
         orderBy: { createdAt: 'desc' },
       });
