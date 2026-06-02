@@ -334,3 +334,90 @@ describe('RecordRuleResolver.resolveWhere', () => {
     expect(source.loadAllActive).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Write/create/unlink mode coverage
+// (the engine already supports all 4 modes — these verify the filter is applied)
+// ---------------------------------------------------------------------------
+
+describe('RecordRuleResolver.resolveWhere — write / create / unlink modes', () => {
+  it('returns {} for write mode when no rules exist', async () => {
+    const source = makeMockSource([]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'write', makeUser());
+
+    expect(result).toEqual({});
+  });
+
+  it('returns DENY_WHERE for write mode when group rules exist but user has no matching group', async () => {
+    const source = makeMockSource([makeRule({ mode: 'write', groupCode: 'administrators' })]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'write', makeUser({ groups: [] }));
+
+    expect(result).toEqual({ AND: [{ NOT: {} }] });
+  });
+
+  it('returns compiled where for write mode when user belongs to the rule group', async () => {
+    const user = makeUser({ groups: ['sales-manager'] });
+    const source = makeMockSource([
+      makeRule({
+        mode: 'write',
+        groupCode: 'sales-manager',
+        domainExpression: { op: 'eq', field: 'status', value: 'pending' },
+      }),
+    ]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'write', user);
+
+    expect(result).toEqual({ OR: [{ status: { equals: 'pending' } }] });
+  });
+
+  it('returns {} for create mode when no rules exist', async () => {
+    const source = makeMockSource([]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'create', makeUser());
+
+    expect(result).toEqual({});
+  });
+
+  it('returns DENY_WHERE for create mode when user is unauthenticated and rules exist', async () => {
+    const source = makeMockSource([makeRule({ mode: 'create', groupCode: null })]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'create', null);
+
+    expect(result).toEqual({ AND: [{ NOT: {} }] });
+  });
+
+  it('returns {} for unlink mode when no rules exist', async () => {
+    const source = makeMockSource([]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'unlink', makeUser());
+
+    expect(result).toEqual({});
+  });
+
+  it('returns DENY_WHERE for unlink mode when group rules exist but user has no matching group', async () => {
+    const source = makeMockSource([makeRule({ mode: 'unlink', groupCode: 'administrators' })]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'unlink', makeUser({ groups: [] }));
+
+    expect(result).toEqual({ AND: [{ NOT: {} }] });
+  });
+
+  it('write rules do NOT bleed into unlink mode (mode isolation)', async () => {
+    // A write rule must not apply when querying for unlink mode
+    const source = makeMockSource([makeRule({ mode: 'write', groupCode: null })]);
+    const resolver = new RecordRuleResolver(source);
+
+    const result = await resolver.resolveWhere('Order', 'unlink', makeUser());
+
+    expect(result).toEqual({});
+  });
+});
