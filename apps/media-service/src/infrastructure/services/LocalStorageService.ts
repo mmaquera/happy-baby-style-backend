@@ -130,8 +130,17 @@ export class LocalStorageService implements IStorageService {
 
   async deleteFile(fileUrl: string): Promise<void> {
     try {
-      const url = new URL(fileUrl);
-      const relativePath = url.pathname.substring(1);
+      // fileUrl may be either a full URL ('http://localhost:3004/uploads/...') or a relative
+      // path ('uploads/.../filename.jpg') — the latter is what LocalStorageService.uploadFile
+      // returns and what is persisted in the DB url column.
+      let relativePath: string;
+      try {
+        const url = new URL(fileUrl);
+        relativePath = url.pathname.substring(1); // strip leading '/'
+      } catch {
+        // Not a valid URL — treat as a relative path directly.
+        relativePath = fileUrl;
+      }
       const filePath = path.join(process.cwd(), relativePath);
 
       // Control 5 — bounds-check: deletion must stay inside the uploads directory

@@ -81,16 +81,31 @@ async function start() {
     res.json({ status: 'OK', service: 'Media Service', port: PORT });
   });
 
-  // Serve uploaded files statically
+  // Serve uploaded files statically.
+  // ITEM D — security headers on static file responses:
+  //   X-Content-Type-Options: nosniff   — prevents browser MIME-type sniffing.
+  //   Content-Disposition: attachment   — forces download instead of inline rendering,
+  //                                       neutralising stored XSS via SVG execution.
+  //   Cache-Control is kept permissive for images but SVGs get no-store to reduce
+  //   the window for a cached malicious payload to survive sanitizer updates.
   const uploadsPath = path.join(process.cwd(), 'uploads');
   app.use(
     '/uploads',
     express.static(uploadsPath, {
       maxAge: '1d',
       etag: true,
-      setHeaders: (res) => {
+      setHeaders: (res, filePath) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET');
+        // X-Content-Type-Options prevents MIME-sniffing on all served assets.
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        // Force download (not inline rendering) for all uploaded files.
+        // This is the primary mitigation for stored-XSS via SVG/HTML uploads.
+        res.setHeader('Content-Disposition', 'attachment');
+        // SVGs: strip from cache entirely so a sanitizer update takes effect immediately.
+        if (filePath.endsWith('.svg')) {
+          res.setHeader('Cache-Control', 'no-store, must-revalidate');
+        }
       },
     }),
   );

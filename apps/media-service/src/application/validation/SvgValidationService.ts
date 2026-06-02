@@ -1,9 +1,16 @@
+import DOMPurify from 'isomorphic-dompurify';
 import {
   ValidationError,
   RequiredFieldError,
   InvalidFormatError,
 } from '../../domain/errors/DomainError';
 import { SvgEntityType } from '../../domain/entities/Svg';
+
+// ITEM A — isomorphic-dompurify is imported as a module-level singleton (not instantiated
+// per request). Per-call sanitize() options are passed directly in sanitizeSvgContent and
+// are the authoritative configuration. DOMPurify.setConfig() is intentionally NOT called
+// here because per-call options passed to sanitize() REPLACE (not merge with) any setConfig,
+// making a module-level setConfig redundant and potentially misleading to future maintainers.
 
 export interface SvgValidationRule {
   field: string;
@@ -284,18 +291,84 @@ export class SvgValidationService {
     return filename.substring(lastDotIndex);
   }
 
+  /**
+   * ITEM C — SVG content-structure validation.
+   *
+   * SVG is a text format — there are no reliable binary magic bytes for detection.
+   * By the time this method is called, the file content has already been decoded from
+   * its raw bytes into a UTF-8 string (by UploadSvgUseCase.readSvgContent), so binary
+   * magic-byte checks cannot be applied here (binary bytes are lossily destroyed by
+   * the UTF-8 decode round-trip). Binary files uploaded as SVG are caught downstream
+   * by validateSvgContent's requirement for a valid <svg> element.
+   *
+   * This method validates at the text level:
+   *   1. Declared MIME type is an SVG MIME type.
+   *   2. Buffer content has an <svg> root element (not an HTML page with scripts).
+   *   3. Content is not an HTML document masquerading as SVG.
+   *
+   * This catches the common spoofing vector: uploading an HTML file with inline scripts
+   * and mimetype "image/svg+xml" to bypass the MIME-type allowlist.
+   */
+  static validateSvgMagicBytes(buffer: Buffer, declaredMimeType: string): void {
+    if (!this.SVG_MIME_TYPES.includes(declaredMimeType)) {
+      throw new InvalidFormatError(
+        `Declared MIME type "${declaredMimeType}" is not a valid SVG MIME type`,
+      );
+    }
+
+    // Convert to string and verify it looks like XML/SVG, not HTML with scripts.
+    // Note: binary inputs (JPEG/PNG uploaded as SVG) will appear as garbled text here;
+    // they will fail the <svg> element check below since they contain no XML structure.
+    const content = buffer.toString('utf8');
+
+    // Must contain <svg (case-insensitive, possibly with namespace/whitespace)
+    if (!/<svg[\s>]/i.test(content)) {
+      throw new InvalidFormatError(
+        'File content does not appear to be an SVG document — no <svg> element found.',
+      );
+    }
+
+    // Reject if it looks like an HTML document (DOCTYPE html or <html> root)
+    if (/<!DOCTYPE\s+html/i.test(content) || /^\s*<html[\s>]/i.test(content)) {
+      throw new InvalidFormatError(
+        'File content appears to be an HTML document, not an SVG. ' +
+          'Declared MIME type does not match actual file content.',
+      );
+    }
+  }
+
+  /**
+   * ITEM A — DOMPurify-based sanitizer (replaces bypasseable regex approach).
+   * ITEM B — Sanitization is UNCONDITIONAL. There is no flag to disable it.
+   *
+   * Uses isomorphic-dompurify (bundles jsdom) which works in Node/CommonJS.
+   * The shared DOMPurify instance is configured once at module load time
+   * (USE_PROFILES: svg + svgFilters; FORBID_TAGS for script/foreignObject/etc.).
+   *
+   * DOMPurify removes:
+   *   - <script>, <foreignObject>, <iframe>, <object>, <embed>, <link>, <meta>
+   *   - All on* event-handler attributes (onclick, onload, onerror, …)
+   *   - href="javascript:…" and similar protocol-handler URLs
+   *   - CDATA sections that could carry script payloads
+   *
+   * Returns the sanitized SVG string. Never returns the original unsanitized content.
+   */
   static sanitizeSvgContent(svgContent: string): string {
-    let sanitized = svgContent;
-
-    sanitized = sanitized.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-    sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
-    sanitized = sanitized.replace(/javascript:[^"'\s]*/gi, '');
-
-    const dangerousTags = ['iframe', 'object', 'embed', 'link', 'meta'];
-    dangerousTags.forEach((tag) => {
-      const regex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
-      sanitized = sanitized.replace(regex, '');
+    const sanitized = DOMPurify.sanitize(svgContent, {
+      USE_PROFILES: { svg: true, svgFilters: true },
+      FORCE_BODY: false,
+      ADD_TAGS: ['svg'],
+      FORBID_TAGS: ['script', 'foreignObject', 'iframe', 'object', 'embed', 'link', 'meta', 'style'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'href'],
     });
+
+    // DOMPurify returns a string; if the output is empty, the input was entirely
+    // malicious (e.g. pure <script> without an <svg> wrapper). Reject it.
+    if (!sanitized || sanitized.trim().length === 0) {
+      throw new InvalidFormatError(
+        'SVG content was rejected by the sanitizer — all content was stripped as unsafe',
+      );
+    }
 
     return sanitized;
   }

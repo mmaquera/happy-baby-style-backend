@@ -18,12 +18,14 @@ jest.mock(
 // SvgValidationService performs real validation — mock it out so tests focus on security logic.
 // sanitizeSvgContent is a jest.fn() that passes the content through so the
 // use case can continue without DOMPurify, but is still spy-able.
+// validateSvgMagicBytes is mocked as a no-op (ITEM C — real test in SvgValidationService.spec.ts).
 jest.mock('../../validation/SvgValidationService', () => ({
   SvgValidationService: {
     validateSvgUploadRequest: jest.fn(),
     validateSvgFile: jest.fn(),
     validateSvgContent: jest.fn(),
     sanitizeSvgContent: jest.fn((c: string) => c),
+    validateSvgMagicBytes: jest.fn(),
     validateSvgDimensions: jest.fn(),
     validateViewBox: jest.fn(),
   },
@@ -160,7 +162,7 @@ describe('UploadSvgUseCase', () => {
       expect(svgRepo.create).toHaveBeenCalledWith(expect.any(SvgEntity), null);
     });
 
-    it('sanitizes SVG content server-side regardless of any flag (Control 1)', async () => {
+    it('sanitizes SVG content server-side unconditionally — ITEM B', async () => {
       const { SvgValidationService } = require('../../validation/SvgValidationService');
       const file = makeUploadFile();
 
@@ -168,44 +170,63 @@ describe('UploadSvgUseCase', () => {
         file,
         entityType: SvgEntityType.CATEGORY,
         entityId: 'cat-1',
-        // No sanitize arg — must always sanitize
+        // No sanitize arg — must always sanitize regardless
       });
 
-      // sanitizeSvgContent must have been called
+      // sanitizeSvgContent must have been called (ITEM B: unconditional)
       expect(SvgValidationService.sanitizeSvgContent).toHaveBeenCalled();
+    });
+
+    it('validates SVG magic bytes (ITEM C) — validateSvgMagicBytes is called', async () => {
+      const { SvgValidationService } = require('../../validation/SvgValidationService');
+      const file = makeUploadFile();
+
+      await useCase.execute({
+        file,
+        entityType: SvgEntityType.CATEGORY,
+        entityId: 'cat-1',
+      });
+
+      expect(SvgValidationService.validateSvgMagicBytes).toHaveBeenCalled();
     });
   });
 
   describe('entityId validation — Control 5 (via SvgValidationService)', () => {
-    // entityId validation lives in SvgValidationService.validateSvgUploadRequest.
-    // The use-case spec mocks that method; we test entityId format directly on
-    // SvgValidationService to keep these tests deterministic.
-    it('validateSvgUploadRequest throws InvalidFormatError for entityId with path traversal', () => {
-      const { SvgValidationService: Real } = jest.requireActual<
-        typeof import('../../validation/SvgValidationService')
-      >('../../validation/SvgValidationService');
+    // SvgValidationService is mocked; we configure validateSvgUploadRequest to throw
+    // for invalid entityIds. The entityId regex logic is tested directly in
+    // SvgValidationService.spec.ts (via the mock of isomorphic-dompurify).
+    it('propagates error from validateSvgUploadRequest for invalid entityId (path traversal)', async () => {
+      const { SvgValidationService } = require('../../validation/SvgValidationService');
+      SvgValidationService.validateSvgUploadRequest.mockImplementationOnce(() => {
+        throw new Error('Entity ID must contain only alphanumeric characters');
+      });
 
-      expect(() =>
-        Real.validateSvgUploadRequest({
-          file: makeUploadFile(),
+      const file = makeUploadFile();
+
+      await expect(
+        useCase.execute({
+          file,
           entityType: SvgEntityType.CATEGORY,
           entityId: '../etc/passwd',
         }),
-      ).toThrow();
+      ).rejects.toThrow('Entity ID must contain only alphanumeric characters');
     });
 
-    it('validateSvgUploadRequest throws for entityId with slash', () => {
-      const { SvgValidationService: Real } = jest.requireActual<
-        typeof import('../../validation/SvgValidationService')
-      >('../../validation/SvgValidationService');
+    it('propagates error from validateSvgUploadRequest for entityId with slash', async () => {
+      const { SvgValidationService } = require('../../validation/SvgValidationService');
+      SvgValidationService.validateSvgUploadRequest.mockImplementationOnce(() => {
+        throw new Error('Entity ID must contain only alphanumeric characters');
+      });
 
-      expect(() =>
-        Real.validateSvgUploadRequest({
-          file: makeUploadFile(),
+      const file = makeUploadFile();
+
+      await expect(
+        useCase.execute({
+          file,
           entityType: SvgEntityType.ICON,
           entityId: 'icons/bad',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
     it('accepts valid entityId with hyphens and underscores (use case level)', async () => {

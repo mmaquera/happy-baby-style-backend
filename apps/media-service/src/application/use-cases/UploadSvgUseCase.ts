@@ -13,12 +13,13 @@ const SVG_MIME_TO_EXT: Record<string, string> = {
 };
 
 // Inlined from @config/storage
+// NOTE: enableSanitization is intentionally removed — SVG sanitization is unconditional
+// (ITEM B). No env var or runtime flag may bypass DOMPurify. See SvgValidationService.
 const svgConfig = {
   maxFileSize: parseInt(process.env.SVG_MAX_FILE_SIZE || '2097152'),
   allowedMimeTypes: ['image/svg+xml', 'application/svg+xml'] as string[],
   allowedExtensions: ['.svg'],
   maxContentSize: parseInt(process.env.SVG_MAX_CONTENT_SIZE || '1048576'),
-  enableSanitization: process.env.SVG_ENABLE_SANITIZATION !== 'false',
   enableOptimization: process.env.SVG_ENABLE_OPTIMIZATION !== 'false',
 };
 
@@ -50,22 +51,26 @@ export class UploadSvgUseCase {
     SvgValidationService.validateSvgUploadRequest({ file, entityType, entityId });
 
     const svgContent = await this.readSvgContent(file);
+    // Extract file info once and reuse throughout — avoids redundant traversal of
+    // the nested file object shape (fixing extractFileInfo being called twice).
+    const fileInfo = this.extractFileInfo(file);
+
+    // ITEM C — magic-byte validation: reject binary files spoofing as SVG,
+    // and reject HTML pages masquerading as SVG documents.
+    const rawBuffer = Buffer.from(svgContent, 'utf8');
+    SvgValidationService.validateSvgMagicBytes(rawBuffer, fileInfo.mimetype);
 
     SvgValidationService.validateSvgFile(file, svgContent.length);
     SvgValidationService.validateSvgContent(svgContent);
 
-    // Control 1 — sanitization is always server-side; never caller-configurable
-    let processedContent = svgContent;
-    if (svgConfig.enableSanitization) {
-      processedContent = SvgValidationService.sanitizeSvgContent(svgContent);
-    }
+    // ITEM B — sanitization is unconditional; no env var or flag may disable it.
+    // SvgValidationService.sanitizeSvgContent uses DOMPurify (isomorphic-dompurify).
+    const processedContent = SvgValidationService.sanitizeSvgContent(svgContent);
 
     const metadata = SvgEntity.extractSvgMetadata(processedContent);
 
     SvgValidationService.validateSvgDimensions(metadata.dimensions);
     SvgValidationService.validateViewBox(metadata.viewBox);
-
-    const fileInfo = this.extractFileInfo(file);
     const timestamp = Date.now();
     // Control 7 — extension derived from validated MIME type, not client filename
     const extension = SVG_MIME_TO_EXT[fileInfo.mimetype] ?? 'svg';

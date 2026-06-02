@@ -3,6 +3,8 @@ import { ISvgRepository } from '../domain/repositories/ISvgRepository';
 import { IStorageService } from '../domain/interfaces/IStorageService';
 import { UploadImageUseCase } from '../application/use-cases/UploadImageUseCase';
 import { UploadSvgUseCase } from '../application/use-cases/UploadSvgUseCase';
+import { DeleteImageUseCase } from '../application/use-cases/DeleteImageUseCase';
+import { DeleteSvgUseCase } from '../application/use-cases/DeleteSvgUseCase';
 import { ResponseFactory, RESPONSE_CODES, DomainError } from '@hbs/shared-kernel';
 import { ImageEntityType } from '../domain/entities/Image';
 import { SvgEntityType } from '../domain/entities/Svg';
@@ -82,6 +84,9 @@ export function createResolvers(
 ) {
   const uploadImageUseCase = new UploadImageUseCase(imageRepository, storageService);
   const uploadSvgUseCase = new UploadSvgUseCase(svgRepository, storageService);
+  // ITEM E — delete use cases coordinate storage + DB deletion (Clean Architecture).
+  const deleteImageUseCase = new DeleteImageUseCase(imageRepository, storageService);
+  const deleteSvgUseCase = new DeleteSvgUseCase(svgRepository, storageService);
 
   return {
     Query: {
@@ -295,26 +300,32 @@ export function createResolvers(
         }
       },
 
+      // ITEM E — delegates to DeleteImageUseCase which coordinates storage + DB deletion.
       deleteImage: async (_: any, { id }: { id: string }, context: any) => {
         requireMediaManagementAccess(context?.currentUser);
         try {
-          await imageRepository.delete(id, context?.currentUser ?? null);
+          await deleteImageUseCase.execute({ id, currentUser: context?.currentUser ?? null });
           return true;
         } catch (error) {
           // DomainError (including NotFoundError from record-rule denial) must propagate.
           if (error instanceof DomainError) throw error;
-          return false;
+          // Re-throw all other errors (including storage failures after successful DB delete)
+          // so the client receives a proper error response rather than a silent false.
+          throw error;
         }
       },
 
+      // ITEM E — delegates to DeleteSvgUseCase which coordinates storage + DB deletion.
       deleteSvg: async (_: any, { id }: { id: string }, context: any) => {
         requireMediaManagementAccess(context?.currentUser);
         try {
-          return await svgRepository.delete(id, context?.currentUser ?? null);
+          return await deleteSvgUseCase.execute({ id, currentUser: context?.currentUser ?? null });
         } catch (error) {
           // DomainError (including NotFoundError from record-rule denial) must propagate.
           if (error instanceof DomainError) throw error;
-          return false;
+          // Re-throw all other errors (including storage failures after successful DB delete)
+          // so the client receives a proper error response rather than a silent false.
+          throw error;
         }
       },
     },
