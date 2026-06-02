@@ -661,6 +661,16 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       userSessionAnalytics: async (_: any, { userId }: { userId: string }, context: any) => {
+        // NF-4: owner can access their own analytics; management roles (administrators,
+        // customer-service) can access any user's analytics. Anonymous → UNAUTHENTICATED.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        if (context.currentUser.userId !== userId) {
+          requireUserManagementAccess(context.currentUser);
+        }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `session-analytics-${Date.now()}`;
         try {
@@ -1555,8 +1565,14 @@ export function createResolvers(deps: UserServiceDeps) {
 
       deleteUserAddress: async (_: any, { id }: any, context: any) => {
         const existing = await prisma.userAddress.findUnique({ where: { id } });
-        if (!existing) return ResponseFactory.createErrorResponse('Address not found', RESPONSE_CODES.RESOURCE_NOT_FOUND, {});
-        assertOwnerOrAdmin(context.currentUser, existing.userId);
+        // CWE-203: return an identical "not found" whether the address is absent OR
+        // owned by another user, so a non-owner cannot enumerate valid ids.
+        const ownsAddress =
+          !!existing &&
+          (isAdmin(context.currentUser) || context.currentUser?.userId === existing.userId);
+        if (!ownsAddress) {
+          return ResponseFactory.createErrorResponse('Address not found', RESPONSE_CODES.RESOURCE_NOT_FOUND, {});
+        }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `delete-address-${Date.now()}`;
         try {
@@ -1699,6 +1715,15 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       createUserSessionAnalytics: async (_: any, { input }: any, context: any) => {
+        // NF-4: owner may create analytics for their own userId; management can create for any.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        if (context.currentUser.userId !== input.userId) {
+          requireUserManagementAccess(context.currentUser);
+        }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `create-session-analytics-${Date.now()}`;
         try {
@@ -1724,6 +1749,23 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       updateUserSessionAnalytics: async (_: any, { id, input }: any, context: any) => {
+        // NF-4: load the record first so we can derive the owner, then enforce owner-or-management.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        const existingForUpdate = await authRepository.findSessionAnalyticsById(id);
+        if (!existingForUpdate) {
+          return ResponseFactory.createErrorResponse(
+            'Session analytics not found',
+            RESPONSE_CODES.RESOURCE_NOT_FOUND,
+            {},
+          );
+        }
+        if (context.currentUser.userId !== existingForUpdate.userId) {
+          requireUserManagementAccess(context.currentUser);
+        }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `update-session-analytics-${Date.now()}`;
         try {
@@ -1750,6 +1792,23 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       deleteUserSessionAnalytics: async (_: any, { id }: any, context: any) => {
+        // NF-4: owner may delete their own analytics; management can delete any.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        const existingForDelete = await authRepository.findSessionAnalyticsById(id);
+        if (!existingForDelete) {
+          return ResponseFactory.createErrorResponse(
+            'Session analytics not found',
+            RESPONSE_CODES.RESOURCE_NOT_FOUND,
+            {},
+          );
+        }
+        if (context.currentUser.userId !== existingForDelete.userId) {
+          requireUserManagementAccess(context.currentUser);
+        }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `delete-session-analytics-${Date.now()}`;
         try {
@@ -1840,8 +1899,13 @@ export function createResolvers(deps: UserServiceDeps) {
 
       deleteSavedPaymentMethod: async (_: any, { id }: any, context: any) => {
         const existing = await prisma.savedPaymentMethod.findUnique({ where: { id } });
-        if (!existing) return { success: false, message: 'Payment method not found' };
-        assertOwnerOrAdmin(context.currentUser, existing.userId);
+        // CWE-203: identical "not found" for absent or non-owned records (anti-enumeration).
+        const ownsPaymentMethod =
+          !!existing &&
+          (isAdmin(context.currentUser) || context.currentUser?.userId === existing.userId);
+        if (!ownsPaymentMethod) {
+          return { success: false, message: 'Payment method not found' };
+        }
         try {
           await prisma.savedPaymentMethod.update({ where: { id }, data: { isActive: false } });
           return { success: true, message: 'Payment method deleted' };
