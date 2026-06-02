@@ -40,6 +40,7 @@ model Order {
   transactions   Transaction[]
   couponUsage    CouponUsage[]
 
+  @@index([userId])
   @@map("orders")
 }
 
@@ -54,6 +55,8 @@ model OrderItem {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([orderId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -73,6 +76,8 @@ model OrderTracking {
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   carrier Carrier? @relation(fields: [carrierId], references: [id])
 
+  @@index([orderId])
+  @@index([carrierId])
   @@map("order_tracking")
 }
 
@@ -89,6 +94,7 @@ model PaymentMethod {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([orderId])
   @@map("payment_methods")
 }
 
@@ -108,6 +114,8 @@ model Transaction {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([orderId])
+  @@index([userId])
   @@map("transactions")
 }
 
@@ -154,6 +162,7 @@ model ShippingRate {
 
   zone ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
 
+  @@index([zoneId])
   @@map("shipping_rates")
 }
 
@@ -206,6 +215,9 @@ model CouponUsage {
   coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
   order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([couponId])
+  @@index([userId])
+  @@index([orderId])
   @@map("coupon_usage")
 }
 
@@ -257,6 +269,7 @@ model ShoppingCart {
 
   items ShoppingCartItem[]
 
+  @@index([userId])
   @@map("shopping_carts")
 }
 
@@ -271,6 +284,8 @@ model ShoppingCartItem {
 
   cart ShoppingCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
 
+  @@index([cartId])
+  @@index([productId])
   @@map("shopping_cart_items")
 }
 

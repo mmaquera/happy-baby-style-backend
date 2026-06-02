@@ -31,6 +31,7 @@ model Product {
   stockAlerts           StockAlert[]
   reviews               ProductReview[]
 
+  @@index([categoryId])
   @@map("products")
 }
 
@@ -48,6 +49,7 @@ model ProductVariant {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  @@index([productId])
   @@map("product_variants")
 }
 
@@ -62,6 +64,7 @@ model InventoryTransaction {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  @@index([productId])
   @@map("inventory_transactions")
 }
 
@@ -77,6 +80,7 @@ model StockAlert {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  @@index([productId])
   @@map("stock_alerts")
 }
 
@@ -121,6 +125,7 @@ model ProductReview {
   votes   ReviewVote[]
 
   @@unique([productId, userId], map: "product_reviews_product_id_user_id_key")
+  @@index([userId])
   @@map("product_reviews")
 }
 
@@ -134,6 +139,7 @@ model ReviewPhoto {
 
   review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
+  @@index([reviewId])
   @@map("review_photos")
 }
 
@@ -147,5 +153,6 @@ model ReviewVote {
   review ProductReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@unique([reviewId, userId])
+  @@index([userId])
   @@map("review_votes")
 }
