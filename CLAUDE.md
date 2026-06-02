@@ -108,7 +108,6 @@ Auth plugin in every subgraph guards all mutations: throw UNAUTHENTICATED if !cu
 Every subgraph must process.exit(1) at startup if JWT_SECRET is not set.
 
 Throwing guards (use in resolvers — throw ForbiddenError on failure):
-  requireRole(ctx, UserRole.ADMIN)
   requirePermission(ctx, 'orders:write')
   requireGroup(ctx, 'sales-manager')
   requireAnyGroup(ctx, ['sales-manager', 'sales-user'])
@@ -162,7 +161,7 @@ All mutations: dedicated Input type + dedicated Response type. Never return raw 
 
 ## RBAC / Authorization Model
 
-Multi-group RBAC inspirado en Odoo: usuarios pertenecen a N grupos, grupos tienen permisos, herencia transitiva entre grupos (group_implications), y record rules para filtrado row-level. Reemplaza el enum plano `UserRole`; `user_profiles.role` se mantiene solo para backward compat durante rollout.
+Multi-group RBAC inspirado en Odoo: usuarios pertenecen a N grupos, grupos tienen permisos, herencia transitiva entre grupos (group_implications), y record rules para filtrado row-level. Reemplazó el enum plano `UserRole`, eliminado junto con la columna `user_profiles.role` y el fallback de login en A2 (2026-06-02). Authz 100% por grupos/permisos.
 
 ### Data model (user-service DB)
 
@@ -181,12 +180,12 @@ Multi-group RBAC inspirado en Odoo: usuarios pertenecen a N grupos, grupos tiene
 
 ```ts
 // TokenPayload (libs/auth/src/index.ts)
-{ userId, email, role,          // legacy — kept for compat
-  groups?: string[],             // group codes the user belongs to (effective, transitive)
+{ userId, email,
+  groups: string[],              // group codes (effective, transitive) — required
   permissions: string[] }        // permission codes (effective, transitive)
 ```
 
-Login resolves effective groups + permissions via recursive CTE in Postgres. Falls back to `resolvePermissions(role)` if user has no groups assigned.
+Login resolves effective groups + permissions via recursive CTE in Postgres. Every user is assigned the `customer` group on creation; the legacy `resolvePermissions(role)` fallback was removed in A2.
 
 ### Guards — when to use which
 
@@ -194,13 +193,13 @@ Login resolves effective groups + permissions via recursive CTE in Postgres. Fal
 
 **Use-case conditions / partial filters**: use `@hbs/authz` non-throwing helpers — `hasPermission(ctx, code)`, `belongsToGroup(ctx, code)`, `isAdmin(ctx)`.
 
-**Hybrid helpers** (local per subgraph, accept new groups OR legacy role):
+**Hybrid helpers** (local per subgraph, group/permission based):
 - `requireOrderManagementAccess(ctx)` — order-service
 - `requireProductManagementAccess(ctx)` — product-service
 - `requireUserManagementAccess(ctx)` — user-service
 - `requireCategoryAdmin(ctx)` — category-service
 
-Prefer these over raw `requireRole` — they stay compatible during the rollout window.
+Prefer these for management-access checks; they encapsulate the group/permission logic.
 
 ### Record rules — domain expression
 
@@ -255,7 +254,7 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 |-------|-------------------------------------------|-------------|
 | A     | Schema + seeds + login CTE                | Done        |
 | B     | JWT carries groups+permissions; auth lib guards; order-service pilot | Done |
-| C     | All subgraphs snapshot-on-boot + BOLA fixes + DROP legacy role column | In progress — BOLA ✅ closed+verified; snapshot 4/5 (user-service open); DROP `role` pending (cheap now, no prod) |
+| C     | All subgraphs snapshot-on-boot + BOLA fixes + DROP legacy role column | Mostly done — BOLA ✅; DROP `role` ✅ (A2, 2026-06-02; group-only authz verified end-to-end); only user-service snapshot-on-boot decision remains |
 
 ### Known backlog
 
@@ -267,7 +266,7 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 
 **Activo / próximos (orden recomendado):**
 - **A1 — Migrations**: `prisma db push` → `prisma migrate deploy` con baseline limpio. Los 5 servicios hacen `db push` en el CMD del Dockerfile. *En planificación (microservices-architect).*
-- **A2 — Drop `user_profiles.role`**: columna legacy aún presente (user-service + schema canónico); sin prod, primera migración "real" tras el baseline de A1.
+- ~~**A2 — Drop `user_profiles.role`**~~ ✅ **DONE** (2026-06-02): columna + enum `UserRole` eliminados; `TokenPayload`/login/guards sin `role`; usuarios reciben grupo `customer` por defecto; verificado end-to-end (JWT sin `role`, login OK).
 - **user-service snapshot-on-boot**: confirmar si es gap o by-design antes de cerrar Phase C.
 
 **Pre-prod (urgencia baja sin prod):** stream consumer lag metrics (`record-rules-updated` + `order-events`); outbox transaccional (`XADD` post-commit puede perder eventos); CI `ci.yml` (6.1); secrets + MinIO bucket privado/presigned.
