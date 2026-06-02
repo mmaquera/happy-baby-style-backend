@@ -43,6 +43,24 @@
         "command": "jest --config apps/category-service/jest.config.js"
       }
     },
-    "lint": {}
+    "lint": {},
+    "migrate-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate dev --schema apps/category-service/prisma/schema.prisma"
+      }
+    },
+    "migrate-deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate deploy --schema apps/category-service/prisma/schema.prisma"
+      }
+    },
+    "migrate-status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate status --schema apps/category-service/prisma/schema.prisma"
+      }
+    }
   }
 }

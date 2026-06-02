@@ -47,6 +47,10 @@ RUN ln -sf /app/node_modules/.pnpm/zod@4.4.3/node_modules/zod /app/node_modules/
 COPY --from=builder /app/apps/media-service/node_modules ./apps/media-service/node_modules
 COPY --from=builder /app/apps/media-service/dist ./apps/media-service/dist
 COPY --from=builder /app/apps/media-service/prisma/schema.prisma ./apps/media-service/prisma/schema.prisma
+COPY --from=builder /app/apps/media-service/prisma/migrations ./apps/media-service/prisma/migrations
+
+COPY apps/media-service/docker-entrypoint.sh ./apps/media-service/docker-entrypoint.sh
+RUN chmod +x apps/media-service/docker-entrypoint.sh
 
 RUN mkdir -p uploads
 
@@ -55,4 +59,4 @@ EXPOSE 3004
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:3004/health || exit 1
 
-CMD ["sh", "-c", "node_modules/.bin/prisma db push --schema apps/media-service/prisma/schema.prisma --skip-generate && node apps/media-service/dist/src/index.js"]
+ENTRYPOINT ["apps/media-service/docker-entrypoint.sh"]

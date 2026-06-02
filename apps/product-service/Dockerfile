@@ -47,10 +47,14 @@ RUN ln -sf /app/node_modules/.pnpm/zod@4.4.3/node_modules/zod /app/node_modules/
 COPY --from=builder /app/apps/product-service/node_modules ./apps/product-service/node_modules
 COPY --from=builder /app/apps/product-service/dist ./apps/product-service/dist
 COPY --from=builder /app/apps/product-service/prisma/schema.prisma ./apps/product-service/prisma/schema.prisma
+COPY --from=builder /app/apps/product-service/prisma/migrations ./apps/product-service/prisma/migrations
+
+COPY apps/product-service/docker-entrypoint.sh ./apps/product-service/docker-entrypoint.sh
+RUN chmod +x apps/product-service/docker-entrypoint.sh
 
 EXPOSE 3003
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:3003/health || exit 1
 
-CMD ["sh", "-c", "node_modules/.bin/prisma db push --schema apps/product-service/prisma/schema.prisma --skip-generate && node apps/product-service/dist/src/index.js"]
+ENTRYPOINT ["apps/product-service/docker-entrypoint.sh"]

@@ -28,6 +28,11 @@
     "prisma-migrate-status": {
       "executor": "nx:run-commands",
       "options": {
+        // NOTE (tracking item 7.13): This target runs against libs/prisma/schema.prisma,
+        // which is the canonical shared schema used by the @hbs/prisma singleton client.
+        // It does NOT reflect the per-service migration histories under
+        // apps/<service>/prisma/migrations/. Use `nx run <service>:migrate-status`
+        // to inspect the migration state of a specific service database.
         "command": "prisma migrate status --schema=libs/prisma/schema.prisma"
       }
     },

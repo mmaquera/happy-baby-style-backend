@@ -49,6 +49,10 @@ COPY --from=builder /app/apps/user-service/node_modules ./apps/user-service/node
 COPY --from=builder /app/apps/user-service/dist ./apps/user-service/dist
 COPY apps/user-service/tsconfig.production.json apps/user-service/tsconfig.production.json
 COPY --from=builder /app/apps/user-service/prisma/schema.prisma ./apps/user-service/prisma/schema.prisma
+COPY --from=builder /app/apps/user-service/prisma/migrations ./apps/user-service/prisma/migrations
+
+COPY apps/user-service/docker-entrypoint.sh ./apps/user-service/docker-entrypoint.sh
+RUN chmod +x apps/user-service/docker-entrypoint.sh
 
 EXPOSE 3006
 
@@ -57,4 +61,4 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
 
 ENV TS_NODE_PROJECT=apps/user-service/tsconfig.production.json
 
-CMD ["sh", "-c", "node_modules/.bin/prisma db push --schema apps/user-service/prisma/schema.prisma --skip-generate && node -r tsconfig-paths/register apps/user-service/dist/src/index.js"]
+ENTRYPOINT ["apps/user-service/docker-entrypoint.sh"]

@@ -66,3 +66,74 @@ jobs:
 
       - name: Test (affected)
         run: pnpm exec nx affected --target=test --base=$NX_BASE --head=$NX_HEAD
+
+  migrate-check:
+    name: Migrate check (all services)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11'
+
+      - name: Get pnpm store path
+        id: pnpm-cache
+        run: echo "dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create per-service databases
+        run: |
+          for svc in category product order user media; do
+            PGPASSWORD=ci_password psql -h localhost -U ci_user -d postgres \
+              -c "CREATE DATABASE happy_baby_${svc};"
+          done
+
+      - name: Run prisma migrate deploy + status (per service)
+        run: |
+          set -e
+          declare -A SERVICES=(
+            [category-service]="happy_baby_category"
+            [product-service]="happy_baby_product"
+            [order-service]="happy_baby_order"
+            [user-service]="happy_baby_user"
+            [media-service]="happy_baby_media"
+          )
+          for svc in "${!SERVICES[@]}"; do
+            db="${SERVICES[$svc]}"
+            export DATABASE_URL="postgresql://ci_user:ci_password@localhost:5432/${db}"
+            echo "--- [${svc}] migrate deploy ---"
+            pnpm exec prisma migrate deploy --schema "apps/${svc}/prisma/schema.prisma"
+            echo "--- [${svc}] migrate status ---"
+            pnpm exec prisma migrate status --schema "apps/${svc}/prisma/schema.prisma"
+          done

@@ -306,6 +306,10 @@ services:
       # Account lockout configuration (Workstream 1c)
       MAX_LOGIN_ATTEMPTS:        ${MAX_LOGIN_ATTEMPTS:-5}
       LOCKOUT_DURATION:          ${LOCKOUT_DURATION:-900}
+      # RBAC seed is a manual cut-over step (NOT run on container boot).
+      # After pnpm run docker:reset, seed ONCE from the host:
+      #   DATABASE_URL=postgresql://${DOCKER_DB_USER:-postgres}:<DOCKER_DB_PASSWORD>@localhost:${DOCKER_DB_PORT:-5432}/happy_baby_user \
+      #     pnpm exec prisma db seed
       # MFA encryption key — SECRET, never commit a real value.
       # AES-256-GCM key (32 bytes base64-encoded). Use secret manager in production.
       # Generate: openssl rand -base64 32

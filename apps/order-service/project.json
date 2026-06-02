@@ -42,6 +42,24 @@
         "command": "jest --config apps/order-service/jest.config.js"
       }
     },
-    "lint": {}
+    "lint": {},
+    "migrate-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate dev --schema apps/order-service/prisma/schema.prisma"
+      }
+    },
+    "migrate-deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate deploy --schema apps/order-service/prisma/schema.prisma"
+      }
+    },
+    "migrate-status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prisma migrate status --schema apps/order-service/prisma/schema.prisma"
+      }
+    }
   }
 }

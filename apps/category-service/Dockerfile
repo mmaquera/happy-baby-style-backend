@@ -49,10 +49,14 @@ COPY --from=builder /app/apps/category-service/node_modules ./apps/category-serv
 COPY --from=builder /app/apps/category-service/dist ./apps/category-service/dist
 COPY --from=builder /app/apps/category-service/tsconfig.production.json ./apps/category-service/tsconfig.production.json
 COPY --from=builder /app/apps/category-service/prisma/schema.prisma ./apps/category-service/prisma/schema.prisma
+COPY --from=builder /app/apps/category-service/prisma/migrations ./apps/category-service/prisma/migrations
+
+COPY apps/category-service/docker-entrypoint.sh ./apps/category-service/docker-entrypoint.sh
+RUN chmod +x apps/category-service/docker-entrypoint.sh
 
 EXPOSE 3002
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:3002/health || exit 1
 
-CMD ["sh", "-c", "node_modules/.bin/prisma db push --schema apps/category-service/prisma/schema.prisma --skip-generate && node apps/category-service/dist/src/index.js"]
+ENTRYPOINT ["apps/category-service/docker-entrypoint.sh"]
