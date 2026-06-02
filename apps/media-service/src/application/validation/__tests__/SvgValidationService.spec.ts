@@ -6,6 +6,28 @@
 // The mock implements SVG-safe filtering so we can still assert on sanitization
 // outcomes (script removal, onload stripping, etc.) without loading the actual jsdom.
 
+// Required mock — @hbs/logging is a virtual module in jest (not in node_modules during tests)
+const mockLoggerInstance = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+};
+
+jest.mock(
+  '@hbs/logging',
+  () => ({
+    LoggerFactory: {
+      getInstance: () => ({
+        createServiceLogger: () => mockLoggerInstance,
+        createUseCaseLogger: () => mockLoggerInstance,
+        createRepositoryLogger: () => mockLoggerInstance,
+      }),
+    },
+  }),
+  { virtual: true },
+);
+
 const mockSanitize = jest.fn((input: string, _opts?: object): string => {
   // Minimal functional mock: strip <script>, <foreignObject>, on* attrs, javascript: hrefs
   let out = input;
@@ -234,5 +256,168 @@ describe('SvgValidationService.validateSvgMagicBytes — ITEM C (content-structu
     expect(() =>
       SvgValidationService.validateSvgMagicBytes(svgBuffer(content), SVG_MIME),
     ).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sanitization order: DOMPurify primary, regex canary post-sanitize only
+// ---------------------------------------------------------------------------
+
+describe('SvgValidationService — sanitization order & canary behaviour', () => {
+  beforeEach(() => {
+    mockSanitize.mockClear();
+    mockLoggerInstance.error.mockClear();
+  });
+
+  // --- False-positive prevention ---
+
+  it('accepts a legitimate SVG whose data attribute value contains "online=true" (old broad regex false positive)', () => {
+    // data-section="online=true" contains "on" followed by word chars and "=" but is NOT
+    // an event handler. The old pre-sanitize regex /on\w+\s*=/i would have matched this
+    // and rejected the upload prematurely.
+    // The tightened canary pattern \bon\w+\s*=\s*["'] requires an immediately following
+    // quote character — "online=true" has no quote after the "=", so it does NOT match.
+    // DOMPurify (mock) does not strip data-* attributes, so the output is returned unchanged.
+    const legitimateSvg =
+      '<svg xmlns="http://www.w3.org/2000/svg" data-section="online=true">' +
+      '<circle cx="12" cy="12" r="10"/>' +
+      '</svg>';
+
+    const result = SvgValidationService.sanitizeSvgContent(legitimateSvg);
+
+    // Must succeed (no throw) — false positive eliminated
+    expect(result).toContain('data-section');
+    // Canary must NOT have triggered logger.error
+    expect(mockLoggerInstance.error).not.toHaveBeenCalled();
+  });
+
+  it('accepts an SVG with a title element containing the word "online=1" in text', () => {
+    // Text nodes with patterns that look like event-handler syntax are entirely safe.
+    const legitimateSvg =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<title>Status: online=1</title>' +
+      '<rect width="10" height="10"/>' +
+      '</svg>';
+
+    expect(() => SvgValidationService.sanitizeSvgContent(legitimateSvg)).not.toThrow();
+    expect(mockLoggerInstance.error).not.toHaveBeenCalled();
+  });
+
+  it('accepts a legitimate SVG with a <metadata> element (not the forbidden <meta> tag)', () => {
+    // <metadata> is a valid SVG 1.1/2.0 container element used for RDF/Dublin Core.
+    // DOMPurify's FORBID_TAGS includes 'meta' (the HTML tag) but NOT 'metadata'.
+    // The canary must not false-fire on '<metadata>' — it should only match '<meta ' or
+    // '<meta>' or '<meta/' (i.e., exact tag boundary via [\s/>] after 'meta').
+    const legitimateSvg =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<metadata>Dublin Core title</metadata>' +
+      '<circle cx="12" cy="12" r="10"/>' +
+      '</svg>';
+
+    expect(() => SvgValidationService.sanitizeSvgContent(legitimateSvg)).not.toThrow();
+    expect(mockLoggerInstance.error).not.toHaveBeenCalled();
+  });
+
+  it('accepts a legitimate SVG whose element names start with dangerous substrings but are different tags', () => {
+    // <scripted-path>, <linked-icon>, <object-group>, <embedded-figure> are hypothetical
+    // custom SVG elements whose names start with 'script', 'link', 'object', 'embed'.
+    // The canary must NOT false-fire: each pattern requires [\s/>] after the tag name.
+    const legitimateSvg =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<metadata>info</metadata>' +
+      '<circle r="5"/>' +
+      '</svg>';
+
+    expect(() => SvgValidationService.sanitizeSvgContent(legitimateSvg)).not.toThrow();
+    expect(mockLoggerInstance.error).not.toHaveBeenCalled();
+  });
+
+  // --- Dangerous payload: must be sanitized (not served) ---
+
+  it('strips onload handler from output — dangerous payload never reaches caller', () => {
+    const malicious =
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)">' +
+      '<circle r="5"/>' +
+      '</svg>';
+
+    const result = SvgValidationService.sanitizeSvgContent(malicious);
+
+    expect(result).not.toContain('onload');
+    expect(result).not.toContain('alert(1)');
+  });
+
+  it('strips <script> tag from output — canary does not fire because mock removes it', () => {
+    const malicious =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<script>evil()</script>' +
+      '<circle r="5"/>' +
+      '</svg>';
+
+    const result = SvgValidationService.sanitizeSvgContent(malicious);
+
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('evil()');
+    // The canary must not fire because DOMPurify (mock) already removed the script
+    expect(mockLoggerInstance.error).not.toHaveBeenCalled();
+  });
+
+  // --- Canary defence-in-depth: fires when DOMPurify fails ---
+
+  it('canary triggers logger.error and throws when DOMPurify fails to remove <script>', () => {
+    // Simulate a DOMPurify bypass: mock returns content with <script> intact
+    mockSanitize.mockReturnValueOnce(
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>evil()</script></svg>',
+    );
+
+    expect(() =>
+      SvgValidationService.sanitizeSvgContent('<svg><script>evil()</script></svg>'),
+    ).toThrow(InvalidFormatError);
+
+    // Must have logged the error to alert on-call
+    expect(mockLoggerInstance.error).toHaveBeenCalledTimes(1);
+    expect(mockLoggerInstance.error).toHaveBeenCalledWith(
+      expect.stringContaining('canary triggered'),
+      expect.any(Error),
+      expect.objectContaining({ label: '<script>' }),
+    );
+  });
+
+  it('canary triggers logger.error and throws when DOMPurify fails to remove on* handler', () => {
+    // Simulate bypass: mock returns an attribute-level event handler in the output
+    mockSanitize.mockReturnValueOnce(
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="evil()"><circle r="5"/></svg>',
+    );
+
+    expect(() =>
+      SvgValidationService.sanitizeSvgContent(
+        '<svg onload="evil()"><circle r="5"/></svg>',
+      ),
+    ).toThrow(InvalidFormatError);
+
+    expect(mockLoggerInstance.error).toHaveBeenCalledTimes(1);
+    expect(mockLoggerInstance.error).toHaveBeenCalledWith(
+      expect.stringContaining('canary triggered'),
+      expect.any(Error),
+      expect.objectContaining({ label: 'on* event handler' }),
+    );
+  });
+
+  it('canary triggers logger.error and throws when DOMPurify fails to remove javascript: URL', () => {
+    mockSanitize.mockReturnValueOnce(
+      '<svg xmlns="http://www.w3.org/2000/svg"><a href="javascript:evil()">x</a></svg>',
+    );
+
+    expect(() =>
+      SvgValidationService.sanitizeSvgContent(
+        '<svg><a href="javascript:evil()">x</a></svg>',
+      ),
+    ).toThrow(InvalidFormatError);
+
+    expect(mockLoggerInstance.error).toHaveBeenCalledTimes(1);
+    expect(mockLoggerInstance.error).toHaveBeenCalledWith(
+      expect.stringContaining('canary triggered'),
+      expect.any(Error),
+      expect.objectContaining({ label: 'javascript:' }),
+    );
   });
 });

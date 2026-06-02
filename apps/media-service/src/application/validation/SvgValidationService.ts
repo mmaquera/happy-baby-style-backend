@@ -1,16 +1,45 @@
 import DOMPurify from 'isomorphic-dompurify';
 import {
-  ValidationError,
   RequiredFieldError,
   InvalidFormatError,
 } from '../../domain/errors/DomainError';
 import { SvgEntityType } from '../../domain/entities/Svg';
+import { LoggerFactory, ILogger } from '@hbs/logging';
 
 // ITEM A — isomorphic-dompurify is imported as a module-level singleton (not instantiated
 // per request). Per-call sanitize() options are passed directly in sanitizeSvgContent and
 // are the authoritative configuration. DOMPurify.setConfig() is intentionally NOT called
 // here because per-call options passed to sanitize() REPLACE (not merge with) any setConfig,
 // making a module-level setConfig redundant and potentially misleading to future maintainers.
+
+// Post-sanitize canary patterns — checked ONLY on DOMPurify's output as defence-in-depth.
+// If DOMPurify works correctly these should never match. Matching means DOMPurify failed
+// to remove a known dangerous construct and the upload must be rejected (+ logger.error).
+//
+// Design constraints for each pattern:
+//
+// 1. Tag patterns use [\s\/>] after the tag name to avoid matching valid SVG elements
+//    whose name merely STARTS WITH the dangerous name:
+//      <scripted-path>, <object-group>, <embedded-icon>, <linked-icon>, <metadata>
+//    would all false-fire if we used /<script/i, /<object/i, etc. (substring match).
+//    Adding [\s\/>] requires the tag name to end (whitespace, self-close, or close).
+//
+// 2. The on* pattern is scoped to attribute syntax: \bon\w+\s*=\s*["']
+//    This avoids false positives from text content or data attribute values
+//    (e.g., data-section="online=true", <title>status: online=1</title>).
+//    A real event-handler attribute always has the form: onXxx="..." or onXxx='...'
+//    isomorphic-dompurify uses jsdom for DOM serialization, which ALWAYS quotes
+//    attribute values, so a bypass in DOMPurify output would still use quoted syntax.
+const POST_SANITIZE_CANARY_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /<script[\s/>]/i,          label: '<script>' },
+  { pattern: /javascript:/i,            label: 'javascript:' },
+  { pattern: /\bon\w+\s*=\s*["']/i,    label: 'on* event handler' },
+  { pattern: /<iframe[\s/>]/i,          label: '<iframe>' },
+  { pattern: /<object[\s/>]/i,          label: '<object>' },
+  { pattern: /<embed[\s/>]/i,           label: '<embed>' },
+  { pattern: /<link[\s/>]/i,            label: '<link>' },
+  { pattern: /<meta[\s/>]/i,            label: '<meta>' },
+];
 
 export interface SvgValidationRule {
   field: string;
@@ -19,6 +48,16 @@ export interface SvgValidationRule {
 }
 
 export class SvgValidationService {
+  // Lazy static logger — avoids circular-init issues when the module is loaded early.
+  private static _logger: ILogger | undefined;
+  private static get logger(): ILogger {
+    if (!SvgValidationService._logger) {
+      SvgValidationService._logger =
+        LoggerFactory.getInstance().createServiceLogger('SvgValidationService');
+    }
+    return SvgValidationService._logger;
+  }
+
   private static readonly SVG_MIME_TYPES = ['image/svg+xml', 'application/svg+xml'];
 
   private static readonly MAX_SVG_SIZE = 2 * 1024 * 1024; // 2MB
@@ -153,43 +192,30 @@ export class SvgValidationService {
       throw new InvalidFormatError('SVG content must contain closing </svg> tag');
     }
 
-    this.validateSvgSecurity(svgContent);
+    // Security checks are intentionally NOT run here on raw content to avoid false positives
+    // on legitimate SVGs (e.g. attribute values that match /on\w+\s*=/i without being handlers).
+    // DOMPurify is the primary sanitizer (called by sanitizeSvgContent after this method).
+    // The post-sanitize canary in sanitizeSvgContent acts as defence-in-depth on the output.
     this.validateSvgStructure(svgContent);
   }
 
-  private static validateSvgSecurity(svgContent: string): void {
-    const securityChecks = [
-      {
-        pattern: /<script/i,
-        message: 'SVG content cannot contain <script> tags for security reasons',
-      },
-      {
-        pattern: /javascript:/i,
-        message: 'SVG content cannot contain javascript: URLs for security reasons',
-      },
-      {
-        pattern: /on\w+\s*=/i,
-        message: 'SVG content cannot contain event handlers (on*) for security reasons',
-      },
-      {
-        pattern: /<iframe/i,
-        message: 'SVG content cannot contain <iframe> tags for security reasons',
-      },
-      {
-        pattern: /<object/i,
-        message: 'SVG content cannot contain <object> tags for security reasons',
-      },
-      {
-        pattern: /<embed/i,
-        message: 'SVG content cannot contain <embed> tags for security reasons',
-      },
-      { pattern: /<link/i, message: 'SVG content cannot contain <link> tags for security reasons' },
-      { pattern: /<meta/i, message: 'SVG content cannot contain <meta> tags for security reasons' },
-    ];
-
-    for (const check of securityChecks) {
-      if (check.pattern.test(svgContent)) {
-        throw new InvalidFormatError(check.message);
+  /**
+   * Post-sanitize canary — called on DOMPurify's OUTPUT only.
+   * Should never throw in normal operation. If it does, DOMPurify failed to strip a known
+   * dangerous construct, which is a library bug or bypass. We log at error level to alert
+   * on-call before rejecting the upload.
+   */
+  private static runPostSanitizeCanary(sanitizedContent: string): void {
+    for (const { pattern, label } of POST_SANITIZE_CANARY_PATTERNS) {
+      if (pattern.test(sanitizedContent)) {
+        SvgValidationService.logger.error(
+          'Post-sanitize canary triggered — DOMPurify failed to remove dangerous construct',
+          new Error(`Canary: ${label} still present after DOMPurify sanitization`),
+          { label },
+        );
+        throw new InvalidFormatError(
+          `SVG content was rejected: dangerous construct "${label}" survived sanitization`,
+        );
       }
     }
   }
@@ -369,6 +395,11 @@ export class SvgValidationService {
         'SVG content was rejected by the sanitizer — all content was stripped as unsafe',
       );
     }
+
+    // Defence-in-depth: verify DOMPurify actually removed all dangerous constructs.
+    // This is a canary — should never fire. If it does, it means DOMPurify has a bug
+    // or bypass and we must not serve the output.
+    this.runPostSanitizeCanary(sanitized);
 
     return sanitized;
   }
