@@ -10,7 +10,12 @@ import dotenv from 'dotenv';
 import { prisma } from '@hbs/prisma';
 import { buildAuthContext } from '@hbs/auth';
 import { LoggerFactory, RequestLogger } from '@hbs/logging';
-import { EmptyRecordRuleSource, RecordRuleResolver, RecordRulesEventsConsumer } from '@hbs/authz';
+import {
+  StreamRecordRuleSource,
+  RecordRuleResolver,
+  RecordRulesEventsConsumer,
+  fetchSnapshotAndPopulate,
+} from '@hbs/authz';
 import { PrismaCategoryRepository } from './infrastructure/repositories/PrismaCategoryRepository';
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
@@ -38,7 +43,44 @@ const HOSTNAME = process.env.HOSTNAME ?? `category-service-${process.pid}`;
 async function start() {
   const serviceLogger = LoggerFactory.getInstance().createServiceLogger('category-service');
 
-  const categoryRepository = new PrismaCategoryRepository(prisma);
+  // Redis client — required for RBAC cache invalidation.
+  const redisClient = new Redis(REDIS_URL);
+  redisClient.on('error', (err) =>
+    serviceLogger.error('Redis client error', err as Error, { service: 'category-service' }),
+  );
+
+  // RBAC: StreamRecordRuleSource is the in-memory store hydrated by Redis Stream events.
+  // Option D boot snapshot: fetch all active rules from user-service before starting
+  // the consumer so rules created while this service was offline are not missed.
+  const recordRuleSource = new StreamRecordRuleSource();
+  const recordRuleResolver = new RecordRuleResolver(recordRuleSource);
+
+  const userServiceInternalUrl = process.env.USER_SERVICE_INTERNAL_URL;
+  if (userServiceInternalUrl) {
+    await fetchSnapshotAndPopulate(recordRuleSource, serviceLogger, {
+      userServiceUrl: userServiceInternalUrl,
+    });
+  } else {
+    serviceLogger.warn(
+      'USER_SERVICE_INTERNAL_URL not set — skipping RBAC snapshot fetch. Cache will fill from stream events only.',
+      { service: 'category-service' },
+    );
+  }
+
+  const rbacConsumer = new RecordRulesEventsConsumer(
+    redisClient,
+    recordRuleResolver,
+    serviceLogger,
+    {
+      streamName: RBAC_STREAM_NAME,
+      consumerGroup: 'category-service-rbac-cg',
+      consumerName: HOSTNAME,
+    },
+    recordRuleSource, // pass streamSource so consumer applies payloads to the local cache
+  );
+  await rbacConsumer.start();
+
+  const categoryRepository = new PrismaCategoryRepository(prisma, recordRuleResolver);
   const resolvers = createResolvers(categoryRepository);
 
   const schema = buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]);
@@ -65,26 +107,21 @@ async function start() {
   });
   await server.start();
 
-  // Redis client — required for RBAC cache invalidation (Fase 5.7.2).
-  const redisClient = new Redis(REDIS_URL);
-  redisClient.on('error', (err) =>
-    serviceLogger.error('Redis client error', err as Error, { service: 'category-service' }),
-  );
-
-  // RBAC cache invalidation consumer.
-  // TODO Fase 5.10: replace EmptyRecordRuleSource with a hydrated source that
-  // fetches rules from user-service on boot and re-fetches on invalidation events.
-  const recordRuleSource = new EmptyRecordRuleSource();
-  const recordRuleResolver = new RecordRuleResolver(recordRuleSource);
-  const rbacConsumer = new RecordRulesEventsConsumer(redisClient, recordRuleResolver, serviceLogger, {
-    streamName: RBAC_STREAM_NAME,
-    consumerGroup: 'category-service-rbac-cg',
-    consumerName: HOSTNAME,
-  });
-  await rbacConsumer.start();
-
   const app = express();
   const requestLogger = new RequestLogger();
+
+  // Trust proxy: controls how req.ip is derived behind a reverse proxy/load balancer.
+  // 'loopback' (default) trusts only 127.0.0.1 / ::1; set TRUST_PROXY=1 when behind
+  // a single nginx/ALB hop in production. Never set to true — allows IP spoofing.
+  const rawTrustProxy = process.env.TRUST_PROXY;
+  const trustProxy: string | number | boolean = !rawTrustProxy
+    ? 'loopback'
+    : rawTrustProxy === 'false'
+      ? false
+      : rawTrustProxy === 'true'
+        ? 'loopback' // coerce unsafe 'true' to safe default in subgraphs
+        : (isNaN(parseInt(rawTrustProxy, 10)) ? rawTrustProxy : parseInt(rawTrustProxy, 10));
+  app.set('trust proxy', trustProxy);
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(

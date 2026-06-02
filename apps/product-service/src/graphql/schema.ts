@@ -355,7 +355,8 @@ export const typeDefs = gql`
 
   input CreateProductReviewInput {
     productId: ID!
-    userId: ID!
+    # userId is intentionally omitted — the author is always taken from the JWT (context.currentUser).
+    # Accepting userId from the client would allow identity spoofing (BOLA).
     rating: Int!
     title: String
     comment: String
@@ -370,7 +371,7 @@ export const typeDefs = gql`
 
   input CreateReviewVoteInput {
     reviewId: ID!
-    userId: ID!
+    # userId is intentionally omitted — the voter is always taken from the JWT (context.currentUser).
     isHelpful: Boolean!
   }
 
@@ -422,6 +423,7 @@ export const typeDefs = gql`
     deleteProductReview(id: ID!): SuccessResponse!
     approveReview(id: ID!): ProductReview!
     createReviewVote(input: CreateReviewVoteInput!): ReviewVote!
-    deleteReviewVote(reviewId: ID!, userId: ID!): SuccessResponse!
+    # userId is not accepted as an argument — ownership is derived from the JWT.
+    deleteReviewVote(reviewId: ID!): SuccessResponse!
   }
 `;

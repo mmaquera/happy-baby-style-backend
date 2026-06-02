@@ -464,20 +464,28 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       // ── Review mutations ─────────────────────────────────────────────────
 
       createProductReview: async (_: any, { input }: any, context: any) => {
-        // Any authenticated user may create a review; unauthenticated requests are rejected.
+        // Second-level auth guard: authPlugin in index.ts blocks unauthenticated mutations at the
+        // Apollo layer, but we enforce here as defence-in-depth and for explicit error semantics.
         if (!context.currentUser) {
           throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
         }
+        // SECURITY FIX (BOLA): author is ALWAYS the authenticated user from the JWT.
+        // We never accept userId from the client input — that would allow identity spoofing.
+        // TODO (structural refactor — requires index.ts): extract into CreateProductReviewUseCase
+        // that receives currentUser and productId, enforcing domain rules (duplicate review guard,
+        // verified purchase check) in the application layer. Blocked by index.ts wiring constraint.
+        const authorId = context.currentUser.userId;
         const review = await prisma.productReview.create({
           data: {
             productId: input.productId,
-            userId: input.userId,
+            userId: authorId,
             rating: input.rating,
             title: input.title,
             comment: input.comment,
           },
           include: { photos: true, votes: true },
         });
+        logger.info('createProductReview', { reviewId: review.id, productId: review.productId, authorId });
         return {
           ...review,
           product: { __typename: 'Product', id: review.productId },
@@ -525,12 +533,22 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         };
       },
 
-      createReviewVote: async (_: any, { input }: any) => {
+      createReviewVote: async (_: any, { input }: any, context: any) => {
+        // Second-level auth guard: authPlugin in index.ts blocks unauthenticated mutations at the
+        // Apollo layer, but we enforce here as defence-in-depth and for explicit error semantics.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
+        }
+        // SECURITY FIX (BOLA): voter is ALWAYS the authenticated user from the JWT.
+        // We never accept userId from the client — that would allow vote stuffing or spoofed votes.
+        // TODO (structural refactor — requires index.ts): extract into CreateReviewVoteUseCase.
+        const voterId = context.currentUser.userId;
         const vote = await prisma.reviewVote.upsert({
-          where: { reviewId_userId: { reviewId: input.reviewId, userId: input.userId } },
-          create: { reviewId: input.reviewId, userId: input.userId, isHelpful: input.isHelpful },
+          where: { reviewId_userId: { reviewId: input.reviewId, userId: voterId } },
+          create: { reviewId: input.reviewId, userId: voterId, isHelpful: input.isHelpful },
           update: { isHelpful: input.isHelpful },
         });
+        logger.info('createReviewVote', { voteId: vote.id, reviewId: vote.reviewId, voterId });
         return {
           ...vote,
           review: { __typename: 'ProductReview', id: vote.reviewId },
@@ -538,13 +556,40 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         };
       },
 
-      deleteReviewVote: async (_: any, { reviewId, userId }: any) => {
-        try {
-          await prisma.reviewVote.delete({ where: { reviewId_userId: { reviewId, userId } } });
-          return { success: true, message: 'Vote deleted' };
-        } catch (e: any) {
-          return { success: false, message: e.message };
+      deleteReviewVote: async (_: any, { reviewId }: any, context: any) => {
+        // Second-level auth guard: authPlugin in index.ts blocks unauthenticated mutations at the
+        // Apollo layer, but we enforce here as defence-in-depth and for explicit error semantics.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
         }
+        // SECURITY FIX (BOLA/ownership): only the vote owner or an admin may delete a vote.
+        // We derive the caller's userId from the JWT — never from the client input.
+        // Anti-enumeration: return NotFound (ambiguous 404) if the vote does not belong to the
+        // caller. An attacker cannot distinguish "vote does not exist" from "you don't own it".
+        // TODO (structural refactor — requires index.ts): extract into DeleteReviewVoteUseCase.
+        const callerId = context.currentUser.userId;
+        const isAdmin = (context.currentUser.groups ?? []).includes('administrators') ||
+          context.currentUser.role === 'admin';
+
+        const existingVote = await prisma.reviewVote.findUnique({
+          where: { reviewId_userId: { reviewId, userId: callerId } },
+        });
+
+        if (!existingVote) {
+          if (isAdmin) {
+            // Admin: attempt deletion by reviewId + callerId not found means we need to look
+            // broadly. For now, if admin provides only reviewId and no vote exists for their own
+            // userId, we still return not-found (admin deletion by arbitrary userId requires a
+            // separate admin-scoped mutation — scope creep avoided here).
+            logger.info('deleteReviewVote: admin found no vote for their own userId', { reviewId, callerId });
+          }
+          // Anti-enumeration: always NotFound — never "you don't own this"
+          throw new GraphQLError('Vote not found', { extensions: { code: 'NOT_FOUND', http: { status: 404 } } });
+        }
+
+        await prisma.reviewVote.delete({ where: { reviewId_userId: { reviewId, userId: callerId } } });
+        logger.info('deleteReviewVote', { reviewId, callerId });
+        return { success: true, message: 'Vote deleted' };
       },
     },
   };
