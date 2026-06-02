@@ -230,7 +230,7 @@ admin mutation → use case → IEventPublisher.publishRecordRuleUpdated()
           → next repo query picks up new where clause
 ```
 
-Snapshot-on-boot: call `fetchSnapshotAndPopulate(source)` in `index.ts` → hits `GET /internal/record-rules` on user-service. Currently wired only in order-service (pilot). Other subgraphs must add it before prod.
+Snapshot-on-boot: call `fetchSnapshotAndPopulate(source)` in `index.ts` → hits `GET /internal/record-rules` on user-service. Wired in 4/5 subgraphs (order, product, category, media). **user-service is the only one without it** — confirm whether by design (it's the *producer* of record rules; its PII reads are guarded by owner-or-management groups, not record rules) or a gap, before closing Phase C.
 
 ### Adding groups / permissions / rules
 
@@ -255,15 +255,24 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 |-------|-------------------------------------------|-------------|
 | A     | Schema + seeds + login CTE                | Done        |
 | B     | JWT carries groups+permissions; auth lib guards; order-service pilot | Done |
-| C     | All subgraphs snapshot-on-boot + BOLA fixes + DROP legacy role column | Pending |
+| C     | All subgraphs snapshot-on-boot + BOLA fixes + DROP legacy role column | In progress — BOLA ✅ closed+verified; snapshot 4/5 (user-service open); DROP `role` pending (cheap now, no prod) |
 
-### Known backlog (pre-prod required)
+### Known backlog
 
-- **BOLA in order-service**: `getOrderById` and `updateOrderStatus` lack per-record owner check — see security backlog memory.
-- **Snapshot-on-boot**: only order-service has `fetchSnapshotAndPopulate`; product/category/media/user subgraphs need it wired in `index.ts`.
-- **Migrations**: currently using `prisma db push`; must migrate to `prisma migrate deploy` before production.
-- **Drop `user_profiles.role`**: column kept for backward compat; schedule DROP after prod backfill confirms all users have group assignments.
-- **Stream consumer lag metrics**: no dashboards/alerts for `stream:record-rules-updated` consumer lag — blind to propagation failures.
+> Reconciliado 2026-06-02 — **nada en producción aún**, así que varios ítems "pre-prod" son ahora la ventana barata para resolverlos. Detalle de hallazgos cerrados en la *security backlog memory*.
+
+**Ya cerrado (el doc estaba desfasado):**
+- ~~BOLA en order-service~~ — **cerrado y verificado**: write-path + read-side financiero/PII vía `assertWriteAccess` / `assertOwnerOrOrderManagement` (commits c637c26, f53410f, 6328377).
+- ~~Snapshot-on-boot solo en order-service~~ — ahora **4/5** (order, product, category, media).
+
+**Activo / próximos (orden recomendado):**
+- **A1 — Migrations**: `prisma db push` → `prisma migrate deploy` con baseline limpio. Los 5 servicios hacen `db push` en el CMD del Dockerfile. *En planificación (microservices-architect).*
+- **A2 — Drop `user_profiles.role`**: columna legacy aún presente (user-service + schema canónico); sin prod, primera migración "real" tras el baseline de A1.
+- **user-service snapshot-on-boot**: confirmar si es gap o by-design antes de cerrar Phase C.
+
+**Pre-prod (urgencia baja sin prod):** stream consumer lag metrics (`record-rules-updated` + `order-events`); outbox transaccional (`XADD` post-commit puede perder eventos); CI `ci.yml` (6.1); secrets + MinIO bucket privado/presigned.
+
+**Higiene / QA (no bloquea):** `console.error`→`ILogger` en `PrismaAuthRepository`; limpiar log engañoso `snapshot-fetcher.ts:74`; items 7.12/7.13/7.14; Bruno backfill (~110 ops + canarios de caso-negativo).
 
 ---
 
