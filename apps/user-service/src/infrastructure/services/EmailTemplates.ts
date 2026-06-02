@@ -385,6 +385,134 @@ export class EmailTemplates {
   }
 
   /**
+   * Plantilla para verificacion de email
+   * @param userName - Nombre del usuario
+   * @param verifyUrl - URL completa de verificacion
+   */
+  static getEmailVerificationTemplate(userName: string, verifyUrl: string): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Verificar tu Email - Happy Baby Style</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+          }
+          .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 10px;
+          }
+          .title {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 20px;
+          }
+          .content {
+            margin-bottom: 30px;
+          }
+          .button {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 20px 0;
+          }
+          .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #856404;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            font-size: 14px;
+            color: #6c757d;
+            text-align: center;
+          }
+          .security-note {
+            background-color: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">Happy Baby Style</div>
+            <h1 class="title">Verifica tu Direccion de Email</h1>
+          </div>
+
+          <div class="content">
+            <p>Hola <strong>${userName}</strong>,</p>
+
+            <p>Gracias por registrarte en Happy Baby Style. Para completar tu registro, necesitamos verificar tu direccion de email.</p>
+
+            <p>Haz clic en el siguiente boton para verificar tu email:</p>
+
+            <div style="text-align: center;">
+              <a href="${verifyUrl}" class="button">
+                Verificar mi Email
+              </a>
+            </div>
+
+            <div class="warning">
+              <strong>Importante:</strong> Este enlace expirara en 24 horas por seguridad.
+            </div>
+
+            <div class="security-note">
+              <strong>Informacion de Seguridad:</strong><br>
+              - Si no creaste una cuenta en Happy Baby Style, puedes ignorar este email de forma segura<br>
+              - Nunca compartas este enlace con otras personas
+            </div>
+
+            <p>Si tienes problemas con el boton, copia y pega este enlace en tu navegador:</p>
+            <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+              ${verifyUrl}
+            </p>
+          </div>
+
+          <div class="footer">
+            <p><strong>Happy Baby Style</strong> - Ropa y accesorios para bebes</p>
+            <p>Este es un email automatico, por favor no respondas a este mensaje.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
    * Genera el texto plano de un email HTML
    * @param htmlContent - Contenido HTML
    */

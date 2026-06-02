@@ -1,0 +1,38 @@
+meta {
+  name: Enable MFA
+  type: graphql
+  seq: 10
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation EnableMFA {
+    enableMFA {
+      success
+      code
+      message
+      data {
+        otpauthUrl
+        qrDataUrl
+        secret
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {}
+}
+
+docs {
+  Initiates TOTP MFA setup for the authenticated user; returns the otpauth URI, QR code data URL, and raw secret. Scan the QR in an authenticator app, then confirm with verifyMFASetup. Schema: apps/user-service/src/graphql/schema.ts:Mutation.enableMFA
+}

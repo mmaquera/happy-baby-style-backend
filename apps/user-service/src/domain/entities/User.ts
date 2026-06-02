@@ -39,6 +39,9 @@ export interface User {
   role: UserRole;
   isActive: boolean;
   emailVerified: boolean;
+  // Account lockout fields (populated by Fase 2 schema migration)
+  failedLoginAttempts?: number;
+  lockedUntil?: Date | null;
   profile?: UserProfile;
   addresses?: UserAddress[];
   createdAt: Date;

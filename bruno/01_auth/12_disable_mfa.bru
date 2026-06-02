@@ -1,0 +1,34 @@
+meta {
+  name: Disable MFA
+  type: graphql
+  seq: 12
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DisableMFA($password: String!) {
+    disableMFA(password: $password) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "password": "Admin123!"
+  }
+}
+
+docs {
+  Disables TOTP MFA for the authenticated user after re-confirming their password. Schema: apps/user-service/src/graphql/schema.ts:Mutation.disableMFA
+}

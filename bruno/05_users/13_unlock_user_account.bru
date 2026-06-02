@@ -1,0 +1,39 @@
+meta {
+  name: Unlock User Account
+  type: graphql
+  seq: 13
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UnlockUserAccount($userId: ID!) {
+    unlockUserAccount(userId: $userId) {
+      success
+      code
+      message
+      data {
+        userId
+        unlockedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Admin operation: clears the lockout state for a user whose account was locked after too many failed login attempts. Requires user management access. Schema: apps/user-service/src/graphql/schema.ts:Mutation.unlockUserAccount
+}

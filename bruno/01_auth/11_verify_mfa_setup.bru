@@ -1,0 +1,39 @@
+meta {
+  name: Verify MFA Setup
+  type: graphql
+  seq: 11
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation VerifyMFASetup($code: String!) {
+    verifyMFASetup(code: $code) {
+      success
+      code
+      message
+      data {
+        mfaEnabled
+        backupCodes
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "code": "123456"
+  }
+}
+
+docs {
+  Confirms MFA enrollment by validating the first TOTP code from the authenticator app. Returns single-use backup codes — store them securely. Schema: apps/user-service/src/graphql/schema.ts:Mutation.verifyMFASetup
+}

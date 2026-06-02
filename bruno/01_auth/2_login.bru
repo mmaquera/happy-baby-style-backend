@@ -19,6 +19,8 @@ body:graphql {
       data {
         accessToken
         refreshToken
+        mfaRequired
+        mfaChallengeToken
         user {
           id
           email
@@ -38,9 +40,14 @@ body:graphql:vars {
 
 script:post-response {
   const data = res.body?.data?.loginUser?.data;
-  if (res.status === 200 && data?.accessToken) {
-    bru.setEnvVar("ACCESS_TOKEN", data.accessToken);
-    bru.setEnvVar("REFRESH_TOKEN", data.refreshToken);
-    bru.setEnvVar("USER_ID", data.user.id);
+  if (res.status === 200 && data) {
+    if (data.accessToken) {
+      bru.setEnvVar("ACCESS_TOKEN", data.accessToken);
+      bru.setEnvVar("REFRESH_TOKEN", data.refreshToken);
+      bru.setEnvVar("USER_ID", data.user.id);
+    }
+    if (data.mfaRequired && data.mfaChallengeToken) {
+      bru.setEnvVar("MFA_CHALLENGE_TOKEN", data.mfaChallengeToken);
+    }
   }
 }

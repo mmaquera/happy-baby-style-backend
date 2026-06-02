@@ -23,6 +23,14 @@ import { GetUserSessionAnalyticsUseCase } from '@application/use-cases/user/GetU
 import { RevokeUserSessionUseCase } from '@application/use-cases/user/RevokeUserSessionUseCase';
 import { RevokeAllUserSessionsUseCase } from '@application/use-cases/user/RevokeAllUserSessionsUseCase';
 import { ManageUserFavoritesUseCase } from '@application/use-cases/user/ManageUserFavoritesUseCase';
+import { UnlockUserAccountUseCase } from '@application/use-cases/user/UnlockUserAccountUseCase';
+import { RequestEmailVerificationUseCase } from '@application/use-cases/user/RequestEmailVerificationUseCase';
+import { VerifyEmailUseCase } from '@application/use-cases/user/VerifyEmailUseCase';
+import { ResendVerificationEmailUseCase } from '@application/use-cases/user/ResendVerificationEmailUseCase';
+import { EnableMfaUseCase } from '@application/use-cases/user/EnableMfaUseCase';
+import { VerifyMfaSetupUseCase } from '@application/use-cases/user/VerifyMfaSetupUseCase';
+import { DisableMfaUseCase } from '@application/use-cases/user/DisableMfaUseCase';
+import { VerifyTotpUseCase } from '@application/use-cases/user/VerifyTotpUseCase';
 import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
@@ -267,6 +275,16 @@ export interface UserServiceDeps {
   updateRecordRuleUseCase: UpdateRecordRuleUseCase;
   deleteRecordRuleUseCase: DeleteRecordRuleUseCase;
   listRecordRulesUseCase: ListRecordRulesUseCase;
+  unlockUserAccountUseCase: UnlockUserAccountUseCase;
+  // Email verification use cases (WS2)
+  requestEmailVerificationUseCase: RequestEmailVerificationUseCase;
+  verifyEmailUseCase: VerifyEmailUseCase;
+  resendVerificationEmailUseCase: ResendVerificationEmailUseCase;
+  // MFA use cases (WS3)
+  enableMfaUseCase: EnableMfaUseCase;
+  verifyMfaSetupUseCase: VerifyMfaSetupUseCase;
+  disableMfaUseCase: DisableMfaUseCase;
+  verifyTotpUseCase: VerifyTotpUseCase;
 }
 
 // ── Resolver factory ─────────────────────────────────────────────────────────
@@ -320,6 +338,14 @@ export function createResolvers(deps: UserServiceDeps) {
     updateRecordRuleUseCase,
     deleteRecordRuleUseCase,
     listRecordRulesUseCase,
+    unlockUserAccountUseCase,
+    requestEmailVerificationUseCase,
+    verifyEmailUseCase,
+    resendVerificationEmailUseCase,
+    enableMfaUseCase,
+    verifyMfaSetupUseCase,
+    disableMfaUseCase,
+    verifyTotpUseCase,
   } = deps;
 
   return {
@@ -1091,9 +1117,33 @@ export function createResolvers(deps: UserServiceDeps) {
             ipAddress: context?.req?.ip,
           });
           const duration = Date.now() - startTime;
+
+          // Bug #3 fix: a newly-registered user could in theory have MFA enabled
+          // (e.g. if authenticateUserUseCase is extended to handle that path).
+          // Guard against result.mfaRequired before accessing result.user to avoid
+          // a runtime crash on transformUser(undefined).
+          if (result.mfaRequired) {
+            return ResponseFactory.createSuccessResponse(
+              {
+                mfaRequired: true,
+                mfaChallengeToken: result.mfaChallengeToken,
+              },
+              'MFA verification required',
+              RESPONSE_CODES.SUCCESS,
+              { requestId, traceId, duration },
+            );
+          }
+
+          // Trigger email verification best-effort (non-blocking)
+          try {
+            await requestEmailVerificationUseCase.execute({ email: input.email });
+          } catch (verifyErr) {
+            // best-effort — never block registration
+          }
+
           return ResponseFactory.createSuccessResponse(
             {
-              user: transformUser(result.user),
+              user: transformUser(result.user!),
               accessToken: result.accessToken,
               refreshToken: result.refreshToken,
             },
@@ -1124,9 +1174,23 @@ export function createResolvers(deps: UserServiceDeps) {
             ipAddress: context?.req?.ip,
           });
           const duration = Date.now() - startTime;
+
+          // MFA step-up: return challenge token instead of final tokens
+          if (result.mfaRequired) {
+            return ResponseFactory.createSuccessResponse(
+              {
+                mfaRequired: true,
+                mfaChallengeToken: result.mfaChallengeToken,
+              },
+              'MFA verification required',
+              RESPONSE_CODES.SUCCESS,
+              { requestId, traceId, duration },
+            );
+          }
+
           return ResponseFactory.createSuccessResponse(
             {
-              user: transformUser(result.user),
+              user: transformUser(result.user!),
               accessToken: result.accessToken,
               refreshToken: result.refreshToken,
             },
@@ -1137,7 +1201,7 @@ export function createResolvers(deps: UserServiceDeps) {
         } catch (error: any) {
           const duration = Date.now() - startTime;
           return ResponseFactory.createErrorResponse(
-            'Invalid credentials',
+            'Invalid email or password',
             RESPONSE_CODES.AUTHENTICATION_FAILED,
             {},
             { requestId, traceId, duration },
@@ -2049,6 +2113,177 @@ export function createResolvers(deps: UserServiceDeps) {
         requireAdministrator(context.currentUser);
         await deleteRecordRuleUseCase.execute(id);
         return { success: true, message: 'Record rule deleted successfully' };
+      },
+
+      // Account management
+      unlockUserAccount: async (_: any, { userId }: any, context: any) => {
+        requireUserManagementAccess(context.currentUser);
+        const now = new Date().toISOString();
+        await unlockUserAccountUseCase.execute({
+          targetUserId: userId,
+          adminUserId: context.currentUser!.userId,
+          ipAddress: context.req?.ip,
+          userAgent: context.req?.headers?.['user-agent'],
+        });
+        return {
+          success: true,
+          message: 'User account unlocked successfully',
+          code: 'UPDATED',
+          timestamp: now,
+          data: { userId, unlockedAt: now },
+        };
+      },
+
+      // ── Email Verification mutations (WS2) ────────────────────────────────
+
+      requestEmailVerification: async (_: any, { email }: any, context: any) => {
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `req-email-verify-${Date.now()}`;
+        try {
+          const result = await requestEmailVerificationUseCase.execute({ email });
+          return ResponseFactory.createSuccessResponse(
+            { email: result.email, timestamp: result.timestamp },
+            'If this email is registered, a verification link has been sent',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            'Failed to process email verification request',
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
+      },
+
+      verifyEmail: async (_: any, { token }: any, context: any) => {
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `verify-email-${Date.now()}`;
+        try {
+          const result = await verifyEmailUseCase.execute({ token });
+          return ResponseFactory.createSuccessResponse(
+            { timestamp: result.timestamp, emailVerified: result.emailVerified },
+            'Email verified successfully',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            error?.message || 'Email verification failed',
+            RESPONSE_CODES.VALIDATION_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
+      },
+
+      resendVerificationEmail: async (_: any, { email }: any, context: any) => {
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `resend-email-verify-${Date.now()}`;
+        try {
+          const result = await resendVerificationEmailUseCase.execute({ email });
+          return ResponseFactory.createSuccessResponse(
+            { email: result.email, timestamp: result.timestamp },
+            'If this email is registered and unverified, a new verification link has been sent',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            'Failed to process resend request',
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
+      },
+
+      // ── MFA mutations (WS3) ───────────────────────────────────────────────
+
+      enableMFA: async (_: any, __: any, context: any) => {
+        // G-11: requires authenticated user
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `enable-mfa-${Date.now()}`;
+        const result = await enableMfaUseCase.execute({ userId: context.currentUser.userId });
+        return ResponseFactory.createSuccessResponse(
+          {
+            otpauthUrl: result.otpauthUrl,
+            qrDataUrl: result.qrDataUrl,
+            secret: result.secret,
+          },
+          'MFA setup initiated — scan the QR code with your authenticator app',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      verifyMFASetup: async (_: any, { code }: any, context: any) => {
+        // G-11: requires authenticated user
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `verify-mfa-setup-${Date.now()}`;
+        const result = await verifyMfaSetupUseCase.execute({
+          userId: context.currentUser.userId,
+          code,
+        });
+        return ResponseFactory.createSuccessResponse(
+          {
+            backupCodes: result.backupCodes,
+            mfaEnabled: result.mfaEnabled,
+          },
+          'MFA enabled successfully — store your backup codes in a safe place',
+          RESPONSE_CODES.SUCCESS,
+          { requestId, traceId, duration: 0 },
+        );
+      },
+
+      disableMFA: async (_: any, { password }: any, context: any) => {
+        // G-11: requires authenticated user
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        await disableMfaUseCase.execute({
+          userId: context.currentUser.userId,
+          password,
+        });
+        return { success: true, message: 'MFA disabled successfully' };
+      },
+
+      verifyTotp: async (_: any, { mfaChallengeToken, code }: any, context: any) => {
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `verify-totp-${Date.now()}`;
+        try {
+          const result = await verifyTotpUseCase.execute({ mfaChallengeToken, code });
+          return ResponseFactory.createSuccessResponse(
+            {
+              user: transformUser(result.user),
+              accessToken: result.accessToken,
+              refreshToken: result.refreshToken,
+            },
+            'MFA verification successful',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            'Invalid email or password',
+            RESPONSE_CODES.AUTHENTICATION_FAILED,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
       },
     },
   };

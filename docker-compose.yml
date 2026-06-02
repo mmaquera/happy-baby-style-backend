@@ -82,6 +82,7 @@ services:
       USER_SERVICE_INTERNAL_URL: http://user-service:3006
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3001}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
+      TRUST_PROXY:               ${TRUST_PROXY:-loopback}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
       interval: 15s
@@ -119,6 +120,7 @@ services:
       USER_SERVICE_INTERNAL_URL: http://user-service:3006
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3001}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
+      TRUST_PROXY:               ${TRUST_PROXY:-loopback}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3003/health || exit 1"]
       interval: 15s
@@ -156,6 +158,7 @@ services:
       USER_SERVICE_INTERNAL_URL: http://user-service:3006
       PRODUCT_SERVICE_URL:       http://product-service:3003/graphql
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
+      TRUST_PROXY:               ${TRUST_PROXY:-loopback}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3005/health || exit 1"]
       interval: 15s
@@ -193,6 +196,7 @@ services:
       USER_SERVICE_INTERNAL_URL: http://user-service:3006
       STORAGE_BASE_URL:          ${STORAGE_BASE_URL:-http://localhost:3004}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
+      TRUST_PROXY:               ${TRUST_PROXY:-loopback}
     volumes:
       - ./uploads:/app/uploads
     healthcheck:
@@ -234,10 +238,20 @@ services:
       SMTP_SECURE:               ${SMTP_SECURE:-false}
       SMTP_USER:                 ${SMTP_USER:-}
       SMTP_PASSWORD:             ${SMTP_PASSWORD:-}
-      SMTP_FROM:                 ${SMTP_FROM_EMAIL:-noreply@happybabystyle.com}
+      SMTP_FROM:                 ${SMTP_FROM:-noreply@happybabystyle.com}
       FRONTEND_URL:              ${FRONTEND_URL:-http://localhost:3000}
       RESET_PASSWORD_URL:        ${RESET_PASSWORD_URL:-http://localhost:3000/reset-password}
       FRONTEND_URLS:             ${FRONTEND_URLS:-http://localhost:3000}
+      # Account lockout configuration (Workstream 1c)
+      MAX_LOGIN_ATTEMPTS:        ${MAX_LOGIN_ATTEMPTS:-5}
+      LOCKOUT_DURATION:          ${LOCKOUT_DURATION:-900}
+      # MFA encryption key — SECRET, never commit a real value.
+      # AES-256-GCM key (32 bytes base64-encoded). Use secret manager in production.
+      # Generate: openssl rand -base64 32
+      MFA_ENC_KEY:               ${MFA_ENC_KEY:-}
+      # Email verification URL (front-end deep link base; token appended as ?token=...)
+      VERIFY_EMAIL_URL:          ${VERIFY_EMAIL_URL:-http://localhost:3000/verify-email}
+      TRUST_PROXY:               ${TRUST_PROXY:-loopback}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3006/health || exit 1"]
       interval: 15s
@@ -275,8 +289,13 @@ services:
       ORDER_SERVICE_URL:       http://order-service:3005/graphql
       USER_SERVICE_URL:        http://user-service:3006/graphql
       FRONTEND_URLS:           ${FRONTEND_URLS:-http://localhost:3000}
+      REDIS_URL:               redis://redis:6379
       RATE_LIMIT_GENERAL:      ${RATE_LIMIT_GENERAL:-300}
       RATE_LIMIT_AUTH:         ${RATE_LIMIT_AUTH:-10}
+      # Controls X-Forwarded-For trust. 'loopback' = safe for docker-compose.
+      # Set to '1' when behind a single nginx/ALB in production.
+      # NEVER use 'true' — allows IP spoofing.
+      TRUST_PROXY:             ${TRUST_PROXY:-loopback}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 15s

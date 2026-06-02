@@ -474,6 +474,8 @@ export const typeDefs = gql`
     user: User
     accessToken: String
     refreshToken: String
+    mfaRequired: Boolean
+    mfaChallengeToken: String
   }
 
   type CreateUserResponse {
@@ -1258,5 +1260,94 @@ export const typeDefs = gql`
     createRecordRule(input: CreateRecordRuleInput!): RecordRuleResponse!
     updateRecordRule(id: ID!, input: UpdateRecordRuleInput!): RecordRuleResponse!
     deleteRecordRule(id: ID!): SuccessResponse!
+
+    # Account management (requires user management access)
+    unlockUserAccount(userId: ID!): UnlockUserAccountResponse!
+
+    # Email verification mutations
+    requestEmailVerification(email: String!): EmailVerificationRequestResponse!
+    verifyEmail(token: String!): EmailVerificationConfirmResponse!
+    resendVerificationEmail(email: String!): EmailVerificationRequestResponse!
+
+    # MFA mutations (enableMFA/verifyMFASetup/disableMFA require authentication — G-11)
+    enableMFA: MFASetupResponse!
+    verifyMFASetup(code: String!): MFASetupConfirmResponse!
+    disableMFA(password: String!): SuccessResponse!
+    verifyTotp(mfaChallengeToken: String!, code: String!): AuthResponse!
+  }
+
+  type UnlockUserAccountResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UnlockUserAccountData
+    metadata: ResponseMetadata
+  }
+
+  type UnlockUserAccountData {
+    userId: ID!
+    unlockedAt: String!
+  }
+
+  # ── Email Verification types ─────────────────────────────────────────────────
+
+  type EmailVerificationRequestResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: EmailVerificationRequestData
+    metadata: ResponseMetadata
+  }
+
+  type EmailVerificationRequestData {
+    email: String!
+    timestamp: String!
+  }
+
+  type EmailVerificationConfirmResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: EmailVerificationConfirmData
+    metadata: ResponseMetadata
+  }
+
+  type EmailVerificationConfirmData {
+    timestamp: String!
+    emailVerified: Boolean!
+  }
+
+  # ── MFA types ────────────────────────────────────────────────────────────────
+
+  type MFASetupResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: MFASetupData
+    metadata: ResponseMetadata
+  }
+
+  type MFASetupData {
+    otpauthUrl: String!
+    qrDataUrl: String!
+    secret: String!
+  }
+
+  type MFASetupConfirmResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: MFASetupConfirmData
+    metadata: ResponseMetadata
+  }
+
+  type MFASetupConfirmData {
+    backupCodes: [String!]!
+    mfaEnabled: Boolean!
   }
 `;

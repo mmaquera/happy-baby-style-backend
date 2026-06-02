@@ -24,6 +24,8 @@ export class PrismaUserProfileRepository implements IUserRepository {
       role: prismaUserProfile.role as UserRole,
       isActive: prismaUserProfile.isActive,
       emailVerified: prismaUserProfile.emailVerified,
+      failedLoginAttempts: prismaUserProfile.failedLoginAttempts ?? 0,
+      lockedUntil: prismaUserProfile.lockedUntil ?? null,
       createdAt: prismaUserProfile.createdAt,
       updatedAt: prismaUserProfile.updatedAt,
       profile: {
@@ -466,6 +468,140 @@ export class PrismaUserProfileRepository implements IUserRepository {
     await this.prisma.userProfile.update({
       where: { id: userId },
       data: { lastLoginAt: new Date() },
+    });
+  }
+
+  async updateUserLockout(
+    userId: string,
+    data: { failedLoginAttempts: number; lockedUntil: Date | null },
+  ): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: data.failedLoginAttempts,
+        lockedUntil: data.lockedUntil,
+      },
+    });
+  }
+
+  async resetUserLockout(userId: string): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+  }
+
+  // ── Email verification operations ──────────────────────────────────────────
+
+  async setEmailVerificationToken(
+    userId: string,
+    data: { token: string; expiresAt: Date },
+  ): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        emailVerificationToken: data.token,
+        emailVerificationExpiresAt: data.expiresAt,
+      },
+    });
+  }
+
+  async getEmailVerificationData(
+    userId: string,
+  ): Promise<{ token: string | null; expiresAt: Date | null; emailVerified: boolean } | null> {
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { id: userId },
+      select: {
+        emailVerificationToken: true,
+        emailVerificationExpiresAt: true,
+        emailVerified: true,
+      },
+    });
+
+    if (!profile) return null;
+
+    return {
+      token: profile.emailVerificationToken,
+      expiresAt: profile.emailVerificationExpiresAt,
+      emailVerified: profile.emailVerified,
+    };
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
+    });
+  }
+
+  async clearEmailVerificationToken(userId: string): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
+    });
+  }
+
+  // ── MFA operations ─────────────────────────────────────────────────────────
+
+  async setMfaSecret(userId: string, encryptedSecret: string): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        mfaSecret: encryptedSecret,
+        mfaEnabled: false, // stays false until VerifyMfaSetup confirms first TOTP
+      },
+    });
+  }
+
+  async getMfaData(
+    userId: string,
+  ): Promise<{ mfaEnabled: boolean; mfaSecret: string | null; mfaBackupCodes: string[] } | null> {
+    const profile = await this.prisma.userProfile.findUnique({
+      where: { id: userId },
+      select: {
+        mfaEnabled: true,
+        mfaSecret: true,
+        mfaBackupCodes: true,
+      },
+    });
+
+    if (!profile) return null;
+
+    return {
+      mfaEnabled: profile.mfaEnabled,
+      mfaSecret: profile.mfaSecret,
+      mfaBackupCodes: profile.mfaBackupCodes,
+    };
+  }
+
+  async enableMfa(userId: string, backupCodeHashes: string[]): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        mfaEnabled: true,
+        mfaBackupCodes: backupCodeHashes,
+      },
+    });
+  }
+
+  async disableMfa(userId: string): Promise<void> {
+    await this.prisma.userProfile.update({
+      where: { id: userId },
+      data: {
+        mfaEnabled: false,
+        mfaSecret: null,
+        mfaBackupCodes: [],
+      },
     });
   }
 }

@@ -30,6 +30,32 @@ export interface IUserRepository {
   getUserPasswordHash(userId: string): Promise<string | null>;
   updateUserLastLogin(userId: string): Promise<void>;
 
+  // Account lockout operations
+  updateUserLockout(
+    userId: string,
+    data: { failedLoginAttempts: number; lockedUntil: Date | null },
+  ): Promise<void>;
+  resetUserLockout(userId: string): Promise<void>;
+
+  // Email verification operations
+  setEmailVerificationToken(
+    userId: string,
+    data: { token: string; expiresAt: Date },
+  ): Promise<void>;
+  getEmailVerificationData(
+    userId: string,
+  ): Promise<{ token: string | null; expiresAt: Date | null; emailVerified: boolean } | null>;
+  markEmailVerified(userId: string): Promise<void>;
+  clearEmailVerificationToken(userId: string): Promise<void>;
+
+  // MFA operations
+  setMfaSecret(userId: string, encryptedSecret: string): Promise<void>;
+  getMfaData(
+    userId: string,
+  ): Promise<{ mfaEnabled: boolean; mfaSecret: string | null; mfaBackupCodes: string[] } | null>;
+  enableMfa(userId: string, backupCodeHashes: string[]): Promise<void>;
+  disableMfa(userId: string): Promise<void>;
+
   // User profile operations
   createUserProfile(
     userId: string,

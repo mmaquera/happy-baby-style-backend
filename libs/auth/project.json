@@ -19,6 +19,12 @@
         "command": "tsc --noEmit -p libs/auth/tsconfig.json"
       }
     },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "jest --config libs/auth/jest.config.js"
+      }
+    },
     "lint": {}
   }
 }

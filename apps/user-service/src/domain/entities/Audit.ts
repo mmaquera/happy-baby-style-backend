@@ -64,6 +64,17 @@ export enum SecurityEventType {
   ACCOUNT_LOCKED = 'account_locked',
   ACCOUNT_UNLOCKED = 'account_unlocked',
   SUSPICIOUS_ACTIVITY = 'suspicious_activity',
+  // Email verification events
+  EMAIL_VERIFICATION_REQUESTED = 'email_verification_requested',
+  EMAIL_VERIFIED = 'email_verified',
+  // MFA events
+  MFA_ENABLED = 'mfa_enabled',
+  MFA_DISABLED = 'mfa_disabled',
+  MFA_CHALLENGE_ISSUED = 'mfa_challenge_issued',
+  MFA_CHALLENGE_SUCCEEDED = 'mfa_challenge_succeeded',
+  MFA_CHALLENGE_FAILED = 'mfa_challenge_failed',
+  MFA_BACKUP_CODE_USED = 'mfa_backup_code_used',
+  MFA_LAST_BACKUP_CODE_USED = 'mfa_last_backup_code_used',
 }
 
 /**

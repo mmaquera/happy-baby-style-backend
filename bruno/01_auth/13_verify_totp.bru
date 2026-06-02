@@ -1,0 +1,52 @@
+meta {
+  name: Verify TOTP (MFA Challenge)
+  type: graphql
+  seq: 13
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation VerifyTotp($mfaChallengeToken: String!, $code: String!) {
+    verifyTotp(mfaChallengeToken: $mfaChallengeToken, code: $code) {
+      success
+      code
+      message
+      data {
+        accessToken
+        refreshToken
+        mfaRequired
+        mfaChallengeToken
+        user {
+          id
+          email
+          role
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "mfaChallengeToken": "{{MFA_CHALLENGE_TOKEN}}",
+    "code": "123456"
+  }
+}
+
+script:post-response {
+  const data = res.body?.data?.verifyTotp?.data;
+  if (res.status === 200 && data?.accessToken) {
+    bru.setEnvVar("ACCESS_TOKEN", data.accessToken);
+    bru.setEnvVar("REFRESH_TOKEN", data.refreshToken);
+    bru.setEnvVar("USER_ID", data.user.id);
+  }
+}
+
+docs {
+  Second step of MFA login: submits the TOTP code against the mfaChallengeToken returned by loginUser when mfaRequired=true. On success returns a full AuthResponse with tokens. Schema: apps/user-service/src/graphql/schema.ts:Mutation.verifyTotp
+}

@@ -1,0 +1,35 @@
+meta {
+  name: Resend Verification Email
+  type: graphql
+  seq: 9
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation ResendVerificationEmail($email: String!) {
+    resendVerificationEmail(email: $email) {
+      success
+      code
+      message
+      data {
+        email
+        timestamp
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "email": "marco.arka@gmail.com"
+  }
+}
+
+docs {
+  Re-sends the verification email when the previous token has expired or was not received. Schema: apps/user-service/src/graphql/schema.ts:Mutation.resendVerificationEmail
+}

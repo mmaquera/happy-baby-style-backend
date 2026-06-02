@@ -43,9 +43,19 @@ import { GetUserSessionAnalyticsUseCase } from './application/use-cases/user/Get
 import { RevokeUserSessionUseCase } from './application/use-cases/user/RevokeUserSessionUseCase';
 import { RevokeAllUserSessionsUseCase } from './application/use-cases/user/RevokeAllUserSessionsUseCase';
 import { ManageUserFavoritesUseCase } from './application/use-cases/user/ManageUserFavoritesUseCase';
+import { UnlockUserAccountUseCase } from './application/use-cases/user/UnlockUserAccountUseCase';
+import { RequestEmailVerificationUseCase } from './application/use-cases/user/RequestEmailVerificationUseCase';
+import { VerifyEmailUseCase } from './application/use-cases/user/VerifyEmailUseCase';
+import { ResendVerificationEmailUseCase } from './application/use-cases/user/ResendVerificationEmailUseCase';
+import { EnableMfaUseCase } from './application/use-cases/user/EnableMfaUseCase';
+import { VerifyMfaSetupUseCase } from './application/use-cases/user/VerifyMfaSetupUseCase';
+import { DisableMfaUseCase } from './application/use-cases/user/DisableMfaUseCase';
+import { VerifyTotpUseCase } from './application/use-cases/user/VerifyTotpUseCase';
+import { RedisMfaChallengeStore } from './infrastructure/adapters/RedisMfaChallengeStore';
 import { EffectivePermissionsResolver } from './infrastructure/repositories/EffectivePermissionsResolver';
 import { PrismaRecordRuleSource } from './infrastructure/repositories/PrismaRecordRuleSource';
 import { RedisRecordRulesEventPublisher } from './infrastructure/messaging/RecordRulesEventPublisher';
+import { GeoIpLiteAdapter } from './infrastructure/adapters/GeoIpLiteAdapter';
 import { PrismaAuthzRepository } from './infrastructure/repositories/PrismaAuthzRepository';
 import { CreateGroupUseCase } from './application/use-cases/authz/CreateGroupUseCase';
 import { UpdateGroupUseCase } from './application/use-cases/authz/UpdateGroupUseCase';
@@ -75,6 +85,12 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+const mfaEncKey = process.env.MFA_ENC_KEY;
+if (!mfaEncKey || mfaEncKey.length !== 64) {
+  console.error('FATAL: MFA_ENC_KEY must be a 64-char hex string (32 bytes). Refusing to start.');
+  process.exit(1);
+}
+
 if (!process.env.REDIS_URL) {
   console.error('FATAL: REDIS_URL environment variable is not set. Refusing to start.');
   process.exit(1);
@@ -100,6 +116,19 @@ async function start() {
   const logger = LoggerFactory.create('user-service');
   const app = express();
   const requestLogger = new RequestLogger();
+
+  // Trust proxy: controls how req.ip is derived behind a reverse proxy/load balancer.
+  // 'loopback' (default) trusts only 127.0.0.1 / ::1; set TRUST_PROXY=1 when behind
+  // a single nginx/ALB hop in production. Never set to true — allows IP spoofing.
+  const rawTrustProxy = process.env.TRUST_PROXY;
+  const trustProxy: string | number | boolean = !rawTrustProxy
+    ? 'loopback'
+    : rawTrustProxy === 'false'
+      ? false
+      : rawTrustProxy === 'true'
+        ? 'loopback'
+        : (isNaN(parseInt(rawTrustProxy, 10)) ? rawTrustProxy : parseInt(rawTrustProxy, 10));
+  app.set('trust proxy', trustProxy);
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(
@@ -173,11 +202,16 @@ async function start() {
   const getUserByIdUseCase = new GetUserByIdUseCase(userRepository);
   const updateUserUseCase = new UpdateUserUseCase(userRepository);
   const getUserStatsUseCase = new GetUserStatsUseCase(userRepository);
+  const geoIpAdapter = new GeoIpLiteAdapter();
+  const mfaChallengeStore = new RedisMfaChallengeStore(redisClient, serviceLogger);
   const authenticateUserUseCase = new AuthenticateUserUseCase(
     userRepository,
     authRepository,
     useCaseLogger,
     effectivePermissionsResolver,
+    securityEventRepository,
+    geoIpAdapter,
+    mfaChallengeStore,
   );
   const updateUserPasswordUseCase = new UpdateUserPasswordUseCase(
     authRepository,
@@ -222,6 +256,51 @@ async function start() {
     useCaseLogger,
   );
   const manageUserFavoritesUseCase = new ManageUserFavoritesUseCase(userFavoritesRepository);
+  const unlockUserAccountUseCase = new UnlockUserAccountUseCase(
+    userRepository,
+    securityEventRepository,
+    useCaseLogger,
+  );
+
+  // Email verification use cases (WS2)
+  const requestEmailVerificationUseCase = new RequestEmailVerificationUseCase(
+    userRepository,
+    emailService,
+    securityEventRepository,
+    useCaseLogger,
+  );
+  const verifyEmailUseCase = new VerifyEmailUseCase(
+    userRepository,
+    securityEventRepository,
+    useCaseLogger,
+  );
+  const resendVerificationEmailUseCase = new ResendVerificationEmailUseCase(
+    userRepository,
+    emailService,
+    securityEventRepository,
+    useCaseLogger,
+  );
+
+  // MFA use cases (WS3)
+  const enableMfaUseCase = new EnableMfaUseCase(userRepository, useCaseLogger);
+  const verifyMfaSetupUseCase = new VerifyMfaSetupUseCase(
+    userRepository,
+    securityEventRepository,
+    useCaseLogger,
+  );
+  const disableMfaUseCase = new DisableMfaUseCase(
+    userRepository,
+    securityEventRepository,
+    useCaseLogger,
+  );
+  const verifyTotpUseCase = new VerifyTotpUseCase(
+    userRepository,
+    authRepository,
+    securityEventRepository,
+    mfaChallengeStore,
+    effectivePermissionsResolver,
+    useCaseLogger,
+  );
 
   // RBAC admin infrastructure + use cases (Fase 5.10)
   const authzRepository = new PrismaAuthzRepository(prisma);
@@ -302,6 +381,16 @@ async function start() {
     updateRecordRuleUseCase,
     deleteRecordRuleUseCase,
     listRecordRulesUseCase,
+    unlockUserAccountUseCase,
+    // Email verification (WS2)
+    requestEmailVerificationUseCase,
+    verifyEmailUseCase,
+    resendVerificationEmailUseCase,
+    // MFA (WS3)
+    enableMfaUseCase,
+    verifyMfaSetupUseCase,
+    disableMfaUseCase,
+    verifyTotpUseCase,
   });
 
   const server = new ApolloServer({

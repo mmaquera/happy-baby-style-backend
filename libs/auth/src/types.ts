@@ -50,3 +50,14 @@ export interface TokenPayload {
   iat?: number;
   exp?: number;
 }
+
+/**
+ * Centralized token type constants to prevent typos and token-confusion attacks.
+ * Use these instead of raw string literals when setting the `type` claim in JWT payloads.
+ */
+export const TOKEN_TYPES = {
+  REFRESH: 'refresh',
+  PASSWORD_RESET: 'password_reset',
+  EMAIL_VERIFICATION: 'email_verification',
+  MFA_CHALLENGE: 'mfa_challenge',
+} as const;

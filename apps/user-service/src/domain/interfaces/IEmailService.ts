@@ -27,6 +27,20 @@ export interface IEmailService {
   sendWelcomeEmail(email: string, userName: string): Promise<void>;
 
   /**
+   * Envía email de verificacion de email
+   * @param email - Email del destinatario
+   * @param token - Token de verificacion
+   * @param userName - Nombre del usuario
+   * @param verifyUrl - URL completa de verificacion
+   */
+  sendEmailVerificationEmail(
+    email: string,
+    token: string,
+    userName: string,
+    verifyUrl: string,
+  ): Promise<void>;
+
+  /**
    * Envía email de confirmación de pedido
    * @param email - Email del destinatario
    * @param orderData - Datos del pedido

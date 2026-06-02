@@ -129,6 +129,59 @@ export class NodemailerEmailService implements IEmailService {
   }
 
   /**
+   * Envía email de verificacion de email
+   */
+  async sendEmailVerificationEmail(
+    email: string,
+    _token: string,
+    userName: string,
+    verifyUrl: string,
+  ): Promise<void> {
+    const startTime = Date.now();
+
+    try {
+      this.validateEmailParameters(email, userName);
+
+      const htmlContent = EmailTemplates.getEmailVerificationTemplate(userName, verifyUrl);
+      const textContent = EmailTemplates.getPlainTextFromHtml(htmlContent);
+
+      const mailOptions = {
+        from: `"Happy Baby Style" <${this.config.fromEmail}>`,
+        to: email,
+        subject: 'Verifica tu email - Happy Baby Style',
+        text: textContent,
+        html: htmlContent,
+        headers: {
+          'X-Mailer': 'Happy Baby Style Backend',
+          'X-Priority': '3',
+          'X-MSMail-Priority': 'Normal',
+        },
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+      const duration = Date.now() - startTime;
+
+      this.logger.info('Email verification email sent successfully', {
+        email,
+        userName,
+        messageId: result.messageId,
+        duration,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      this.logger.error('Failed to send email verification email', error as Error, {
+        email,
+        userName,
+        duration,
+        errorCode: 'EMAIL_VERIFICATION_EMAIL_FAILED',
+      });
+
+      throw new Error('Failed to send email verification email');
+    }
+  }
+
+  /**
    * Envía email de bienvenida
    */
   async sendWelcomeEmail(email: string, userName: string): Promise<void> {

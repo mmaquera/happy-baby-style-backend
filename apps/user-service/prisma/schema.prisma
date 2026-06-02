@@ -22,6 +22,19 @@ model UserProfile {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
+  // WS1 — Account lockout
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+
+  // WS2 — Email verification token (mirrors UserPassword.resetToken pattern)
+  emailVerificationToken     String?   @unique @map("email_verification_token")
+  emailVerificationExpiresAt DateTime? @map("email_verification_expires_at")
+
+  // WS3 — MFA / TOTP
+  mfaEnabled     Boolean  @default(false) @map("mfa_enabled")
+  mfaSecret      String?  @map("mfa_secret") // AES-256-GCM ciphertext base64; key lives in MFA_ENC_KEY env
+  mfaBackupCodes String[] @default([]) @map("mfa_backup_codes") // bcrypt hashes, one-time use
+
   accounts            UserAccount[]
   addresses           UserAddress[]
   password            UserPassword?
