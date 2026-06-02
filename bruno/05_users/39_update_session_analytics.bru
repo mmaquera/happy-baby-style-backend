@@ -1,0 +1,52 @@
+meta {
+  name: Update Session Analytics [OWNER/MGMT]
+  type: graphql
+  seq: 39
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateUserSessionAnalytics($id: ID!, $input: UpdateUserSessionAnalyticsInput!) {
+    updateUserSessionAnalytics(id: $id, input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        updatedAt
+        changes
+        entity {
+          id
+          sessionId
+          pageViews
+          timeSpent
+          conversionRate
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_ANALYTICS_ID",
+    "input": {
+      "pageViews": 12,
+      "timeSpent": 420,
+      "conversionRate": 0.08
+    }
+  }
+}
+
+docs {
+  Update session analytics metrics. Requires owner or management access. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateUserSessionAnalytics
+}

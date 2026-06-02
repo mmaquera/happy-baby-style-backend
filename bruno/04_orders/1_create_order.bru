@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -48,7 +50,6 @@ body:graphql {
 body:graphql:vars {
   {
     "input": {
-      "customerEmail": "cliente@example.com",
       "customerName": "María García",
       "customerPhone": "+57 300 123 4567",
       "items": [

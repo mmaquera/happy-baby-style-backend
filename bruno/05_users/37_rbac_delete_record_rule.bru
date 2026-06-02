@@ -1,0 +1,34 @@
+meta {
+  name: RBAC - Delete Record Rule [ADMIN]
+  type: graphql
+  seq: 37
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteRecordRule($id: ID!) {
+    deleteRecordRule(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_RULE_ID"
+  }
+}
+
+docs {
+  Permanently delete a record rule. Propagation: publishes to stream:record-rules-updated so all subgraph caches clear for this rule. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.deleteRecordRule
+}

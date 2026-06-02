@@ -1,0 +1,36 @@
+meta {
+  name: Activate User [ADMIN]
+  type: graphql
+  seq: 16
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation ActivateUser($id: ID!) {
+    activateUser(id: $id) {
+      id
+      email
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Reactivate a previously deactivated user account. Requires user management access (administrators). Permission: users:write. Schema: apps/user-service/src/graphql/schema.ts:Mutation.activateUser
+}

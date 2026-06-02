@@ -1,0 +1,52 @@
+meta {
+  name: Create User [ADMIN]
+  type: graphql
+  seq: 14
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateUser($input: CreateUserProfileInput!) {
+    createUser(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          email
+          role
+          isActive
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "email": "staff-nuevo@happybabystyle.com",
+      "password": "Temporal$2026!",
+      "firstName": "Valentina",
+      "lastName": "Rojas",
+      "role": "staff",
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Admin creation of a new user account (bypasses email registration flow). Requires user management access (administrators). Permission: users:write. Schema: apps/user-service/src/graphql/schema.ts:Mutation.createUser
+}

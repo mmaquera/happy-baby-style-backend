@@ -1,0 +1,49 @@
+meta {
+  name: RBAC - Group Permissions [ADMIN]
+  type: graphql
+  seq: 22
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GroupPermissions($groupId: ID!) {
+    groupPermissions(groupId: $groupId) {
+      success
+      code
+      message
+      data {
+        items {
+          groupId
+          permissionId
+          createdAt
+          permission {
+            id
+            code
+            name
+            category
+          }
+        }
+        total
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "groupId": "REPLACE_ME_GROUP_ID"
+  }
+}
+
+docs {
+  List permissions linked to a specific group. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Query.groupPermissions
+}

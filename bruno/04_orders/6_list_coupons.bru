@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -31,4 +33,8 @@ body:graphql {
       createdAt
     }
   }
+}
+
+docs {
+  Full coupon catalogue. Requires management access (sales-manager, administrators). Use activeCoupons for the public storefront list. Schema: apps/order-service/src/graphql/schema.ts:Query.coupons
 }

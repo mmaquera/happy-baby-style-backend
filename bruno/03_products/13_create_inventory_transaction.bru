@@ -6,32 +6,30 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
   mutation CreateInventoryTransaction($input: CreateInventoryTransactionInput!) {
     createInventoryTransaction(input: $input) {
-      success
-      code
-      message
-      data {
-        id
-        createdAt
-        entity {
-          id
-          type
-          quantity
-          reference
-          notes
-          createdAt
-        }
-      }
+      id
+      productId
+      type
+      quantity
+      reference
+      notes
+      createdAt
     }
   }
+}
+
+docs {
+  Record an inventory movement (purchase, sale, return, adjustment, transfer). Returns raw InventoryTransaction (no wrapper). Requires inventory management access. Permission: create:product. Schema: apps/product-service/src/graphql/schema.ts:Mutation.createInventoryTransaction
 }
 
 body:graphql:vars {

@@ -1,0 +1,46 @@
+meta {
+  name: RBAC - Assign Permission to Group [ADMIN]
+  type: graphql
+  seq: 28
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation AssignPermissionToGroup($groupId: ID!, $permissionId: ID!) {
+    assignPermissionToGroup(groupId: $groupId, permissionId: $permissionId) {
+      success
+      code
+      message
+      data {
+        groupId
+        permissionId
+        createdAt
+        permission {
+          id
+          code
+          name
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "groupId": "REPLACE_ME_GROUP_ID",
+    "permissionId": "REPLACE_ME_PERMISSION_ID"
+  }
+}
+
+docs {
+  Link a permission to a RBAC group. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.assignPermissionToGroup
+}

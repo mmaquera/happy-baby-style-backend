@@ -1,0 +1,40 @@
+meta {
+  name: User Transactions [OWNER/MGMT]
+  type: graphql
+  seq: 22
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserTransactions($userId: ID!) {
+    userTransactions(userId: $userId) {
+      id
+      orderId
+      type
+      amount
+      currency
+      status
+      gateway
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Fetch all transactions for a user. PII/financial — requires owner (userId = JWT sub) or management access (customer-service, administrators). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.userTransactions
+}

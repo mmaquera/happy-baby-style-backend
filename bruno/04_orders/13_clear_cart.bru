@@ -6,23 +6,23 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
-  mutation ClearUserCart($userId: ID!) {
-    clearUserCart(userId: $userId) {
+  mutation ClearUserCart {
+    clearUserCart {
       success
       message
     }
   }
 }
 
-body:graphql:vars {
-  {
-    "userId": "{{USER_ID}}"
-  }
+docs {
+  Clears the authenticated user's cart. userId is derived from the JWT — no args accepted (BOLA fix). Requires any authenticated user. Schema: apps/order-service/src/graphql/schema.ts:Mutation.clearUserCart
 }

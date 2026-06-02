@@ -1,0 +1,34 @@
+meta {
+  name: Delete Review Vote
+  type: graphql
+  seq: 18
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteReviewVote($reviewId: ID!) {
+    deleteReviewVote(reviewId: $reviewId) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "reviewId": "REPLACE_ME_REVIEW_ID"
+  }
+}
+
+docs {
+  Remove the authenticated user's vote from a review. Takes only reviewId — userId is derived from the JWT (BOLA fix). Requires any authenticated user. Schema: apps/product-service/src/graphql/schema.ts:Mutation.deleteReviewVote
+}

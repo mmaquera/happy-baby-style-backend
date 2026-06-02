@@ -1,0 +1,61 @@
+meta {
+  name: Create Session Analytics [OWNER/MGMT]
+  type: graphql
+  seq: 38
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateUserSessionAnalytics($input: CreateUserSessionAnalyticsInput!) {
+    createUserSessionAnalytics(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          sessionId
+          userId
+          pageViews
+          timeSpent
+          deviceType
+          browser
+          country
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "sessionId": "REPLACE_ME_SESSION_ID",
+      "userId": "{{USER_ID}}",
+      "pageViews": 5,
+      "timeSpent": 180,
+      "bounceRate": 0.2,
+      "conversionRate": 0.05,
+      "deviceType": "mobile",
+      "browser": "Chrome",
+      "os": "Android",
+      "country": "CO",
+      "city": "Bogota"
+    }
+  }
+}
+
+docs {
+  Record session analytics data for a user session. Requires owner (userId = JWT sub) or management access. Schema: apps/user-service/src/graphql/schema.ts:Mutation.createUserSessionAnalytics
+}

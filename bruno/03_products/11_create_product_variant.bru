@@ -6,33 +6,32 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
   mutation CreateProductVariant($input: CreateProductVariantInput!) {
     createProductVariant(input: $input) {
-      success
-      code
-      message
-      data {
-        id
-        createdAt
-        entity {
-          id
-          name
-          price
-          sku
-          stockQuantity
-          isActive
-          isInStock
-        }
-      }
+      id
+      productId
+      name
+      price
+      sku
+      stockQuantity
+      isActive
+      isInStock
+      createdAt
     }
   }
+}
+
+docs {
+  Create a product variant. Returns raw ProductVariant (no wrapper). Requires inventory management access (inventory-user, administrators). Permission: create:product. Schema: apps/product-service/src/graphql/schema.ts:Mutation.createProductVariant
 }
 
 body:graphql:vars {

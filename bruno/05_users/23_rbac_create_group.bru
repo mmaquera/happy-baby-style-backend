@@ -1,0 +1,47 @@
+meta {
+  name: RBAC - Create Group [ADMIN]
+  type: graphql
+  seq: 23
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateGroup($input: CreateGroupInput!) {
+    createGroup(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        code
+        name
+        description
+        isSystem
+        createdAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "code": "warehouse-operator",
+      "name": "Warehouse Operator",
+      "description": "Operadores de bodega con acceso de inventario"
+    }
+  }
+}
+
+docs {
+  Create a new RBAC group. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.createGroup
+}

@@ -1,0 +1,39 @@
+meta {
+  name: Get Cart Item [OWNER/MGMT]
+  type: graphql
+  seq: 27
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetCartItem($id: ID!) {
+    cartItem(id: $id) {
+      id
+      cartId
+      productId
+      quantity
+      price
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_CART_ITEM_ID"
+  }
+}
+
+docs {
+  Fetch a single cart item by ID. Requires owner or management access. Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.cartItem
+}

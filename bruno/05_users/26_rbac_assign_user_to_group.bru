@@ -1,0 +1,46 @@
+meta {
+  name: RBAC - Assign User to Group [ADMIN]
+  type: graphql
+  seq: 26
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation AssignUserToGroup($userId: ID!, $groupId: ID!) {
+    assignUserToGroup(userId: $userId, groupId: $groupId) {
+      success
+      code
+      message
+      data {
+        userId
+        groupId
+        grantedAt
+        group {
+          id
+          code
+          name
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}",
+    "groupId": "REPLACE_ME_GROUP_ID"
+  }
+}
+
+docs {
+  Assign a user to a RBAC group. The user's JWT will carry updated permissions on next login. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.assignUserToGroup
+}

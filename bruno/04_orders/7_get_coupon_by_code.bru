@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -35,4 +37,8 @@ body:graphql:vars {
   {
     "code": "{{COUPON_CODE}}"
   }
+}
+
+docs {
+  Fetch a coupon by code. Requires auth (any authenticated user for checkout validation) or management access for admin queries. Schema: apps/order-service/src/graphql/schema.ts:Query.couponByCode
 }

@@ -1,0 +1,40 @@
+meta {
+  name: Create Review Vote
+  type: graphql
+  seq: 17
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateReviewVote($input: CreateReviewVoteInput!) {
+    createReviewVote(input: $input) {
+      id
+      reviewId
+      userId
+      isHelpful
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "reviewId": "REPLACE_ME_REVIEW_ID",
+      "isHelpful": true
+    }
+  }
+}
+
+docs {
+  Vote on a product review (helpful/not helpful). userId is derived from the JWT — do NOT pass it in input (BOLA fix). Requires any authenticated user. Schema: apps/product-service/src/graphql/schema.ts:Mutation.createReviewVote
+}

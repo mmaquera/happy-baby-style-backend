@@ -1,0 +1,38 @@
+meta {
+  name: Approve Review [ADMIN]
+  type: graphql
+  seq: 16
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation ApproveReview($id: ID!) {
+    approveReview(id: $id) {
+      id
+      productId
+      userId
+      rating
+      isApproved
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_REVIEW_ID"
+  }
+}
+
+docs {
+  Mark a product review as approved (visible on the storefront). Requires management access (inventory-user, administrators). Permission: create:product or administrators group. Schema: apps/product-service/src/graphql/schema.ts:Mutation.approveReview
+}

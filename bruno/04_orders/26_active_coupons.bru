@@ -1,0 +1,36 @@
+meta {
+  name: Active Coupons [PUBLIC]
+  type: graphql
+  seq: 26
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  query ActiveCoupons {
+    activeCoupons {
+      id
+      code
+      name
+      description
+      discountType
+      discountValue
+      minimumAmount
+      maximumDiscount
+      usageLimit
+      usedCount
+      validFrom
+      validUntil
+      isActive
+      isFirstTimeOnly
+    }
+  }
+}
+
+docs {
+  Public list of currently active coupons displayed in the storefront. No authentication required. Schema: apps/order-service/src/graphql/schema.ts:Query.activeCoupons
+}

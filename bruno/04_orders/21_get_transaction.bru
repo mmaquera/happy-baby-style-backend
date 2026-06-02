@@ -1,0 +1,43 @@
+meta {
+  name: Get Transaction [OWNER/MGMT]
+  type: graphql
+  seq: 21
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetTransaction($id: ID!) {
+    transaction(id: $id) {
+      id
+      orderId
+      userId
+      type
+      amount
+      currency
+      status
+      gateway
+      gatewayTransactionId
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_TRANSACTION_ID"
+  }
+}
+
+docs {
+  Fetch a single transaction. PII/financial — requires owner (transaction.userId = JWT sub) or management access. Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.transaction
+}

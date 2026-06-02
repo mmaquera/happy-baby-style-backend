@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -28,4 +30,8 @@ body:graphql {
       activeCoupons
     }
   }
+}
+
+docs {
+  Aggregate order statistics for the store dashboard. Requires management access (sales-manager, administrators). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.orderStats
 }

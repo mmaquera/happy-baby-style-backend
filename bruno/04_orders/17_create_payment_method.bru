@@ -1,0 +1,46 @@
+meta {
+  name: Create Payment Method [MGMT]
+  type: graphql
+  seq: 17
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreatePaymentMethod($input: CreatePaymentMethodInput!) {
+    createPaymentMethod(input: $input) {
+      id
+      orderId
+      type
+      amount
+      status
+      transactionId
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "orderId": "{{ORDER_ID}}",
+      "type": "credit_card",
+      "amount": 125000,
+      "status": "pending",
+      "transactionId": "TXN-2026-001",
+      "metadata": {}
+    }
+  }
+}
+
+docs {
+  Record a payment method against an order. Requires management access or ownership of the parent order. Permission: orders:write. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createPaymentMethod
+}

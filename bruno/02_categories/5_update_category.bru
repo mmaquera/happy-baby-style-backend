@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -42,4 +44,8 @@ body:graphql:vars {
       "isActive": true
     }
   }
+}
+
+docs {
+  Update a product category. Requires system management access (administrators group, or permission: manage:system). Schema: apps/category-service/src/graphql/schema.ts:Mutation.updateCategory
 }

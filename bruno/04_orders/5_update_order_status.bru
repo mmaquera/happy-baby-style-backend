@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -28,4 +30,8 @@ body:graphql:vars {
     "id": "{{ORDER_ID}}",
     "status": "confirmed"
   }
+}
+
+docs {
+  Update the status of a single order. Requires owner (order.userId = JWT sub) or management access (sales-manager, administrators). Permission: orders:write. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateOrderStatus
 }

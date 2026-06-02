@@ -1,0 +1,52 @@
+meta {
+  name: RBAC - List Record Rules [ADMIN]
+  type: graphql
+  seq: 20
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListRecordRules($modelName: String, $pagination: PaginationInput) {
+    recordRules(modelName: $modelName, pagination: $pagination) {
+      success
+      code
+      message
+      data {
+        items {
+          id
+          name
+          description
+          modelName
+          groupId
+          mode
+          domainExpression
+          isActive
+          createdAt
+          updatedAt
+        }
+        total
+        limit
+        offset
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "pagination": { "limit": 20, "offset": 0 }
+  }
+}
+
+docs {
+  List record rules (row-level security filters). Filter by modelName to narrow results. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Query.recordRules
+}

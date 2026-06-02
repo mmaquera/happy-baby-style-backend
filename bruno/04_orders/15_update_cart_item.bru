@@ -1,0 +1,39 @@
+meta {
+  name: Update Cart Item
+  type: graphql
+  seq: 15
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateCartItem($id: ID!, $quantity: Int!) {
+    updateCartItem(id: $id, quantity: $quantity) {
+      id
+      cartId
+      productId
+      quantity
+      price
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_CART_ITEM_ID",
+    "quantity": 3
+  }
+}
+
+docs {
+  Update quantity of a cart item by its ID. Ownership is enforced server-side (item must belong to the authenticated user's cart). Permission: authenticated user (owner). Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateCartItem
+}

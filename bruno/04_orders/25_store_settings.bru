@@ -1,0 +1,34 @@
+meta {
+  name: Store Settings [ADMIN]
+  type: graphql
+  seq: 25
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query StoreSettings {
+    storeSettings {
+      id
+      settingKey
+      settingValue
+      description
+      category
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+docs {
+  List all store configuration settings. Requires management access (administrators). Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Query.storeSettings
+}

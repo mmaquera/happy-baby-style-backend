@@ -1,0 +1,31 @@
+meta {
+  name: Delete Payment Method [MGMT]
+  type: graphql
+  seq: 19
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeletePaymentMethod($id: ID!) {
+    deletePaymentMethod(id: $id)
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_PAYMENT_METHOD_ID"
+  }
+}
+
+docs {
+  Delete a payment method record. Requires management access or ownership of the parent order. Permission: orders:write. Schema: apps/order-service/src/graphql/schema.ts:Mutation.deletePaymentMethod
+}

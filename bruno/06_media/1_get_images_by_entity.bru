@@ -6,15 +6,17 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
-  query GetImagesByEntity($entityId: ID!, $entityType: ImageEntityType!) {
-    imagesByEntity(entityId: $entityId, entityType: $entityType) {
+  query GetImagesByEntity($entityId: ID!, $entityType: ImageEntityType!, $limit: Int, $offset: Int) {
+    imagesByEntity(entityId: $entityId, entityType: $entityType, limit: $limit, offset: $offset) {
       id
       fileName
       originalName
@@ -31,6 +33,12 @@ body:graphql {
 body:graphql:vars {
   {
     "entityId": "{{PRODUCT_ID}}",
-    "entityType": "product"
+    "entityType": "product",
+    "limit": 20,
+    "offset": 0
   }
+}
+
+docs {
+  List images for an entity (product, user, category) with pagination. Requires management access or owner (for entityType=user). Schema: apps/media-service/src/graphql/schema.ts:Query.imagesByEntity
 }

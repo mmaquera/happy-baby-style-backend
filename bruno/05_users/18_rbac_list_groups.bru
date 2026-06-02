@@ -1,0 +1,48 @@
+meta {
+  name: RBAC - List Groups [ADMIN]
+  type: graphql
+  seq: 18
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListGroups($pagination: PaginationInput) {
+    groups(pagination: $pagination) {
+      success
+      code
+      message
+      data {
+        items {
+          id
+          code
+          name
+          description
+          isSystem
+          createdAt
+        }
+        total
+        limit
+        offset
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "pagination": { "limit": 20, "offset": 0 }
+  }
+}
+
+docs {
+  List all RBAC groups. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Query.groups
+}

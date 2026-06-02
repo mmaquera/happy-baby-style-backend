@@ -1,0 +1,48 @@
+meta {
+  name: RBAC - Create Permission [ADMIN]
+  type: graphql
+  seq: 32
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreatePermission($input: CreatePermissionInput!) {
+    createPermission(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        code
+        name
+        description
+        category
+        createdAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "code": "warehouse:transfer",
+      "name": "Transfer warehouse stock",
+      "description": "Permission to create stock transfer transactions",
+      "category": "inventory"
+    }
+  }
+}
+
+docs {
+  Create a new RBAC permission (verb:noun code). Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.createPermission
+}

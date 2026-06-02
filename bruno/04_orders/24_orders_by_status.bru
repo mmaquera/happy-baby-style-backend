@@ -1,0 +1,40 @@
+meta {
+  name: Orders by Status [ADMIN]
+  type: graphql
+  seq: 24
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query OrdersByStatus($status: OrderStatus!) {
+    ordersByStatus(status: $status) {
+      id
+      orderNumber
+      customerEmail
+      customerName
+      status
+      totalAmount
+      currency
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "status": "pending"
+  }
+}
+
+docs {
+  Fetch all orders filtered by a single status value. Requires management access (sales-manager, administrators). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.ordersByStatus
+}

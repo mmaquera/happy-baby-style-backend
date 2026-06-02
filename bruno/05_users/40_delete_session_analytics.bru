@@ -1,0 +1,40 @@
+meta {
+  name: Delete Session Analytics [OWNER/MGMT]
+  type: graphql
+  seq: 40
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteUserSessionAnalytics($id: ID!) {
+    deleteUserSessionAnalytics(id: $id) {
+      success
+      code
+      message
+      data {
+        id
+        deletedAt
+        softDelete
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_ANALYTICS_ID"
+  }
+}
+
+docs {
+  Delete session analytics record. Requires owner or management access. Schema: apps/user-service/src/graphql/schema.ts:Mutation.deleteUserSessionAnalytics
+}

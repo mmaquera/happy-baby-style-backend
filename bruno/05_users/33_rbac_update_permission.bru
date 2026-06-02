@@ -1,0 +1,47 @@
+meta {
+  name: RBAC - Update Permission [ADMIN]
+  type: graphql
+  seq: 33
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdatePermission($id: ID!, $input: UpdatePermissionInput!) {
+    updatePermission(id: $id, input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        code
+        name
+        description
+        category
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_PERMISSION_ID",
+    "input": {
+      "name": "Transfer warehouse stock (updated)",
+      "description": "Permission to create and approve stock transfers"
+    }
+  }
+}
+
+docs {
+  Update a RBAC permission's name, description, or category. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updatePermission
+}

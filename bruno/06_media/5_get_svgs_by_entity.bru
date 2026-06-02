@@ -1,0 +1,50 @@
+meta {
+  name: Get SVGs by Entity
+  type: graphql
+  seq: 5
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetSvgsByEntity($entityType: SvgEntityType!, $entityId: ID!, $limit: Int, $offset: Int) {
+    svgsByEntity(entityType: $entityType, entityId: $entityId, limit: $limit, offset: $offset) {
+      id
+      fileName
+      originalName
+      mimeType
+      size
+      url
+      entityType
+      entityId
+      optimized
+      viewBox
+      dimensions {
+        width
+        height
+      }
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "entityType": "product",
+    "entityId": "{{PRODUCT_ID}}",
+    "limit": 20,
+    "offset": 0
+  }
+}
+
+docs {
+  List SVG files for an entity with pagination. Requires management access or owner (for entityType=user). Schema: apps/media-service/src/graphql/schema.ts:Query.svgsByEntity
+}

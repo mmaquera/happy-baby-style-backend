@@ -1,0 +1,35 @@
+meta {
+  name: RBAC - Remove Group Implication [ADMIN]
+  type: graphql
+  seq: 31
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation RemoveGroupImplication($groupId: ID!, $impliedGroupId: ID!) {
+    removeGroupImplication(groupId: $groupId, impliedGroupId: $impliedGroupId) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "groupId": "REPLACE_ME_GROUP_ID",
+    "impliedGroupId": "REPLACE_ME_IMPLIED_GROUP_ID"
+  }
+}
+
+docs {
+  Remove a transitive group implication. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.removeGroupImplication
+}

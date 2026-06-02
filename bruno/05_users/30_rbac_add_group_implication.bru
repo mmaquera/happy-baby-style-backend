@@ -1,0 +1,46 @@
+meta {
+  name: RBAC - Add Group Implication [ADMIN]
+  type: graphql
+  seq: 30
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation AddGroupImplication($groupId: ID!, $impliedGroupId: ID!) {
+    addGroupImplication(groupId: $groupId, impliedGroupId: $impliedGroupId) {
+      success
+      code
+      message
+      data {
+        groupId
+        impliedGroupId
+        createdAt
+        impliedGroup {
+          id
+          code
+          name
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "groupId": "REPLACE_ME_GROUP_ID",
+    "impliedGroupId": "REPLACE_ME_IMPLIED_GROUP_ID"
+  }
+}
+
+docs {
+  Create a transitive group implication: members of groupId also inherit permissions of impliedGroupId. Cycle detection is enforced. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.addGroupImplication
+}

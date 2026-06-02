@@ -1,0 +1,45 @@
+meta {
+  name: Update Product Review [OWNER/ADMIN]
+  type: graphql
+  seq: 14
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateProductReview($id: ID!, $input: UpdateProductReviewInput!) {
+    updateProductReview(id: $id, input: $input) {
+      id
+      productId
+      userId
+      rating
+      title
+      comment
+      isApproved
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_REVIEW_ID",
+    "input": {
+      "rating": 4,
+      "title": "Muy buena calidad",
+      "comment": "El mameluco es cómodo y duradero."
+    }
+  }
+}
+
+docs {
+  Update a product review. Requires owner (reviewer = JWT sub) or admin/management access. Permission: owner or administrators group. Schema: apps/product-service/src/graphql/schema.ts:Mutation.updateProductReview
+}

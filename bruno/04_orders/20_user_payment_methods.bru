@@ -1,0 +1,39 @@
+meta {
+  name: User Payment Methods [OWNER/MGMT]
+  type: graphql
+  seq: 20
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserPaymentMethods($userId: ID!) {
+    userPaymentMethods(userId: $userId) {
+      id
+      orderId
+      type
+      amount
+      status
+      transactionId
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Fetch all payment methods for a user. PII query — requires owner (userId = JWT sub) or management access. Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.userPaymentMethods
+}

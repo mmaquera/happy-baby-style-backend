@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -20,6 +22,10 @@ body:graphql {
 
 body:graphql:vars {
   {
-    "id": "<image-id>"
+    "id": "REPLACE_ME_IMAGE_ID"
   }
+}
+
+docs {
+  Delete an image record. Requires management access or owner (for entityType=user). Returns Boolean. Schema: apps/media-service/src/graphql/schema.ts:Mutation.deleteImage
 }

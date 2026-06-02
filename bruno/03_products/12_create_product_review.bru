@@ -6,30 +6,26 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
   mutation CreateProductReview($input: CreateProductReviewInput!) {
     createProductReview(input: $input) {
-      success
-      code
-      message
-      data {
-        id
-        createdAt
-        entity {
-          id
-          rating
-          title
-          comment
-          isVerified
-          createdAt
-        }
-      }
+      id
+      productId
+      userId
+      rating
+      title
+      comment
+      isVerified
+      isApproved
+      createdAt
     }
   }
 }
@@ -38,10 +34,13 @@ body:graphql:vars {
   {
     "input": {
       "productId": "{{PRODUCT_ID}}",
-      "userId": "{{USER_ID}}",
       "rating": 5,
       "title": "Excelente calidad",
       "comment": "El mameluco es muy suave y de buena calidad. Mi bebé lo ama."
     }
   }
+}
+
+docs {
+  Create a product review. userId is derived from the JWT — do NOT pass it in input (BOLA fix). Requires any authenticated user. Schema: apps/product-service/src/graphql/schema.ts:Mutation.createProductReview
 }

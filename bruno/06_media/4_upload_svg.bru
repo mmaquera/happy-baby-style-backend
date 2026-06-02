@@ -1,0 +1,25 @@
+meta {
+  name: Upload SVG [MGMT/OWNER]
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:multipart-form {
+  operations: {"query":"mutation UploadSvg($file: Upload!, $entityType: String!, $entityId: String!, $optimize: Boolean) { uploadSvg(file: $file, entityType: $entityType, entityId: $entityId, optimize: $optimize) { success message code data { url filename svgId dimensions { width height } viewBox optimized } } }","variables":{"file":null,"entityType":"product","entityId":"{{PRODUCT_ID}}","optimize":true}}
+  map: {"0":["variables.file"]}
+  0: @file(<path/to/icon.svg>)
+}
+
+docs {
+  Upload an SVG file using the GraphQL multipart request spec. Note: 'sanitize' arg was removed from SDL — do NOT include it. The 'optimize' arg (boolean, optional) controls SVG optimization. Requires management access or owner (for entityType=user). Schema: apps/media-service/src/graphql/schema.ts:Mutation.uploadSvg
+}

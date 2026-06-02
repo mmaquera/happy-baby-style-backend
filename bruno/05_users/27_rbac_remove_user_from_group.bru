@@ -1,0 +1,35 @@
+meta {
+  name: RBAC - Remove User from Group [ADMIN]
+  type: graphql
+  seq: 27
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation RemoveUserFromGroup($userId: ID!, $groupId: ID!) {
+    removeUserFromGroup(userId: $userId, groupId: $groupId) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}",
+    "groupId": "REPLACE_ME_GROUP_ID"
+  }
+}
+
+docs {
+  Remove a user from a RBAC group. The user's JWT will carry updated permissions on next login. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.removeUserFromGroup
+}

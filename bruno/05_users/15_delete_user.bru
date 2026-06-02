@@ -1,0 +1,34 @@
+meta {
+  name: Delete User [ADMIN]
+  type: graphql
+  seq: 15
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteUser($id: ID!) {
+    deleteUser(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Delete a user account. Requires user management access (administrators). Permission: users:write. Schema: apps/user-service/src/graphql/schema.ts:Mutation.deleteUser
+}

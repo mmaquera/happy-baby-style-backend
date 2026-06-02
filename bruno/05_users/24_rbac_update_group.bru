@@ -1,0 +1,46 @@
+meta {
+  name: RBAC - Update Group [ADMIN]
+  type: graphql
+  seq: 24
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateGroup($id: ID!, $input: UpdateGroupInput!) {
+    updateGroup(id: $id, input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        code
+        name
+        description
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_GROUP_ID",
+    "input": {
+      "name": "Warehouse Operator (Updated)",
+      "description": "Operadores de bodega con acceso extendido"
+    }
+  }
+}
+
+docs {
+  Update a RBAC group's name or description. Cannot update isSystem flag or code. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateGroup
+}

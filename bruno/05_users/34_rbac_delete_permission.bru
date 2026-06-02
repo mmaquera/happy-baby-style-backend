@@ -1,0 +1,34 @@
+meta {
+  name: RBAC - Delete Permission [ADMIN]
+  type: graphql
+  seq: 34
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeletePermission($id: ID!) {
+    deletePermission(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_PERMISSION_ID"
+  }
+}
+
+docs {
+  Delete a RBAC permission. This will cascade-remove the permission from all groups. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.deletePermission
+}

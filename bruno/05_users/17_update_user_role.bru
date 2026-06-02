@@ -1,0 +1,40 @@
+meta {
+  name: Update User Role [ADMIN]
+  type: graphql
+  seq: 17
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateUserRole($id: ID!, $input: UpdateUserRoleInput!) {
+    updateUserRole(id: $id, input: $input) {
+      id
+      email
+      role
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{USER_ID}}",
+    "input": {
+      "role": "staff"
+    }
+  }
+}
+
+docs {
+  Update a user's legacy role field. Prefer group-based RBAC via assignUserToGroup. Requires user management access (administrators). Permission: users:write. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateUserRole
+}

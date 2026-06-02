@@ -1,0 +1,34 @@
+meta {
+  name: Remove from Cart
+  type: graphql
+  seq: 16
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation RemoveFromCart($id: ID!) {
+    removeFromCart(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_CART_ITEM_ID"
+  }
+}
+
+docs {
+  Remove a single item from the cart by item ID. Ownership enforced server-side. Permission: authenticated user (owner). Schema: apps/order-service/src/graphql/schema.ts:Mutation.removeFromCart
+}

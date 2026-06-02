@@ -1,0 +1,38 @@
+meta {
+  name: User Coupon Usage [OWNER/MGMT]
+  type: graphql
+  seq: 23
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserCouponUsage($userId: ID!) {
+    userCouponUsage(userId: $userId) {
+      id
+      couponId
+      userId
+      orderId
+      discountAmount
+      usedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Fetch coupon redemption history for a user. PII — requires owner (userId = JWT sub) or management access. Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.userCouponUsage
+}

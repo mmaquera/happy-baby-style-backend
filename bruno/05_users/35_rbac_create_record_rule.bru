@@ -1,0 +1,56 @@
+meta {
+  name: RBAC - Create Record Rule [ADMIN]
+  type: graphql
+  seq: 35
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateRecordRule($input: CreateRecordRuleInput!) {
+    createRecordRule(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        name
+        modelName
+        groupId
+        mode
+        domainExpression
+        isActive
+        createdAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "Customer sees own orders only",
+      "modelName": "Order",
+      "groupId": "REPLACE_ME_CUSTOMER_GROUP_ID",
+      "mode": "filter",
+      "domainExpression": {
+        "op": "=",
+        "field": "customerId",
+        "value": { "$ctx": "userId" }
+      },
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Create a row-level security rule for a model + group combination. domainExpression is a JSON filter compiled to Prisma where clause by compileDomainExpr (@hbs/authz). Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.createRecordRule
+}

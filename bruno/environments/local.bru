@@ -10,3 +10,21 @@ vars {
   ADDRESS_ID:
   COUPON_CODE: WELCOME10
 }
+
+vars:secret [ACCESS_TOKEN, REFRESH_TOKEN, MFA_CHALLENGE_TOKEN]
+
+# ── Token guidance ──────────────────────────────────────────────────────────
+# ACCESS_TOKEN is auto-captured by 01_auth/2_login.bru post-response script.
+# For MFA-enrolled accounts: run login first to get MFA_CHALLENGE_TOKEN, then
+#   run 01_auth/13_verify_totp.bru — the resulting token is saved to ACCESS_TOKEN.
+#
+# Role/group coverage:
+#   administrators: login as admin user (group: administrators) — can run all RBAC + management ops
+#   sales-manager:  login as sales user (group: sales-manager) — can run order/coupon management
+#   customer:       login as customer user (group: customer) — owns-only access to orders/cart/reviews
+#   inventory-user: login as inventory user (group: inventory-user) — product/stock mutations
+#
+# Mint a dev token manually:
+#   mutation LoginUser { loginUser(email: "admin@happybabystyle.com", password: "...") { data { accessToken } } }
+# Decode a token to inspect groups+permissions:
+#   node -e "console.log(JSON.parse(Buffer.from('TOKEN'.split('.')[1],'base64').toString()))"

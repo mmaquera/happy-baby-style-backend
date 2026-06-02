@@ -1,0 +1,47 @@
+meta {
+  name: RBAC - Update Record Rule [ADMIN]
+  type: graphql
+  seq: 36
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateRecordRule($id: ID!, $input: UpdateRecordRuleInput!) {
+    updateRecordRule(id: $id, input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        name
+        modelName
+        mode
+        domainExpression
+        isActive
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_RULE_ID",
+    "input": {
+      "isActive": false
+    }
+  }
+}
+
+docs {
+  Update a record rule (e.g., toggle isActive to disable without deleting). Propagation: after update an event is published to stream:record-rules-updated so all subgraphs refresh their cached filters. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateRecordRule
+}

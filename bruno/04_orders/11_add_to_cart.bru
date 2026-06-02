@@ -6,15 +6,17 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
-  mutation AddToCart($userId: ID!, $productId: ID!, $quantity: Int!) {
-    addToCart(userId: $userId, productId: $productId, quantity: $quantity) {
+  mutation AddToCart($productId: ID!, $quantity: Int!) {
+    addToCart(productId: $productId, quantity: $quantity) {
       id
       cartId
       productId
@@ -27,8 +29,11 @@ body:graphql {
 
 body:graphql:vars {
   {
-    "userId": "{{USER_ID}}",
     "productId": "{{PRODUCT_ID}}",
     "quantity": 1
   }
+}
+
+docs {
+  Adds a product to the authenticated user's cart. userId is derived from the JWT — do NOT pass it as input (BOLA fix). Requires any authenticated user. Schema: apps/order-service/src/graphql/schema.ts:Mutation.addToCart
 }

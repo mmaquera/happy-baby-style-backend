@@ -1,0 +1,49 @@
+meta {
+  name: RBAC - User Groups [ADMIN]
+  type: graphql
+  seq: 21
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query UserGroups($userId: ID!) {
+    userGroups(userId: $userId) {
+      success
+      code
+      message
+      data {
+        items {
+          userId
+          groupId
+          grantedAt
+          grantedBy
+          group {
+            id
+            code
+            name
+          }
+        }
+        total
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  List all RBAC groups assigned to a user. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Query.userGroups
+}

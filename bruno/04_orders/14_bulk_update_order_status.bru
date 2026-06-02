@@ -1,0 +1,37 @@
+meta {
+  name: Bulk Update Order Status [ADMIN]
+  type: graphql
+  seq: 14
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation BulkUpdateOrderStatus($orders: [ID!]!, $status: OrderStatus!) {
+    bulkUpdateOrderStatus(orders: $orders, status: $status) {
+      id
+      orderNumber
+      status
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "orders": ["{{ORDER_ID}}"],
+    "status": "confirmed"
+  }
+}
+
+docs {
+  Bulk-update status for up to 100 orders in one call (enforced limit). Requires management access (sales-manager, administrators). Permission: orders:write. Schema: apps/order-service/src/graphql/schema.ts:Mutation.bulkUpdateOrderStatus
+}

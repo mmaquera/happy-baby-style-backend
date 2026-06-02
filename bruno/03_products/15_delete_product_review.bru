@@ -1,0 +1,34 @@
+meta {
+  name: Delete Product Review [OWNER/ADMIN]
+  type: graphql
+  seq: 15
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteProductReview($id: ID!) {
+    deleteProductReview(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_REVIEW_ID"
+  }
+}
+
+docs {
+  Delete a product review. Requires owner or admin access. Permission: owner or administrators group. Schema: apps/product-service/src/graphql/schema.ts:Mutation.deleteProductReview
+}

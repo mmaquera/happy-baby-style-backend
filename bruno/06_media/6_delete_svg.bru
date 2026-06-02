@@ -1,0 +1,31 @@
+meta {
+  name: Delete SVG [ADMIN]
+  type: graphql
+  seq: 6
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteSvg($id: ID!) {
+    deleteSvg(id: $id)
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_SVG_ID"
+  }
+}
+
+docs {
+  Delete an SVG record. Requires management access or owner (for entityType=user). Returns Boolean. Schema: apps/media-service/src/graphql/schema.ts:Mutation.deleteSvg
+}

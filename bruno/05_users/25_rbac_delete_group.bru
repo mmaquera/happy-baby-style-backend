@@ -1,0 +1,34 @@
+meta {
+  name: RBAC - Delete Group [ADMIN]
+  type: graphql
+  seq: 25
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteGroup($id: ID!) {
+    deleteGroup(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_GROUP_ID"
+  }
+}
+
+docs {
+  Delete a RBAC group. System groups (isSystem=true) are protected and cannot be deleted. Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Mutation.deleteGroup
+}

@@ -1,0 +1,48 @@
+meta {
+  name: RBAC - List Permissions [ADMIN]
+  type: graphql
+  seq: 19
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListPermissions($pagination: PaginationInput) {
+    permissions(pagination: $pagination) {
+      success
+      code
+      message
+      data {
+        items {
+          id
+          code
+          name
+          description
+          category
+          createdAt
+        }
+        total
+        limit
+        offset
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "pagination": { "limit": 50, "offset": 0 }
+  }
+}
+
+docs {
+  List all RBAC permissions (verb:noun codes). Requires administrators group or legacy role=admin. Schema: apps/user-service/src/graphql/schema.ts:Query.permissions
+}
