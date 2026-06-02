@@ -65,12 +65,35 @@ export class LocalStorageService implements IStorageService {
 
       const targetDir = folder ? path.join(this.uploadDir, folder) : this.uploadDir;
 
+      // Control 5 — bounds-check: resolved path must stay inside the uploads directory
+      const resolvedTargetDir = path.resolve(targetDir);
+      const resolvedUploadDir = path.resolve(this.uploadDir);
+      if (!resolvedTargetDir.startsWith(resolvedUploadDir + path.sep) && resolvedTargetDir !== resolvedUploadDir) {
+        this.logger.error('Path traversal attempt detected', new Error('Path traversal'), {
+          targetDir,
+          resolvedTargetDir,
+          resolvedUploadDir,
+        });
+        throw new FileUploadError('Invalid upload path', { fileName, mimeType });
+      }
+
       if (folder) {
         await this.ensureDirectoryExists(targetDir);
       }
 
       const uniqueFileName = this.generateUniqueFileName(fileName, mimeType);
       const filePath = path.join(targetDir, uniqueFileName);
+
+      // Control 5 — verify the final file path is still inside the uploads directory
+      const resolvedFilePath = path.resolve(filePath);
+      if (!resolvedFilePath.startsWith(resolvedUploadDir + path.sep)) {
+        this.logger.error('Path traversal attempt on file path', new Error('Path traversal'), {
+          filePath,
+          resolvedFilePath,
+          resolvedUploadDir,
+        });
+        throw new FileUploadError('Invalid upload path', { fileName, mimeType });
+      }
 
       await writeFile(filePath, buffer);
 
@@ -87,7 +110,10 @@ export class LocalStorageService implements IStorageService {
 
       return relativePath;
     } catch (error) {
+      // Re-throw typed storage errors (FileValidationError, FileUploadError) directly so
+      // that security-relevant messages (e.g. 'Invalid upload path') reach the caller.
       if (error instanceof FileValidationError) throw error;
+      if (error instanceof FileUploadError) throw error;
 
       this.logger.error(
         'File upload failed',
@@ -108,6 +134,18 @@ export class LocalStorageService implements IStorageService {
       const relativePath = url.pathname.substring(1);
       const filePath = path.join(process.cwd(), relativePath);
 
+      // Control 5 — bounds-check: deletion must stay inside the uploads directory
+      const resolvedFilePath = path.resolve(filePath);
+      const resolvedUploadDir = path.resolve(this.uploadDir);
+      if (!resolvedFilePath.startsWith(resolvedUploadDir + path.sep)) {
+        this.logger.error('Path traversal attempt in deleteFile', new Error('Path traversal'), {
+          fileUrl,
+          resolvedFilePath,
+          resolvedUploadDir,
+        });
+        throw new FileDeleteError('Invalid file path', { fileUrl });
+      }
+
       try {
         await stat(filePath);
         await unlink(filePath);
@@ -116,6 +154,8 @@ export class LocalStorageService implements IStorageService {
         this.logger.warn('File not found for deletion', { fileUrl, filePath });
       }
     } catch (error) {
+      if (error instanceof FileDeleteError) throw error;
+
       this.logger.error(
         'File deletion failed',
         error instanceof Error ? error : new Error('Unknown error'),

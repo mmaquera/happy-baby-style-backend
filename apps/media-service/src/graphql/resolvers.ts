@@ -6,11 +6,11 @@ import { UploadSvgUseCase } from '../application/use-cases/UploadSvgUseCase';
 import { ResponseFactory, RESPONSE_CODES, DomainError } from '@hbs/shared-kernel';
 import { ImageEntityType } from '../domain/entities/Image';
 import { SvgEntityType } from '../domain/entities/Svg';
-import { UserRole, type TokenPayload } from '@hbs/auth';
+import { UserRole, type TokenPayload, assertOwnerOrAdmin } from '@hbs/auth';
 import { GraphQLError } from 'graphql';
 
 // ── Media management guard ───────────────────────────────────────────────────
-// Delete mutations are restricted to administrators only.
+// Delete and non-user-entity upload mutations are restricted to administrators.
 // Accepts 'administrators' group (new RBAC token) OR legacy ADMIN role.
 function requireMediaManagementAccess(currentUser: TokenPayload | null | undefined): void {
   if (!currentUser) {
@@ -27,6 +27,28 @@ function requireMediaManagementAccess(currentUser: TokenPayload | null | undefin
   throw new GraphQLError('Insufficient privileges', {
     extensions: { code: 'FORBIDDEN', http: { status: 403 } },
   });
+}
+
+// ── Owner-or-admin guard (RBAC-aware) ────────────────────────────────────────
+// assertOwnerOrAdmin from @hbs/auth only checks the legacy `role` field.
+// During the RBAC rollout, administrators may have groups=['administrators']
+// but still carry role=CUSTOMER. This wrapper checks groups first so RBAC
+// admins can manage any user's avatar.
+function requireOwnerOrMediaAdmin(
+  currentUser: TokenPayload | null | undefined,
+  ownerId: string,
+): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  // RBAC path: group-based administrators override owner check
+  if (currentUser.groups?.includes('administrators')) {
+    return;
+  }
+  // Legacy path: delegate to library guard (checks role === ADMIN or userId === ownerId)
+  assertOwnerOrAdmin(currentUser, ownerId);
 }
 
 const STORAGE_BASE_URL = process.env.STORAGE_BASE_URL || 'http://localhost:3001';
@@ -107,6 +129,18 @@ export function createResolvers(
         { file, entityType, entityId }: { file: any; entityType: string; entityId: string },
         context: any,
       ) => {
+        // Normalize entityType — schema uses String! not an enum, so clients could
+        // send 'USER' or 'User'. Normalize to lowercase before guard comparison.
+        const normalizedEntityType = entityType?.toLowerCase();
+
+        // Control 2 — RBAC guard: user uploads are owner-only; all other entity types
+        // require media management access (administrators / legacy ADMIN).
+        if (normalizedEntityType === 'user') {
+          requireOwnerOrMediaAdmin(context?.currentUser, entityId);
+        } else {
+          requireMediaManagementAccess(context?.currentUser);
+        }
+
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `upload-image-${Date.now()}-${entityId}`;
 
@@ -167,16 +201,26 @@ export function createResolvers(
           entityType,
           entityId,
           optimize = true,
-          sanitize = true,
         }: {
           file: any;
           entityType: string;
           entityId: string;
           optimize?: boolean;
-          sanitize?: boolean;
+          // sanitize is intentionally absent — always server-side (Control 1)
         },
         context: any,
       ) => {
+        // Normalize entityType — schema uses String! not an enum.
+        const normalizedEntityType = entityType?.toLowerCase();
+
+        // Control 2 — RBAC guard: user SVGs (avatars) are owner-only; icons/logos/
+        // product/category SVGs require media management access.
+        if (normalizedEntityType === 'user') {
+          requireOwnerOrMediaAdmin(context?.currentUser, entityId);
+        } else {
+          requireMediaManagementAccess(context?.currentUser);
+        }
+
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `upload-svg-${Date.now()}-${entityId}`;
 
@@ -199,7 +243,6 @@ export function createResolvers(
             entityType: entityType as SvgEntityType,
             entityId,
             optimize,
-            sanitize,
             currentUser: context?.currentUser ?? null,
           });
 
@@ -246,7 +289,7 @@ export function createResolvers(
           return ResponseFactory.createSvgErrorResponse(
             'Failed to upload SVG',
             errorCode,
-            { operation: 'uploadSvg', entityType, entityId, optimize, sanitize },
+            { operation: 'uploadSvg', entityType, entityId, optimize },
             { requestId, traceId },
           );
         }

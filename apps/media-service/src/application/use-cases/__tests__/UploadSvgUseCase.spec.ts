@@ -15,13 +15,15 @@ jest.mock(
   { virtual: true },
 );
 
-// SvgValidationService performs real validation — mock it out so tests focus on RBAC logic.
+// SvgValidationService performs real validation — mock it out so tests focus on security logic.
+// sanitizeSvgContent is a jest.fn() that passes the content through so the
+// use case can continue without DOMPurify, but is still spy-able.
 jest.mock('../../validation/SvgValidationService', () => ({
   SvgValidationService: {
     validateSvgUploadRequest: jest.fn(),
     validateSvgFile: jest.fn(),
     validateSvgContent: jest.fn(),
-    sanitizeSvgContent: (c: string) => c,
+    sanitizeSvgContent: jest.fn((c: string) => c),
     validateSvgDimensions: jest.fn(),
     validateViewBox: jest.fn(),
   },
@@ -31,7 +33,7 @@ import { UploadSvgUseCase } from '../UploadSvgUseCase';
 import type { ISvgRepository } from '../../../domain/repositories/ISvgRepository';
 import type { IStorageService } from '../../../domain/interfaces/IStorageService';
 import { SvgEntity, SvgEntityType } from '../../../domain/entities/Svg';
-import { NotFoundError } from '@hbs/shared-kernel';
+import { NotFoundError, ValidationError } from '@hbs/shared-kernel';
 import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
@@ -71,8 +73,7 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
 
 /**
  * Minimal file object whose buffer is readable by the SVG content reader path.
- * SvgValidationService is mocked so content checks are skipped; only the
- * repository.create call (and currentUser forwarding) is verified.
+ * SvgValidationService is mocked so content checks are skipped.
  */
 function makeUploadFile() {
   const svgContent = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"></svg>';
@@ -157,6 +158,66 @@ describe('UploadSvgUseCase', () => {
       });
 
       expect(svgRepo.create).toHaveBeenCalledWith(expect.any(SvgEntity), null);
+    });
+
+    it('sanitizes SVG content server-side regardless of any flag (Control 1)', async () => {
+      const { SvgValidationService } = require('../../validation/SvgValidationService');
+      const file = makeUploadFile();
+
+      await useCase.execute({
+        file,
+        entityType: SvgEntityType.CATEGORY,
+        entityId: 'cat-1',
+        // No sanitize arg — must always sanitize
+      });
+
+      // sanitizeSvgContent must have been called
+      expect(SvgValidationService.sanitizeSvgContent).toHaveBeenCalled();
+    });
+  });
+
+  describe('entityId validation — Control 5 (via SvgValidationService)', () => {
+    // entityId validation lives in SvgValidationService.validateSvgUploadRequest.
+    // The use-case spec mocks that method; we test entityId format directly on
+    // SvgValidationService to keep these tests deterministic.
+    it('validateSvgUploadRequest throws InvalidFormatError for entityId with path traversal', () => {
+      const { SvgValidationService: Real } = jest.requireActual<
+        typeof import('../../validation/SvgValidationService')
+      >('../../validation/SvgValidationService');
+
+      expect(() =>
+        Real.validateSvgUploadRequest({
+          file: makeUploadFile(),
+          entityType: SvgEntityType.CATEGORY,
+          entityId: '../etc/passwd',
+        }),
+      ).toThrow();
+    });
+
+    it('validateSvgUploadRequest throws for entityId with slash', () => {
+      const { SvgValidationService: Real } = jest.requireActual<
+        typeof import('../../validation/SvgValidationService')
+      >('../../validation/SvgValidationService');
+
+      expect(() =>
+        Real.validateSvgUploadRequest({
+          file: makeUploadFile(),
+          entityType: SvgEntityType.ICON,
+          entityId: 'icons/bad',
+        }),
+      ).toThrow();
+    });
+
+    it('accepts valid entityId with hyphens and underscores (use case level)', async () => {
+      const file = makeUploadFile();
+
+      const result = await useCase.execute({
+        file,
+        entityType: SvgEntityType.CATEGORY,
+        entityId: 'cat-1_foo',
+      });
+
+      expect(result.id).toBe('svg-1');
     });
   });
 

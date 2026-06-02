@@ -3,6 +3,15 @@ import { ImageEntity, ImageEntityType } from '../../domain/entities/Image';
 import { IImageRepository } from '../../domain/repositories/IImageRepository';
 import { IStorageService } from '../../domain/interfaces/IStorageService';
 import { LoggerFactory, ILogger } from '@hbs/logging';
+import { ValidationError } from '../../domain/errors/DomainError';
+
+// Control 7 — single allowlist: MIME → canonical extension (derived from validated MIME only)
+const ALLOWED_IMAGE_MIME_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 export interface UploadImageRequest {
   file: any;
@@ -23,6 +32,14 @@ export class UploadImageUseCase {
 
   async execute(request: UploadImageRequest): Promise<ImageEntity> {
     const { file, entityType, entityId, currentUser = null } = request;
+
+    // Control 5 — validate entityId before any path or filename construction
+    if (!/^[a-zA-Z0-9-_]+$/.test(entityId)) {
+      throw new ValidationError(
+        'entityId must contain only alphanumeric characters, hyphens, and underscores',
+        'entityId',
+      );
+    }
 
     let resolvedFile: any;
     let fileBuffer: Buffer;
@@ -68,8 +85,10 @@ export class UploadImageUseCase {
 
     this.validateFile(file, fileInfo);
 
+    // Control 7 — derive extension from validated MIME type, never from the
+    // client-supplied filename (prevents extension spoofing).
     const timestamp = Date.now();
-    const extension = fileInfo.filename.split('.').pop()?.toLowerCase() || 'jpg';
+    const extension = ALLOWED_IMAGE_MIME_TYPES[fileInfo.mimetype] ?? 'jpg';
     const fileName = `${entityType}_${entityId}_${timestamp}.${extension}`;
 
     const url = await this.storageService.uploadFile(
@@ -103,14 +122,17 @@ export class UploadImageUseCase {
   }
 
   private validateFile(file: any, fileInfo: any): void {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(fileInfo.mimetype)) {
-      throw new Error('Invalid file type. Only JPEG, PNG and WEBP are allowed');
+    // Control 8 — use module-level ALLOWED_IMAGE_MIME_TYPES as single source of truth
+    if (!(fileInfo.mimetype in ALLOWED_IMAGE_MIME_TYPES)) {
+      throw new ValidationError(
+        `Invalid file type "${fileInfo.mimetype}". Only JPEG, PNG and WEBP are allowed`,
+        'mimeType',
+      );
     }
 
     const maxSize = 5 * 1024 * 1024;
     if (fileInfo.size > maxSize) {
-      throw new Error('File size too large. Maximum 5MB allowed');
+      throw new ValidationError('File size too large. Maximum 5MB allowed', 'size');
     }
   }
 }

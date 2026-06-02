@@ -19,7 +19,7 @@ import { UploadImageUseCase } from '../UploadImageUseCase';
 import type { IImageRepository } from '../../../domain/repositories/IImageRepository';
 import type { IStorageService } from '../../../domain/interfaces/IStorageService';
 import { ImageEntity, ImageEntityType } from '../../../domain/entities/Image';
-import { NotFoundError } from '@hbs/shared-kernel';
+import { NotFoundError, ValidationError } from '@hbs/shared-kernel';
 import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
@@ -59,12 +59,12 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
  * UploadImageUseCase reads through the stream; we mock imageRepository.create so
  * the actual bytes don't matter — only the call to create is verified.
  */
-function makeUploadFile() {
+function makeUploadFile(mimetype = 'image/jpeg') {
   const fakeBytes = Buffer.from('fake-image-bytes');
   return {
     promise: Promise.resolve({
       filename: 'photo.jpg',
-      mimetype: 'image/jpeg',
+      mimetype,
       encoding: '7bit',
       createReadStream: () => {
         let done = false;
@@ -153,6 +153,81 @@ describe('UploadImageUseCase', () => {
       });
 
       expect(imageRepo.create).toHaveBeenCalledWith(expect.any(ImageEntity), null);
+    });
+
+    it('derives extension from MIME type, not from client filename (Control 7)', async () => {
+      // File has .jpg in its name, but we supply image/png MIME — extension must be .png
+      const fakeBytes = Buffer.from('fake-image-bytes');
+      const file = {
+        promise: Promise.resolve({
+          filename: 'sneaky.jpg',  // client-supplied — must be ignored for extension
+          mimetype: 'image/png',
+          encoding: '7bit',
+          createReadStream: () => {
+            let done = false;
+            return {
+              [Symbol.asyncIterator]() {
+                return {
+                  next() {
+                    if (!done) {
+                      done = true;
+                      return Promise.resolve({ value: fakeBytes, done: false as const });
+                    }
+                    return Promise.resolve({ value: undefined, done: true as const });
+                  },
+                };
+              },
+            };
+          },
+        }),
+      };
+
+      await useCase.execute({
+        file,
+        entityType: ImageEntityType.PRODUCT,
+        entityId: 'p1',
+      });
+
+      const [, capturedFileName] = storageService.uploadFile.mock.calls[0];
+      expect(capturedFileName).toMatch(/\.png$/);
+    });
+  });
+
+  describe('entityId validation — Control 5', () => {
+    it('throws ValidationError for entityId with path traversal characters', async () => {
+      const file = makeUploadFile();
+
+      await expect(
+        useCase.execute({
+          file,
+          entityType: ImageEntityType.PRODUCT,
+          entityId: '../etc/passwd',
+        }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('throws ValidationError for entityId with slash', async () => {
+      const file = makeUploadFile();
+
+      await expect(
+        useCase.execute({
+          file,
+          entityType: ImageEntityType.PRODUCT,
+          entityId: 'product/123',
+        }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('accepts valid entityId with alphanumeric, hyphens, and underscores', async () => {
+      const file = makeUploadFile();
+
+      const result = await useCase.execute({
+        file,
+        entityType: ImageEntityType.PRODUCT,
+        entityId: 'product-123_abc',
+      });
+
+      expect(result.id).toBe('img-1');
     });
   });
 

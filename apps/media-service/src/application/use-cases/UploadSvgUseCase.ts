@@ -6,6 +6,12 @@ import { LoggerFactory, ILogger } from '@hbs/logging';
 import { SvgValidationService } from '../validation/SvgValidationService';
 import { InvalidFormatError } from '../../domain/errors/DomainError';
 
+// Control 7 — MIME → extension allowlist for SVG uploads (single source of truth)
+const SVG_MIME_TO_EXT: Record<string, string> = {
+  'image/svg+xml': 'svg',
+  'application/svg+xml': 'svg',
+};
+
 // Inlined from @config/storage
 const svgConfig = {
   maxFileSize: parseInt(process.env.SVG_MAX_FILE_SIZE || '2097152'),
@@ -21,7 +27,8 @@ export interface UploadSvgRequest {
   entityType: SvgEntityType;
   entityId: string;
   optimize?: boolean;
-  sanitize?: boolean;
+  // NOTE: sanitize is intentionally absent — SVG sanitization is always server-side
+  // and must never be disabled by the caller (stored XSS prevention).
   currentUser?: TokenPayload | null;
 }
 
@@ -36,8 +43,10 @@ export class UploadSvgUseCase {
   }
 
   async execute(request: UploadSvgRequest): Promise<SvgEntity> {
-    const { file, entityType, entityId, optimize = true, sanitize = true, currentUser = null } = request;
+    const { file, entityType, entityId, optimize = true, currentUser = null } = request;
 
+    // Control 5 — entityId format validated inside validateSvgUploadRequest
+    // (SvgValidationService.validateSvgUploadRequest enforces /^[a-zA-Z0-9-_]+$/)
     SvgValidationService.validateSvgUploadRequest({ file, entityType, entityId });
 
     const svgContent = await this.readSvgContent(file);
@@ -45,8 +54,9 @@ export class UploadSvgUseCase {
     SvgValidationService.validateSvgFile(file, svgContent.length);
     SvgValidationService.validateSvgContent(svgContent);
 
+    // Control 1 — sanitization is always server-side; never caller-configurable
     let processedContent = svgContent;
-    if (sanitize && svgConfig.enableSanitization) {
+    if (svgConfig.enableSanitization) {
       processedContent = SvgValidationService.sanitizeSvgContent(svgContent);
     }
 
@@ -57,7 +67,8 @@ export class UploadSvgUseCase {
 
     const fileInfo = this.extractFileInfo(file);
     const timestamp = Date.now();
-    const extension = this.getFileExtension(fileInfo.filename);
+    // Control 7 — extension derived from validated MIME type, not client filename
+    const extension = SVG_MIME_TO_EXT[fileInfo.mimetype] ?? 'svg';
     const fileName = `${entityType}_${entityId}_${timestamp}.${extension}`;
 
     const buffer = Buffer.from(processedContent, 'utf8');
@@ -134,9 +145,4 @@ export class UploadSvgUseCase {
     });
   }
 
-  private getFileExtension(filename: string): string {
-    const lastDotIndex = filename.lastIndexOf('.');
-    if (lastDotIndex === -1) return 'svg';
-    return filename.substring(lastDotIndex + 1);
-  }
 }

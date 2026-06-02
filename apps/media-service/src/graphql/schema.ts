@@ -100,7 +100,6 @@ export const typeDefs = gql`
       entityType: String!
       entityId: String!
       optimize: Boolean
-      sanitize: Boolean
     ): UploadSvgResponse!
     deleteImage(id: ID!): Boolean!
     deleteSvg(id: ID!): Boolean!
