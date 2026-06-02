@@ -1,7 +1,7 @@
 /**
  * ProductReviewGuards.spec.ts
  *
- * Tests for the BOLA/auth security guards on review mutations.
+ * Tests for the BOLA/auth security guards and Prisma FK error mapping on review mutations.
  *
  * These guards live in the resolver layer (graphql/resolvers.ts) because no
  * dedicated use case exists yet for review/vote operations — all DB access is
@@ -12,12 +12,16 @@
  * What is tested here:
  *   - createProductReview: author is pinned to JWT userId (not input.userId)
  *   - createProductReview: unauthenticated caller → UNAUTHENTICATED
+ *   - createProductReview: Prisma P2003 FK (productId not found) → GraphQLError NOT_FOUND (no schema leak)
+ *   - createProductReview: Prisma unknown error → re-thrown (not swallowed)
  *   - createReviewVote: voter is pinned to JWT userId (not input.userId)
  *   - createReviewVote: unauthenticated caller → UNAUTHENTICATED
+ *   - createReviewVote: Prisma P2003 FK (reviewId not found) → GraphQLError NOT_FOUND (no schema leak)
  *   - deleteReviewVote: ownership enforced (own vote → success)
  *   - deleteReviewVote: vote belonging to another user → NOT_FOUND (anti-enumeration)
  *   - deleteReviewVote: vote does not exist at all → NOT_FOUND
  *   - deleteReviewVote: unauthenticated caller → UNAUTHENTICATED
+ *   - deleteReviewVote: admin without own vote → NOT_FOUND (same as non-admin; no scope-creep)
  */
 
 jest.mock(
@@ -50,6 +54,7 @@ jest.mock('@hbs/auth', () => ({
 
 jest.mock('@hbs/authz', () => ({
   assertModelAccess: jest.fn(),
+  // isAdmin is used in updateProductReview for the owner-or-admin BOLA guard.
   isAdmin: jest.fn((user: any) => {
     if (!user) return false;
     if (user.role === 'admin') return true;
@@ -58,6 +63,7 @@ jest.mock('@hbs/authz', () => ({
 }));
 
 import { GraphQLError } from 'graphql';
+import { Prisma } from '@prisma/client';
 import type { TokenPayload } from '@hbs/auth';
 
 // ── Factories ──────────────────────────────────────────────────────────────────
@@ -226,6 +232,52 @@ describe('Review mutation security guards', () => {
         extensions: { code: 'UNAUTHENTICATED' },
       });
     });
+
+    it('maps Prisma P2003 (FK violation — productId not found) to a GraphQLError NOT_FOUND (no schema leak, correct HTTP semantics)', async () => {
+      const prisma = makePrismaMock();
+      // Simulate Prisma throwing P2003 when productId does not exist in the products table.
+      const fkError = new Prisma.PrismaClientKnownRequestError('Foreign key constraint failed', {
+        code: 'P2003',
+        clientVersion: '5.0.0',
+      });
+      prisma.productReview.create.mockRejectedValue(fkError);
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'createProductReview');
+
+      // Must throw a GraphQLError with NOT_FOUND so Apollo forwards the correct 404 to the client.
+      // (Non-GraphQLError exceptions are masked as INTERNAL_SERVER_ERROR by Apollo Server 4.)
+      await expect(
+        mutation(null, { input: { productId: 'nonexistent-prod', rating: 5 } }, { currentUser: makeUser() }),
+      ).rejects.toMatchObject({
+        extensions: { code: 'NOT_FOUND' },
+      });
+
+      // Also assert the message is clean — no Prisma-internal details.
+      const thrownError = await mutation(
+        null,
+        { input: { productId: 'nonexistent-prod', rating: 5 } },
+        { currentUser: makeUser() },
+      ).catch((e: unknown) => e);
+      const msg = (thrownError as Error).message;
+      expect(msg).not.toMatch(/foreign key/i);
+      expect(msg).not.toMatch(/constraint/i);
+      expect(msg).not.toMatch(/prisma/i);
+      expect(msg.toLowerCase()).toContain('product');
+    });
+
+    it('re-throws unknown non-Prisma errors without swallowing', async () => {
+      const prisma = makePrismaMock();
+      const unknownError = new Error('database connection lost');
+      prisma.productReview.create.mockRejectedValue(unknownError);
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'createProductReview');
+
+      await expect(
+        mutation(null, { input: { productId: 'prod-1', rating: 5 } }, { currentUser: makeUser() }),
+      ).rejects.toThrow('database connection lost');
+    });
   });
 
   // ── createReviewVote ─────────────────────────────────────────────────────────
@@ -288,6 +340,38 @@ describe('Review mutation security guards', () => {
       ).rejects.toMatchObject({
         extensions: { code: 'UNAUTHENTICATED' },
       });
+    });
+
+    it('maps Prisma P2003 (FK violation — reviewId not found) to a GraphQLError NOT_FOUND (no schema leak, correct HTTP semantics)', async () => {
+      const prisma = makePrismaMock();
+      // Simulate Prisma throwing P2003 when reviewId does not exist in the product_reviews table.
+      const fkError = new Prisma.PrismaClientKnownRequestError('Foreign key constraint failed', {
+        code: 'P2003',
+        clientVersion: '5.0.0',
+      });
+      prisma.reviewVote.upsert.mockRejectedValue(fkError);
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'createReviewVote');
+
+      // Must throw a GraphQLError with NOT_FOUND so Apollo forwards the correct 404 to the client.
+      await expect(
+        mutation(null, { input: { reviewId: 'nonexistent-rev', isHelpful: true } }, { currentUser: makeUser() }),
+      ).rejects.toMatchObject({
+        extensions: { code: 'NOT_FOUND' },
+      });
+
+      // Also assert the message is clean — no Prisma-internal details.
+      const thrownError = await mutation(
+        null,
+        { input: { reviewId: 'nonexistent-rev', isHelpful: true } },
+        { currentUser: makeUser() },
+      ).catch((e: unknown) => e);
+      const msg = (thrownError as Error).message;
+      expect(msg).not.toMatch(/foreign key/i);
+      expect(msg).not.toMatch(/constraint/i);
+      expect(msg).not.toMatch(/prisma/i);
+      expect(msg.toLowerCase()).toContain('review');
     });
   });
 
@@ -394,9 +478,10 @@ describe('Review mutation security guards', () => {
       });
     });
 
-    it('admin user receives NOT_FOUND when no vote exists for their own userId', async () => {
-      // Admin deleteReviewVote is scoped to their own votes.
-      // Deleting arbitrary votes by userId requires a separate admin-scoped mutation.
+    it('admin user receives NOT_FOUND when no vote exists for their own userId (no scope-creep: admin override requires a separate mutation with targetUserId)', async () => {
+      // deleteReviewVote is ownership-only: any caller (including admin) can only delete
+      // their own vote via this mutation. An admin-scoped mutation that accepts an explicit
+      // targetUserId is deferred — changing this SDL-bound mutation would be scope-creep.
       const prisma = makePrismaMock();
       prisma.reviewVote.findUnique.mockResolvedValue(null);
 

@@ -1,5 +1,5 @@
 import { GraphQLScalarType, GraphQLError, Kind } from 'graphql';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { IProductRepository } from '../domain/repositories/IProductRepository';
 import { GetProductsUseCase } from '../application/use-cases/GetProductsUseCase';
 import { GetProductByIdUseCase } from '../application/use-cases/GetProductByIdUseCase';
@@ -11,6 +11,40 @@ import { DomainError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel
 import { requirePermission, Permission } from '@hbs/auth';
 import { assertModelAccess, isAdmin } from '@hbs/authz';
 import { LoggerFactory } from '@hbs/logging';
+
+/**
+ * Maps a PrismaClientKnownRequestError to a GraphQLError with a clean user-facing message,
+ * preventing internal schema/table/column names from leaking to GraphQL clients.
+ *
+ * Throws GraphQLError (not DomainError) so that Apollo Server 4 forwards the correct HTTP
+ * status and extension code to the client — non-GraphQLError exceptions are masked as
+ * "Internal server error" by Apollo Server 4 unless a formatError hook is present.
+ *
+ * P2003 — foreign key constraint violation: the referenced record does not exist.
+ * P2025 — record to update/delete not found.
+ *
+ * Any other Prisma error is re-thrown as-is so it surfaces as an unexpected internal error.
+ */
+function mapPrismaReviewError(error: unknown, context: 'review' | 'vote'): never {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2003') {
+      // FK violation: productId (for review) or reviewId (for vote) does not exist.
+      const label = context === 'review' ? 'Product' : 'Review';
+      throw new GraphQLError(`${label} not found`, {
+        extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+      });
+    }
+    if (error.code === 'P2025') {
+      // Record not found during update/delete.
+      const label = context === 'review' ? 'Review' : 'Vote';
+      throw new GraphQLError(`${label} not found`, {
+        extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+      });
+    }
+  }
+  // Unknown Prisma or non-Prisma error — let the caller handle it as an internal error.
+  throw error;
+}
 
 const DateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
@@ -475,24 +509,28 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         // that receives currentUser and productId, enforcing domain rules (duplicate review guard,
         // verified purchase check) in the application layer. Blocked by index.ts wiring constraint.
         const authorId = context.currentUser.userId;
-        const review = await prisma.productReview.create({
-          data: {
-            productId: input.productId,
-            userId: authorId,
-            rating: input.rating,
-            title: input.title,
-            comment: input.comment,
-          },
-          include: { photos: true, votes: true },
-        });
-        logger.info('createProductReview', { reviewId: review.id, productId: review.productId, authorId });
-        return {
-          ...review,
-          product: { __typename: 'Product', id: review.productId },
-          user: { __typename: 'UserProfile', id: review.userId },
-          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
-          votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
-        };
+        try {
+          const review = await prisma.productReview.create({
+            data: {
+              productId: input.productId,
+              userId: authorId,
+              rating: input.rating,
+              title: input.title,
+              comment: input.comment,
+            },
+            include: { photos: true, votes: true },
+          });
+          logger.info('createProductReview', { reviewId: review.id, productId: review.productId, authorId });
+          return {
+            ...review,
+            product: { __typename: 'Product', id: review.productId },
+            user: { __typename: 'UserProfile', id: review.userId },
+            photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
+            votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+          };
+        } catch (error) {
+          mapPrismaReviewError(error, 'review');
+        }
       },
 
       updateProductReview: async (_: any, { id, input }: any, context: any) => {
@@ -596,17 +634,21 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         // We never accept userId from the client — that would allow vote stuffing or spoofed votes.
         // TODO (structural refactor — requires index.ts): extract into CreateReviewVoteUseCase.
         const voterId = context.currentUser.userId;
-        const vote = await prisma.reviewVote.upsert({
-          where: { reviewId_userId: { reviewId: input.reviewId, userId: voterId } },
-          create: { reviewId: input.reviewId, userId: voterId, isHelpful: input.isHelpful },
-          update: { isHelpful: input.isHelpful },
-        });
-        logger.info('createReviewVote', { voteId: vote.id, reviewId: vote.reviewId, voterId });
-        return {
-          ...vote,
-          review: { __typename: 'ProductReview', id: vote.reviewId },
-          user: { __typename: 'UserProfile', id: vote.userId },
-        };
+        try {
+          const vote = await prisma.reviewVote.upsert({
+            where: { reviewId_userId: { reviewId: input.reviewId, userId: voterId } },
+            create: { reviewId: input.reviewId, userId: voterId, isHelpful: input.isHelpful },
+            update: { isHelpful: input.isHelpful },
+          });
+          logger.info('createReviewVote', { voteId: vote.id, reviewId: vote.reviewId, voterId });
+          return {
+            ...vote,
+            review: { __typename: 'ProductReview', id: vote.reviewId },
+            user: { __typename: 'UserProfile', id: vote.userId },
+          };
+        } catch (error) {
+          mapPrismaReviewError(error, 'vote');
+        }
       },
 
       deleteReviewVote: async (_: any, { reviewId }: any, context: any) => {
@@ -615,27 +657,24 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         if (!context.currentUser) {
           throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
         }
-        // SECURITY FIX (BOLA/ownership): only the vote owner or an admin may delete a vote.
-        // We derive the caller's userId from the JWT — never from the client input.
-        // Anti-enumeration: return NotFound (ambiguous 404) if the vote does not belong to the
-        // caller. An attacker cannot distinguish "vote does not exist" from "you don't own it".
+        // Ownership enforcement: a caller may only delete their own vote.
+        // The caller's identity is derived exclusively from the JWT — never from client input.
+        //
+        // Anti-enumeration: always NotFound — never "you don't own this" — so an attacker
+        // cannot probe which reviewIds have votes that belong to other users.
+        //
+        // Admin override (delete a vote by arbitrary userId) requires a separate
+        // admin-scoped mutation that accepts an explicit targetUserId argument; it cannot
+        // be added to this mutation without an SDL change. Deferred intentionally.
+        //
         // TODO (structural refactor — requires index.ts): extract into DeleteReviewVoteUseCase.
         const callerId = context.currentUser.userId;
-        const isAdmin = (context.currentUser.groups ?? []).includes('administrators') ||
-          context.currentUser.role === 'admin';
 
         const existingVote = await prisma.reviewVote.findUnique({
           where: { reviewId_userId: { reviewId, userId: callerId } },
         });
 
         if (!existingVote) {
-          if (isAdmin) {
-            // Admin: attempt deletion by reviewId + callerId not found means we need to look
-            // broadly. For now, if admin provides only reviewId and no vote exists for their own
-            // userId, we still return not-found (admin deletion by arbitrary userId requires a
-            // separate admin-scoped mutation — scope creep avoided here).
-            logger.info('deleteReviewVote: admin found no vote for their own userId', { reviewId, callerId });
-          }
           // Anti-enumeration: always NotFound — never "you don't own this"
           throw new GraphQLError('Vote not found', { extensions: { code: 'NOT_FOUND', http: { status: 404 } } });
         }
