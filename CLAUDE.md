@@ -24,7 +24,7 @@ libs/
   @hbs/auth          JWT extraction & types (TokenPayload, UserRole, Permission) + RBAC guards
   @hbs/authz         Non-throwing RBAC helpers, compileDomainExpr, RecordRuleResolver
   @hbs/logging       ILogger interface, LoggerFactory, Winston implementation
-  @hbs/prisma        Shared PrismaClient singleton
+  @hbs/prisma        DEPRECATED empty stub — each service has its own src/prisma.ts (per-service generated client, item 7.13)
   @hbs/shared-kernel DomainError hierarchy, ResponseFactory, ResponseCodes
 
 ---
@@ -116,9 +116,10 @@ Throwing guards (use in resolvers — throw ForbiddenError on failure):
 
 For non-throwing checks (conditions, use-case logic) use @hbs/authz: hasPermission, belongsToGroup, isAdmin.
 
-### @hbs/prisma
-  import { prisma } from '@hbs/prisma';  // singleton — never instantiate PrismaClient directly
-Pass prisma into repositories and use cases via constructor injection.
+### Prisma client (per-service — item 7.13)
+Each service generates its OWN client from its own `apps/<svc>/prisma/schema.prisma` (`output = "../src/generated/prisma"`) and exposes a singleton via `apps/<svc>/src/prisma.ts`:
+  import { prisma } from './prisma';   // service-local singleton — NEVER import '@prisma/client' (ESLint-banned in apps/)
+Pass prisma into repositories and use cases via constructor injection. Each client is typed with ONLY that service's models, so cross-model access fails at compile-time. `@hbs/prisma` is a deprecated empty stub.
 
 ---
 
@@ -271,7 +272,7 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 
 **Pre-prod (urgencia baja sin prod):** stream consumer lag metrics (`record-rules-updated` + `order-events`); outbox transaccional (`XADD` post-commit puede perder eventos); CI `ci.yml` (6.1); secrets + MinIO bucket privado/presigned.
 
-**Higiene / QA (no bloquea):** `console.error`→`ILogger` en `PrismaAuthRepository`; limpiar log engañoso `snapshot-fetcher.ts:74`; items 7.12/7.13/7.14; Bruno backfill (~110 ops + canarios de caso-negativo).
+**Higiene / QA (no bloquea):** `console.error`→`ILogger` en `PrismaAuthRepository`; limpiar log engañoso `snapshot-fetcher.ts:74`; items 7.12/7.14 (**7.13 ✅ resuelto**: clientes Prisma per-servicio + ban ESLint de `@prisma/client`); Bruno backfill (~110 ops + canarios de caso-negativo).
 
 ---
 
@@ -515,5 +516,5 @@ pnpm run build                # compile all services
 pnpm exec nx test <svc>       # single service: nx test product-service
 pnpm exec nx type-check <svc>
 pnpm exec nx build <svc>
-pnpm exec prisma generate     # regenerate @hbs/prisma client after schema changes
-                              # run from libs/prisma/: cd libs/prisma && pnpm exec prisma generate
+pnpm exec prisma generate --schema apps/<svc>/prisma/schema.prisma   # regenerate a service's client (item 7.13)
+                              # each service generates its own client → apps/<svc>/src/generated/prisma (gitignored)
