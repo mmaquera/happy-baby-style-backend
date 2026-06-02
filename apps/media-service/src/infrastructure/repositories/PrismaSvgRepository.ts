@@ -76,7 +76,13 @@ export class PrismaSvgRepository implements ISvgRepository {
     }
   }
 
-  async findByEntity(entityType: SvgEntityType, entityId: string): Promise<SvgEntity[]> {
+  async findByEntity(
+    entityType: SvgEntityType,
+    entityId: string,
+    limit = 50,
+    offset = 0,
+  ): Promise<SvgEntity[]> {
+    const cappedLimit = Math.min(limit, 100);
     try {
       const images = await this.prisma.image.findMany({
         where: {
@@ -85,6 +91,8 @@ export class PrismaSvgRepository implements ISvgRepository {
           mimeType: { in: ['image/svg+xml', 'application/svg+xml'] },
         },
         orderBy: { createdAt: 'desc' },
+        take: cappedLimit,
+        skip: offset,
       });
 
       return images.map((img) => this.mapToEntity(img));
@@ -185,11 +193,14 @@ export class PrismaSvgRepository implements ISvgRepository {
   }
 
   async findAll(limit?: number, offset?: number): Promise<SvgEntity[]> {
+    // Cap at 100 to prevent unbounded queries regardless of the caller.
+    // Passing take: undefined to Prisma omits the LIMIT clause entirely.
+    const cappedLimit = Math.min(limit ?? 50, 100);
     try {
       const images = await this.prisma.image.findMany({
         where: { mimeType: { in: ['image/svg+xml', 'application/svg+xml'] } },
-        take: limit,
-        skip: offset,
+        take: cappedLimit,
+        skip: offset ?? 0,
         orderBy: { createdAt: 'desc' },
       });
 

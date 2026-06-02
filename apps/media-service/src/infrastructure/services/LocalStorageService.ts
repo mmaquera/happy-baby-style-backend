@@ -193,6 +193,10 @@ export class LocalStorageService implements IStorageService {
     }
   }
 
+  getBucketName(): string {
+    return 'local';
+  }
+
   private async ensureDirectoryExists(dirPath: string): Promise<void> {
     try {
       await stat(dirPath);

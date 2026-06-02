@@ -108,7 +108,7 @@ export class UploadImageUseCase {
       mimeType: fileInfo.mimetype,
       size: fileInfo.size,
       url,
-      bucket: 'images',
+      bucket: this.storageService.getBucketName(),
       path: `${entityType}s/${entityId}/${fileName}`,
       entityType,
       entityId,

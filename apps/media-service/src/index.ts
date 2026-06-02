@@ -18,6 +18,8 @@ import { createResolvers } from './graphql/resolvers';
 import { PrismaImageRepository } from './infrastructure/repositories/PrismaImageRepository';
 import { PrismaSvgRepository } from './infrastructure/repositories/PrismaSvgRepository';
 import { LocalStorageService } from './infrastructure/services/LocalStorageService';
+import { S3StorageService } from './infrastructure/services/S3StorageService';
+import type { IStorageService } from './domain/interfaces/IStorageService';
 
 dotenv.config();
 
@@ -150,7 +152,17 @@ async function start() {
 
   const imageRepository = new PrismaImageRepository(prisma, recordRuleResolver);
   const svgRepository = new PrismaSvgRepository(prisma, recordRuleResolver);
-  const storageService = new LocalStorageService();
+
+  // Storage factory: STORAGE_DRIVER=s3 activates S3StorageService; default = local.
+  // S3 env vars are validated inside S3StorageService constructor (fail-fast).
+  let storageService: IStorageService;
+  if (process.env.STORAGE_DRIVER === 's3') {
+    serviceLogger.info('Storage driver: S3', { endpoint: process.env.S3_ENDPOINT });
+    storageService = new S3StorageService();
+  } else {
+    serviceLogger.info('Storage driver: local');
+    storageService = new LocalStorageService();
+  }
 
   const resolvers = createResolvers(imageRepository, svgRepository, storageService);
 

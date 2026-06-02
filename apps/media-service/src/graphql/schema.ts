@@ -86,9 +86,9 @@ export const typeDefs = gql`
 
   type Query {
     image(id: ID!): Image
-    imagesByEntity(entityId: ID!, entityType: ImageEntityType!): [Image!]!
+    imagesByEntity(entityId: ID!, entityType: ImageEntityType!, limit: Int, offset: Int): [Image!]!
     svg(id: ID!): Svg
-    svgsByEntity(entityType: SvgEntityType!, entityId: ID!): [Svg!]!
+    svgsByEntity(entityType: SvgEntityType!, entityId: ID!, limit: Int, offset: Int): [Svg!]!
     svgs(limit: Int, offset: Int): [Svg!]!
     svgsCount: Int!
   }

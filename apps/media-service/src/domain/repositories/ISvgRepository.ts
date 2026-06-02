@@ -4,7 +4,12 @@ import { SvgEntity, SvgEntityType } from '../entities/Svg';
 export interface ISvgRepository {
   create(svg: SvgEntity, currentUser?: TokenPayload | null): Promise<SvgEntity>;
   findById(id: string): Promise<SvgEntity | null>;
-  findByEntity(entityType: SvgEntityType, entityId: string): Promise<SvgEntity[]>;
+  findByEntity(
+    entityType: SvgEntityType,
+    entityId: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<SvgEntity[]>;
   findByFileName(fileName: string): Promise<SvgEntity | null>;
   update(
     id: string,

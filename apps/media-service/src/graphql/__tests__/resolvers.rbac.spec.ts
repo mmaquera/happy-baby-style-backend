@@ -273,3 +273,90 @@ describe('createResolvers — RBAC guards (Control 2)', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Pagination — imagesByEntity and svgsByEntity
+// ---------------------------------------------------------------------------
+
+describe('createResolvers — pagination (imagesByEntity / svgsByEntity)', () => {
+  let imageRepo: ReturnType<typeof makeImageRepo>;
+  let svgRepo: ReturnType<typeof makeSvgRepo>;
+  let resolvers: ReturnType<typeof createResolvers>;
+
+  function makeImageRepo() {
+    return {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findAll: jest.fn(),
+      findByEntityId: jest.fn().mockResolvedValue([]),
+      delete: jest.fn(),
+      deleteByEntityId: jest.fn(),
+    };
+  }
+
+  function makeSvgRepo() {
+    return {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findByEntity: jest.fn().mockResolvedValue([]),
+      findByFileName: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      findAll: jest.fn(),
+      count: jest.fn(),
+      findByEntityType: jest.fn(),
+    };
+  }
+
+  beforeEach(() => {
+    imageRepo = makeImageRepo();
+    svgRepo = makeSvgRepo();
+    resolvers = createResolvers(imageRepo, svgRepo, { uploadFile: jest.fn(), deleteFile: jest.fn() } as any);
+  });
+
+  describe('imagesByEntity', () => {
+    it('passes default limit=50 and offset=0 when no pagination args given', async () => {
+      await resolvers.Query.imagesByEntity({}, { entityId: 'p1', entityType: 'product' as any });
+      expect(imageRepo.findByEntityId).toHaveBeenCalledWith('p1', 'product', 50, 0);
+    });
+
+    it('passes caller-supplied limit and offset', async () => {
+      await resolvers.Query.imagesByEntity(
+        {},
+        { entityId: 'p1', entityType: 'product' as any, limit: 10, offset: 20 },
+      );
+      expect(imageRepo.findByEntityId).toHaveBeenCalledWith('p1', 'product', 10, 20);
+    });
+
+    it('caps limit at 100 when caller passes a value above 100', async () => {
+      await resolvers.Query.imagesByEntity(
+        {},
+        { entityId: 'p1', entityType: 'product' as any, limit: 999, offset: 0 },
+      );
+      expect(imageRepo.findByEntityId).toHaveBeenCalledWith('p1', 'product', 100, 0);
+    });
+  });
+
+  describe('svgsByEntity', () => {
+    it('passes default limit=50 and offset=0 when no pagination args given', async () => {
+      await resolvers.Query.svgsByEntity({}, { entityType: 'product' as any, entityId: 'p1' });
+      expect(svgRepo.findByEntity).toHaveBeenCalledWith('product', 'p1', 50, 0);
+    });
+
+    it('passes caller-supplied limit and offset', async () => {
+      await resolvers.Query.svgsByEntity(
+        {},
+        { entityType: 'icon' as any, entityId: 'ico-1', limit: 5, offset: 10 },
+      );
+      expect(svgRepo.findByEntity).toHaveBeenCalledWith('icon', 'ico-1', 5, 10);
+    });
+
+    it('caps limit at 100 when caller passes a value above 100', async () => {
+      await resolvers.Query.svgsByEntity(
+        {},
+        { entityType: 'icon' as any, entityId: 'ico-1', limit: 500 },
+      );
+      expect(svgRepo.findByEntity).toHaveBeenCalledWith('icon', 'ico-1', 100, 0);
+    });
+  });
+});

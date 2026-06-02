@@ -98,9 +98,21 @@ export function createResolvers(
 
       imagesByEntity: async (
         _: any,
-        { entityId, entityType }: { entityId: string; entityType: ImageEntityType },
+        {
+          entityId,
+          entityType,
+          limit,
+          offset,
+        }: { entityId: string; entityType: ImageEntityType; limit?: number; offset?: number },
       ) => {
-        const images = await imageRepository.findByEntityId(entityId, entityType);
+        const resolvedLimit = Math.min(limit ?? 50, 100);
+        const resolvedOffset = offset ?? 0;
+        const images = await imageRepository.findByEntityId(
+          entityId,
+          entityType,
+          resolvedLimit,
+          resolvedOffset,
+        );
         return images.map(transformImage);
       },
 
@@ -112,14 +124,28 @@ export function createResolvers(
 
       svgsByEntity: async (
         _: any,
-        { entityType, entityId }: { entityType: SvgEntityType; entityId: string },
+        {
+          entityType,
+          entityId,
+          limit,
+          offset,
+        }: { entityType: SvgEntityType; entityId: string; limit?: number; offset?: number },
       ) => {
-        const svgs = await svgRepository.findByEntity(entityType, entityId);
+        const resolvedLimit = Math.min(limit ?? 50, 100);
+        const resolvedOffset = offset ?? 0;
+        const svgs = await svgRepository.findByEntity(
+          entityType,
+          entityId,
+          resolvedLimit,
+          resolvedOffset,
+        );
         return svgs.map(transformSvg);
       },
 
       svgs: async (_: any, { limit, offset }: { limit?: number; offset?: number }) => {
-        const svgs = await svgRepository.findAll(limit, offset);
+        const resolvedLimit = Math.min(limit ?? 50, 100);
+        const resolvedOffset = offset ?? 0;
+        const svgs = await svgRepository.findAll(resolvedLimit, resolvedOffset);
         return svgs.map(transformSvg);
       },
 

@@ -106,6 +106,9 @@ function makeStorageService(): jest.Mocked<IStorageService> {
   return {
     uploadFile: jest.fn().mockResolvedValue('/uploads/products/p1/product_p1_123.jpg'),
     deleteFile: jest.fn().mockResolvedValue(undefined),
+    getPublicUrl: jest.fn().mockReturnValue(''),
+    validateFile: jest.fn().mockReturnValue(true),
+    getBucketName: jest.fn().mockReturnValue('images'),
   } as any;
 }
 

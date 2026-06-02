@@ -101,11 +101,19 @@ export class PrismaImageRepository implements IImageRepository {
     }
   }
 
-  async findByEntityId(entityId: string, entityType: ImageEntityType): Promise<ImageEntity[]> {
+  async findByEntityId(
+    entityId: string,
+    entityType: ImageEntityType,
+    limit = 50,
+    offset = 0,
+  ): Promise<ImageEntity[]> {
+    const cappedLimit = Math.min(limit, 100);
     try {
       const images = await this.prisma.image.findMany({
         where: { entityId, entityType },
         orderBy: { createdAt: 'desc' },
+        take: cappedLimit,
+        skip: offset,
       });
 
       return images.map((img) => this.mapToEntity(img));

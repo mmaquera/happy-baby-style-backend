@@ -113,6 +113,9 @@ function makeStorageService(): jest.Mocked<IStorageService> {
       .fn()
       .mockResolvedValue('/uploads/categorys/cat-1/icon_cat_123.svg'),
     deleteFile: jest.fn().mockResolvedValue(undefined),
+    getPublicUrl: jest.fn().mockReturnValue(''),
+    validateFile: jest.fn().mockReturnValue(true),
+    getBucketName: jest.fn().mockReturnValue('local'),
   } as any;
 }
 

@@ -91,7 +91,7 @@ export class UploadSvgUseCase {
       mimeType: fileInfo.mimetype,
       size: buffer.length,
       url,
-      bucket: 'local',
+      bucket: this.storageService.getBucketName(),
       path: `${entityType}s/${entityId}/${fileName}`,
       entityType,
       entityId,
