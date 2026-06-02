@@ -9,7 +9,7 @@ import { DeleteProductUseCase } from '../application/use-cases/DeleteProductUseC
 import { transformProduct, transformVariant } from './transformers/productTransformer';
 import { DomainError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
 import { requirePermission, Permission } from '@hbs/auth';
-import { assertModelAccess } from '@hbs/authz';
+import { assertModelAccess, isAdmin } from '@hbs/authz';
 import { LoggerFactory } from '@hbs/logging';
 
 const DateTimeScalar = new GraphQLScalarType({
@@ -496,18 +496,71 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       updateProductReview: async (_: any, { id, input }: any, context: any) => {
+        // Baseline gate 1 — authentication + permission check.
+        // assertModelAccess handles: (a) unauthenticated → 401, (b) admin bypass,
+        // (c) requires update:product permission for non-admin staff (inventory-user,
+        // sales-user). Kept as-is so the existing permission baseline is preserved.
+        //
+        // DESIGN NOTE — moderator role (customer-service editing any review without
+        // full admin): would require a dedicated `reviews:moderate` permission code
+        // added to MODEL_ACCESS_MAP so staff can moderate without the broader
+        // `update:product` privilege. That permission design is deferred; do NOT use
+        // `update:product` as a proxy for moderation scope.
         assertModelAccess(context.currentUser, 'ProductReview', 'write');
+
+        // Baseline gate 2 — owner-or-admin check (BOLA fix).
+        // Load the row BEFORE the update. Using findUnique (not update) so we can
+        // inspect ownership without a write side-effect on a record we may deny.
+        // Anti-enumeration: a non-owner receives NOT_FOUND regardless of whether the
+        // review exists or belongs to someone else — this prevents ID probing.
+        const existing = await prisma.productReview.findUnique({ where: { id } });
+
+        const callerId = context.currentUser!.userId;
+        const callerIsAdmin = isAdmin(context.currentUser);
+
+        if (!existing || (!callerIsAdmin && existing.userId !== callerId)) {
+          // Ambiguous 404 — do not reveal ownership information to the caller.
+          logger.info('updateProductReview: denied (BOLA guard)', {
+            reviewId: id,
+            callerId,
+            callerIsAdmin,
+            reviewExists: !!existing,
+          });
+          throw new GraphQLError('Review not found', {
+            extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+          });
+        }
+
         const review = await prisma.productReview.update({
           where: { id },
-          data: { rating: input.rating, title: input.title, comment: input.comment, isApproved: input.isApproved },
+          data: {
+            rating: input.rating,
+            title: input.title,
+            comment: input.comment,
+            isApproved: input.isApproved,
+          },
           include: { photos: true, votes: true },
         });
+
+        logger.info('updateProductReview', {
+          reviewId: review.id,
+          callerId,
+          callerIsAdmin,
+        });
+
         return {
           ...review,
           product: { __typename: 'Product', id: review.productId },
           user: { __typename: 'UserProfile', id: review.userId },
-          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
-          votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
+          photos: review.photos.map((p) => ({
+            ...p,
+            review: { __typename: 'ProductReview', id: p.reviewId },
+          })),
+          votes: review.votes.map((v) => ({
+            ...v,
+            review: { __typename: 'ProductReview', id: v.reviewId },
+            user: { __typename: 'UserProfile', id: v.userId },
+          })),
         };
       },
 

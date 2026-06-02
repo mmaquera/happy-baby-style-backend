@@ -50,6 +50,11 @@ jest.mock('@hbs/auth', () => ({
 
 jest.mock('@hbs/authz', () => ({
   assertModelAccess: jest.fn(),
+  isAdmin: jest.fn((user: any) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return (user.groups ?? []).includes('administrators');
+  }),
 }));
 
 import { GraphQLError } from 'graphql';
@@ -405,6 +410,123 @@ describe('Review mutation security guards', () => {
       });
 
       expect(prisma.reviewVote.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── updateProductReview (BOLA fix — owner-or-admin) ─────────────────────────
+  //
+  // Security model:
+  //   - assertModelAccess baseline: unauthenticated → 401; non-staff without
+  //     update:product → 403. Handled by the mock (jest.fn()) — not re-tested here.
+  //   - Owner-or-admin guard (BOLA): loads the review row, then:
+  //       * owner (review.userId === callerId) → allowed
+  //       * admin (isAdmin === true)           → allowed (any review)
+  //       * non-owner non-admin               → NOT_FOUND (anti-enumeration)
+  //       * review does not exist              → NOT_FOUND (anti-enumeration)
+
+  describe('updateProductReview', () => {
+    function makeReview(overrides: Record<string, any> = {}) {
+      return {
+        id: 'rev-1',
+        productId: 'prod-1',
+        userId: 'owner-user-1',
+        rating: 4,
+        title: 'Good',
+        comment: null,
+        isApproved: false,
+        isVerified: false,
+        helpfulCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        photos: [],
+        votes: [],
+        ...overrides,
+      };
+    }
+
+    it('allows owner to edit their own review', async () => {
+      const prisma = makePrismaMock();
+      const ownerId = 'owner-user-1';
+      const review = makeReview({ userId: ownerId });
+
+      prisma.productReview.findUnique.mockResolvedValue(review);
+      prisma.productReview.update.mockResolvedValue({ ...review, title: 'Updated title' });
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'updateProductReview');
+
+      const result = await mutation(
+        null,
+        { id: 'rev-1', input: { title: 'Updated title' } },
+        { currentUser: makeUser({ userId: ownerId }) },
+      );
+
+      expect(prisma.productReview.findUnique).toHaveBeenCalledWith({ where: { id: 'rev-1' } });
+      expect(prisma.productReview.update).toHaveBeenCalled();
+      expect(result.title).toBe('Updated title');
+    });
+
+    it('throws NOT_FOUND (anti-enumeration) when non-owner non-admin attempts edit', async () => {
+      const prisma = makePrismaMock();
+      // Review belongs to owner-user-1 — attacker is a different user
+      const review = makeReview({ userId: 'owner-user-1' });
+      prisma.productReview.findUnique.mockResolvedValue(review);
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'updateProductReview');
+
+      await expect(
+        mutation(
+          null,
+          { id: 'rev-1', input: { title: 'Hacked' } },
+          { currentUser: makeUser({ userId: 'attacker-user-2', groups: ['sales-user'] }) },
+        ),
+      ).rejects.toMatchObject({
+        extensions: { code: 'NOT_FOUND' },
+      });
+
+      // DB write must NOT happen
+      expect(prisma.productReview.update).not.toHaveBeenCalled();
+    });
+
+    it('allows admin to edit any review regardless of ownership', async () => {
+      const prisma = makePrismaMock();
+      // Review belongs to a regular user — admin is editing it
+      const review = makeReview({ userId: 'regular-user-1' });
+      prisma.productReview.findUnique.mockResolvedValue(review);
+      prisma.productReview.update.mockResolvedValue({ ...review, isApproved: true });
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'updateProductReview');
+
+      const result = await mutation(
+        null,
+        { id: 'rev-1', input: { isApproved: true } },
+        { currentUser: makeAdminUser() },
+      );
+
+      expect(prisma.productReview.update).toHaveBeenCalled();
+      expect(result.isApproved).toBe(true);
+    });
+
+    it('throws NOT_FOUND (anti-enumeration) when review does not exist', async () => {
+      const prisma = makePrismaMock();
+      prisma.productReview.findUnique.mockResolvedValue(null);
+
+      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const mutation = getMutation(resolvers, 'updateProductReview');
+
+      await expect(
+        mutation(
+          null,
+          { id: 'nonexistent-rev', input: { title: 'Ghost' } },
+          { currentUser: makeUser() },
+        ),
+      ).rejects.toMatchObject({
+        extensions: { code: 'NOT_FOUND' },
+      });
+
+      expect(prisma.productReview.update).not.toHaveBeenCalled();
     });
   });
 });
