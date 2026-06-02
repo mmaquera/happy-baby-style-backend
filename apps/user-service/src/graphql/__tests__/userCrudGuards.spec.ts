@@ -24,7 +24,6 @@ jest.mock('@hbs/logging', () => ({
 }), { virtual: true });
 
 import { GraphQLError } from 'graphql';
-import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 import { assertModelAccess } from '@hbs/authz';
 
@@ -36,8 +35,6 @@ function makeAdminGroupUser(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'admin-group-u1',
     email: 'groupadmin@example.com',
-    // Explicitly NOT UserRole.ADMIN — this tests the group-based path
-    role: UserRole.CUSTOMER,
     groups: ['administrators'],
     permissions: [],
     ...overrides,
@@ -48,7 +45,6 @@ function makeCustomer(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'customer-u1',
     email: 'customer@example.com',
-    role: UserRole.CUSTOMER,
     groups: [],
     permissions: [],
     ...overrides,

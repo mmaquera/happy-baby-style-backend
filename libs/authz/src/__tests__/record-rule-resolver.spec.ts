@@ -1,6 +1,6 @@
 import { RecordRuleResolver } from '../record-rule-resolver';
 import type { IRecordRuleSource, RecordRule } from '../record-rule-resolver';
-import { UserRole, Permission } from '@hbs/auth';
+import { Permission } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // RecordRuleResolver now uses @hbs/logging — mock required.
@@ -25,7 +25,6 @@ function makeUser(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'u1',
     email: 'test@example.com',
-    role: UserRole.CUSTOMER,
     permissions: [Permission.READ_ORDER],
     groups: [],
     ...overrides,

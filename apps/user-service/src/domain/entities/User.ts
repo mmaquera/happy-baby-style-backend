@@ -6,7 +6,6 @@ export interface UserProfile {
   phone?: string;
   dateOfBirth?: Date;
   avatar?: string;
-  role: UserRole;
   emailVerified: boolean;
   isActive: boolean;
   lastLoginAt?: Date;
@@ -36,7 +35,6 @@ export interface UserAddress {
 export interface User {
   id: string;
   email: string;
-  role: UserRole;
   isActive: boolean;
   emailVerified: boolean;
   // Account lockout fields (populated by Fase 2 schema migration)
@@ -48,16 +46,9 @@ export interface User {
   updatedAt: Date;
 }
 
-export enum UserRole {
-  ADMIN = 'admin',
-  CUSTOMER = 'customer',
-  STAFF = 'staff',
-}
-
 export interface CreateUserRequest {
   email: string;
   password: string;
-  role?: UserRole;
   profile?: {
     firstName: string;
     lastName: string;
@@ -69,7 +60,6 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   email?: string;
-  role?: UserRole;
   isActive?: boolean;
   profile?: {
     firstName?: string;
@@ -111,7 +101,6 @@ export interface UserStats {
   totalUsers: number;
   activeUsers: number;
   newUsersThisMonth: number;
-  usersByRole: Record<UserRole, number>;
 }
 
 // Entity classes
@@ -124,7 +113,6 @@ export class UserProfileEntity implements UserProfile {
     public phone: string | undefined,
     public dateOfBirth: Date | undefined,
     public avatar: string | undefined,
-    public role: UserRole,
     public emailVerified: boolean,
     public isActive: boolean,
     public lastLoginAt: Date | undefined,
@@ -149,7 +137,6 @@ export class UserProfileEntity implements UserProfile {
       data.phone,
       data.dateOfBirth,
       data.avatar,
-      data.role,
       data.emailVerified,
       data.isActive,
       data.lastLoginAt,
@@ -219,7 +206,6 @@ export class UserEntity implements User {
   constructor(
     public id: string,
     public email: string,
-    public role: UserRole,
     public isActive: boolean,
     public emailVerified: boolean,
     public profile: UserProfileEntity | undefined,
@@ -239,21 +225,12 @@ export class UserEntity implements User {
     return this.email.split('@')[0];
   }
 
-  get isAdmin(): boolean {
-    return this.role === UserRole.ADMIN;
-  }
-
-  get isStaff(): boolean {
-    return this.role === UserRole.STAFF || this.role === UserRole.ADMIN;
-  }
-
   static create(
     data: Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'profile' | 'addresses'>,
   ): UserEntity {
     return new UserEntity(
       crypto.randomUUID(),
       data.email,
-      data.role,
       data.isActive,
       data.emailVerified,
       undefined,

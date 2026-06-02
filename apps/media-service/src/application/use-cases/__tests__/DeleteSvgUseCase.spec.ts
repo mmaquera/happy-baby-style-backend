@@ -20,7 +20,6 @@ import type { ISvgRepository } from '../../../domain/repositories/ISvgRepository
 import type { IStorageService } from '../../../domain/interfaces/IStorageService';
 import { SvgEntity, SvgEntityType } from '../../../domain/entities/Svg';
 import { NotFoundError } from '@hbs/shared-kernel';
-import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // ---------------------------------------------------------------------------
@@ -50,7 +49,6 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: 'user-admin',
     email: 'admin@test.com',
-    role: UserRole.ADMIN,
     permissions: ['manage:system'],
     groups: ['administrators'],
     ...overrides,

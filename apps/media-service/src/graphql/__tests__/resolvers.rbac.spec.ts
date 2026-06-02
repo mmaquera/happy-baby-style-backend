@@ -60,7 +60,6 @@ jest.mock('../../application/use-cases/UploadSvgUseCase', () => ({
 }));
 
 import { createResolvers } from '../resolvers';
-import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // ---------------------------------------------------------------------------
@@ -99,7 +98,6 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: 'user-admin',
     email: 'admin@test.com',
-    role: UserRole.ADMIN,
     permissions: ['manage:system'],
     groups: ['administrators'],
     ...overrides,
@@ -110,7 +108,6 @@ function makeCustomer(userId = 'user-customer'): TokenPayload {
   return {
     userId,
     email: 'customer@test.com',
-    role: UserRole.CUSTOMER,
     permissions: [],
     groups: ['customer'],
   };

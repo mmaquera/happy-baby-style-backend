@@ -49,7 +49,6 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: overrides.userId ?? 'user-1',
     email: overrides.email ?? 'admin@test.com',
-    role: overrides.role ?? ('admin' as any),
     groups: overrides.groups ?? ['administrators'],
     permissions: overrides.permissions ?? ['products:write'],
   };

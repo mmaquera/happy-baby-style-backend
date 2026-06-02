@@ -19,7 +19,6 @@ model UserProfile {
   phone         String?
   dateOfBirth   DateTime? @map("date_of_birth")
   avatar        String?
-  role          UserRole  @default(customer)
   emailVerified Boolean   @default(false) @map("email_verified")
   isActive      Boolean   @default(true) @map("is_active")
   lastLoginAt   DateTime? @map("last_login_at")
@@ -840,12 +839,6 @@ model Image {
 // =====================================================
 // ENUMS
 // =====================================================
-
-enum UserRole {
-  admin
-  customer
-  staff
-}
 
 enum OrderStatus {
   pending

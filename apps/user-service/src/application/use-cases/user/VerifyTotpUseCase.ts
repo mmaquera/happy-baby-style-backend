@@ -6,7 +6,7 @@ import { IEffectivePermissionsResolver } from '../../../domain/interfaces/IEffec
 import { ILogger } from '@hbs/logging';
 import { ValidationError, UnauthorizedError, NotFoundError } from '../../../domain/errors/DomainError';
 import { SecurityEventType } from '../../../domain/entities/Audit';
-import { TOKEN_TYPES, resolvePermissions, decryptMfaSecret } from '@hbs/auth';
+import { TOKEN_TYPES, decryptMfaSecret } from '@hbs/auth';
 import { User } from '../../../domain/entities/User';
 import { verifySync } from 'otplib';
 import bcrypt from 'bcryptjs';
@@ -184,28 +184,14 @@ export class VerifyTotpUseCase {
 
     // Resolve RBAC groups + permissions
     const effective = await this.effectivePermissionsResolver.resolveForUser(userId);
-
-    let permissions: string[];
-    let groups: string[];
-
-    if (effective.groupCodes.length === 0) {
-      permissions = resolvePermissions(user.role) as unknown as string[];
-      groups = [];
-      this.logger.warn('User has no RBAC groups, using legacy role-based permissions', {
-        userId,
-        role: user.role,
-      });
-    } else {
-      permissions = effective.permissionCodes;
-      groups = effective.groupCodes;
-    }
+    const permissions = effective.permissionCodes;
+    const groups = effective.groupCodes;
 
     // Issue final access + refresh tokens
     const accessToken = jwt.sign(
       {
         userId: user.id,
         email: user.email,
-        role: user.role,
         groups,
         permissions,
       },

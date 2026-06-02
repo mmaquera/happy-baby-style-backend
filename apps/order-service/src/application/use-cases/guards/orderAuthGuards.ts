@@ -5,16 +5,15 @@
  * They use GraphQLError only to produce standard UNAUTHENTICATED / FORBIDDEN
  * responses that the resolver's mapDomainError will translate to HTTP semantics.
  *
- * Design:
+ * Design (Fase A2 — groups-only):
  *   - assertOwnerOrOrderManagement: owner can see their own data; management
- *     (group-based or legacy role-based) can see any user's data.
- *   - Supports both new tokens (groups array) and legacy tokens (role only) so
- *     the service remains compatible during the RBAC rollout window.
+ *     (group-based) can see any user's data.
+ *   - Authorization is exclusively group-based. The legacy role field is no
+ *     longer present on TokenPayload.
  */
 
 import { GraphQLError } from 'graphql';
 import type { TokenPayload } from '@hbs/auth';
-import { UserRole } from '@hbs/auth';
 
 const ORDER_MANAGEMENT_GROUPS = [
   'administrators',
@@ -24,19 +23,18 @@ const ORDER_MANAGEMENT_GROUPS = [
 ] as const;
 
 /**
- * Returns true when the current user has order-management access.
- * Supports new group-based tokens AND legacy role-based tokens.
+ * Returns true when the current user has order-management access (group-based).
  */
 export function hasOrderManagementAccess(currentUser: TokenPayload): boolean {
-  if (currentUser.groups?.some((g) => (ORDER_MANAGEMENT_GROUPS as readonly string[]).includes(g))) {
-    return true;
-  }
-  return currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAFF;
+  return (
+    currentUser.groups?.some((g) => (ORDER_MANAGEMENT_GROUPS as readonly string[]).includes(g)) ??
+    false
+  );
 }
 
 /**
  * Asserts that the current user is either the owner of the resource
- * OR has order-management access (management group or legacy admin/staff role).
+ * OR has order-management access (management group membership).
  *
  * Throws:
  *   - UNAUTHENTICATED (401)  — when currentUser is null/undefined.

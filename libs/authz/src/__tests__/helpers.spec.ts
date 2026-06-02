@@ -1,5 +1,5 @@
 import { hasPermission, hasAnyPermission, belongsToGroup, belongsToAnyGroup, isAdmin } from '../helpers';
-import { UserRole, Permission } from '@hbs/auth';
+import { Permission } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // helpers.ts does not use @hbs/logging — no mock needed.
@@ -8,12 +8,12 @@ import type { TokenPayload } from '@hbs/auth';
 // Test factory
 // ---------------------------------------------------------------------------
 
-function makeUser(overrides?: Partial<TokenPayload & { groups?: string[] }>): TokenPayload & { groups?: string[] } {
+function makeUser(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'user-1',
     email: 'test@example.com',
-    role: UserRole.CUSTOMER,
     permissions: [Permission.READ_PRODUCT, Permission.CREATE_ORDER],
+    groups: [],
     ...overrides,
   };
 }
@@ -42,7 +42,7 @@ describe('hasPermission', () => {
   });
 
   it('returns false when user has no permissions array (old token shape)', () => {
-    const user = { userId: 'u1', email: 'a@b.com', role: UserRole.CUSTOMER } as any;
+    const user = { userId: 'u1', email: 'a@b.com', groups: [] } as any;
     expect(hasPermission(user, Permission.READ_PRODUCT)).toBe(false);
   });
 });
@@ -86,8 +86,8 @@ describe('belongsToGroup', () => {
     expect(belongsToGroup(null, 'administrators')).toBe(false);
   });
 
-  it('returns false when the token is old shape (no groups field)', () => {
-    const user = makeUser(); // no `groups` property
+  it('returns false when groups is empty', () => {
+    const user = makeUser({ groups: [] });
     expect(belongsToGroup(user, 'administrators')).toBe(false);
   });
 });
@@ -113,18 +113,18 @@ describe('belongsToAnyGroup', () => {
 // ---------------------------------------------------------------------------
 
 describe('isAdmin', () => {
-  it('returns true when role === "admin" (legacy token)', () => {
-    const user = makeUser({ role: UserRole.ADMIN });
-    expect(isAdmin(user)).toBe(true);
-  });
-
-  it('returns true when user belongs to group "administrators" (new token)', () => {
-    const user = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'] });
+  it('returns true when user belongs to group "administrators"', () => {
+    const user = makeUser({ groups: ['administrators'] });
     expect(isAdmin(user)).toBe(true);
   });
 
   it('returns false for a customer without admin group', () => {
-    const user = makeUser({ role: UserRole.CUSTOMER, groups: ['support'] });
+    const user = makeUser({ groups: ['support'] });
+    expect(isAdmin(user)).toBe(false);
+  });
+
+  it('returns false when groups is empty', () => {
+    const user = makeUser({ groups: [] });
     expect(isAdmin(user)).toBe(false);
   });
 

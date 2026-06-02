@@ -59,7 +59,6 @@ jest.mock(
     // isAdmin is used in updateProductReview for the owner-or-admin BOLA guard.
     isAdmin: jest.fn((user: any) => {
       if (!user) return false;
-      if (user.role === 'admin') return true;
       return (user.groups ?? []).includes('administrators');
     }),
   }),
@@ -76,7 +75,6 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: overrides.userId ?? 'user-jwt-1',
     email: overrides.email ?? 'user@test.com',
-    role: overrides.role ?? ('customer' as any),
     groups: overrides.groups ?? ['customer'],
     permissions: overrides.permissions ?? [],
   };
@@ -86,7 +84,6 @@ function makeAdminUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: overrides.userId ?? 'admin-jwt-1',
     email: overrides.email ?? 'admin@test.com',
-    role: overrides.role ?? ('admin' as any),
     groups: overrides.groups ?? ['administrators'],
     permissions: overrides.permissions ?? ['products:write'],
   };

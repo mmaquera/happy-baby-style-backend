@@ -1,5 +1,5 @@
 import { compileDomainExpr, DomainExprSchema } from '../domain-expression';
-import { UserRole, Permission } from '@hbs/auth';
+import { Permission } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 import { ZodError } from 'zod';
 
@@ -13,8 +13,8 @@ function makeUser(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'u1',
     email: 'test@example.com',
-    role: UserRole.CUSTOMER,
     permissions: [Permission.READ_PRODUCT],
+    groups: [],
     ...overrides,
   };
 }
@@ -124,13 +124,14 @@ describe('compileDomainExpr — simple comparison', () => {
     expect(result).toEqual({ email: { equals: 'marco@example.com' } });
   });
 
-  it('resolves $ctx.current_user.role', () => {
-    const user = makeUser({ role: UserRole.ADMIN });
-    const result = compileDomainExpr(
-      { op: 'eq', field: 'role', value: { $ctx: 'current_user.role' } },
-      ctx(user),
-    );
-    expect(result).toEqual({ role: { equals: 'admin' } });
+  it('throws when an unknown $ctx field is used', () => {
+    const user = makeUser();
+    expect(() =>
+      compileDomainExpr(
+        { op: 'eq', field: 'role', value: { $ctx: 'current_user.role' } },
+        ctx(user),
+      ),
+    ).toThrow('Unknown current_user field: "role"');
   });
 });
 

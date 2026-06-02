@@ -81,7 +81,6 @@ import type {
 
 import { NotFoundError } from '@hbs/shared-kernel';
 import { GraphQLError } from 'graphql';
-import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // ---------------------------------------------------------------------------
@@ -92,7 +91,6 @@ function makeOwner(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: 'user-owner',
     email: 'owner@test.com',
-    role: UserRole.CUSTOMER,
     permissions: [],
     groups: ['customer'],
     ...overrides,
@@ -103,7 +101,6 @@ function makeOtherCustomer(overrides: Partial<TokenPayload> = {}): TokenPayload 
   return {
     userId: 'user-other',
     email: 'other@test.com',
-    role: UserRole.CUSTOMER,
     permissions: [],
     groups: ['customer'],
     ...overrides,
@@ -114,7 +111,6 @@ function makeManagement(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: 'user-mgmt',
     email: 'mgmt@test.com',
-    role: UserRole.STAFF,
     permissions: [],
     groups: ['sales-manager'],
     ...overrides,
@@ -125,7 +121,6 @@ function makeAdmin(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: 'user-admin',
     email: 'admin@test.com',
-    role: UserRole.ADMIN,
     permissions: [],
     groups: ['administrators'],
     ...overrides,

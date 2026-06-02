@@ -14,7 +14,7 @@ import {
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { resolvePermissions, TOKEN_TYPES } from '@hbs/auth';
+import { TOKEN_TYPES } from '@hbs/auth';
 import type { IEffectivePermissionsResolver } from '../../../domain/interfaces/IEffectivePermissionsResolver';
 
 const MAX_LOGIN_ATTEMPTS_DEFAULT = 5;
@@ -165,23 +165,10 @@ export class AuthenticateUserUseCase {
         }
       }
 
-      // 7. Resolve RBAC groups + permissions (with legacy fallback for pre-backfill users)
+      // 7. Resolve RBAC groups + permissions
       const effective = await this.effectivePermissionsResolver.resolveForUser(user.id);
-
-      let permissions: string[];
-      let groups: string[];
-
-      if (effective.groupCodes.length === 0) {
-        permissions = resolvePermissions(user.role) as unknown as string[];
-        groups = [];
-        this.logger.warn('User has no RBAC groups, using legacy role-based permissions', {
-          userId: user.id,
-          role: user.role,
-        });
-      } else {
-        permissions = effective.permissionCodes;
-        groups = effective.groupCodes;
-      }
+      const permissions = effective.permissionCodes;
+      const groups = effective.groupCodes;
 
       // 8. Generate JWT tokens
       const jwtSecret = process.env.JWT_SECRET!;
@@ -189,7 +176,6 @@ export class AuthenticateUserUseCase {
         {
           userId: user.id,
           email: user.email,
-          role: user.role,
           groups,
           permissions,
         },
@@ -256,7 +242,7 @@ export class AuthenticateUserUseCase {
 
       this.logger.info('User authentication completed successfully', {
         userId: user.id,
-        userRole: user.role,
+        groups,
         sessionId: session.id,
         sessionExpiresAt: sessionExpiresAt.toISOString(),
       });

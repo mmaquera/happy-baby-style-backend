@@ -1,9 +1,3 @@
-export enum UserRole {
-  ADMIN = 'admin',
-  CUSTOMER = 'customer',
-  STAFF = 'staff',
-}
-
 export enum Permission {
   CREATE_PRODUCT = 'create:product',
   READ_PRODUCT = 'read:product',
@@ -28,25 +22,22 @@ export enum Permission {
 export interface AuthUser {
   id: string;
   email: string;
-  role: UserRole;
   // string[] to accommodate RBAC permission codes alongside the Permission enum values.
   // The Permission enum values are all valid string codes (e.g. "create:product").
   permissions: string[];
-  // RBAC group codes resolved from user_groups (populated post-Fase-5.5).
-  // Optional: absent in tokens issued before RBAC backfill.
-  groups?: string[];
+  // RBAC group codes resolved transitively via CTE at login.
+  groups: string[];
 }
 
 export interface TokenPayload {
   userId: string;
   email: string;
-  role: UserRole; // kept for backward compat — will be removed in Fase 5.11
   // string[] to accommodate RBAC permission codes alongside the Permission enum values.
   // All Permission enum values are valid strings (e.g. "create:product").
   permissions: string[];
-  // RBAC group codes resolved transitively via CTE (populated post-Fase-5.5).
-  // Empty array or absent means the legacy role-based fallback was used.
-  groups?: string[];
+  // RBAC group codes resolved transitively via CTE at login.
+  // Required from Fase A2 onward — all tokens issued after backfill carry this field.
+  groups: string[];
   iat?: number;
   exp?: number;
 }

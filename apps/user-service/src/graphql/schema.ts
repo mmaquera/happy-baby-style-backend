@@ -11,11 +11,6 @@ export const typeDefs = gql`
   scalar Decimal
   scalar JSON
 
-  enum UserRole {
-    admin
-    customer
-    staff
-  }
   enum AuthProvider {
     email
     google
@@ -57,7 +52,6 @@ export const typeDefs = gql`
   type User @key(fields: "id") {
     id: ID!
     email: String!
-    role: UserRole!
     isActive: Boolean!
     emailVerified: Boolean!
     lastLoginAt: DateTime
@@ -78,7 +72,6 @@ export const typeDefs = gql`
     phone: String
     dateOfBirth: DateTime
     avatar: String
-    role: UserRole!
     emailVerified: Boolean!
     isActive: Boolean!
     lastLoginAt: DateTime
@@ -200,7 +193,6 @@ export const typeDefs = gql`
     totalUsers: Int!
     activeUsers: Int!
     newUsersThisMonth: Int!
-    usersByRole: JSON!
     topSpenders: [UserProfile!]!
     userEngagement: JSON!
   }
@@ -209,7 +201,6 @@ export const typeDefs = gql`
     totalUsers: Int!
     activeUsers: Int!
     newUsersThisMonth: Int!
-    usersByRole: JSON!
   }
 
   type UserOrderHistoryResponse {
@@ -736,7 +727,6 @@ export const typeDefs = gql`
   # ── Inputs ───────────────────────────────────────────────────────────────────
 
   input UserFilterInput {
-    role: UserRole
     isActive: Boolean
     search: String
     emailVerified: Boolean
@@ -762,7 +752,6 @@ export const typeDefs = gql`
     lastName: String!
     phone: String
     dateOfBirth: DateTime
-    role: UserRole
     isActive: Boolean
   }
 
@@ -773,10 +762,6 @@ export const typeDefs = gql`
     phone: String
     dateOfBirth: DateTime
     avatarUrl: String
-  }
-
-  input UpdateUserRoleInput {
-    role: UserRole!
   }
 
   input UpdateUserProfileInput {
@@ -856,7 +841,6 @@ export const typeDefs = gql`
     currentUser: GetCurrentUserResponse!
     searchUsers(query: String!): [User!]!
     activeUsers: [User!]!
-    usersByRole(role: UserRole!): [User!]!
     usersByProvider(provider: AuthProvider!): GetUsersByProviderResponse!
     userStats: UserStatsResponse!
     userAnalytics: UserAnalytics!
@@ -1166,7 +1150,6 @@ export const typeDefs = gql`
     # User mutations
     createUser(input: CreateUserProfileInput!): CreateUserResponse!
     updateUser(id: ID!, input: UpdateUserInput!): User!
-    updateUserRole(id: ID!, input: UpdateUserRoleInput!): User!
     deleteUser(id: ID!): SuccessResponse!
     activateUser(id: ID!): User!
     deactivateUser(id: ID!): User!

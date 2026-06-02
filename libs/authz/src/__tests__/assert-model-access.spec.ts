@@ -12,7 +12,6 @@ jest.mock('@hbs/logging', () => ({
 }), { virtual: true });
 
 import { GraphQLError } from 'graphql';
-import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 import { assertModelAccess } from '../assert-model-access';
 
@@ -24,7 +23,6 @@ function makeUser(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'u-test',
     email: 'test@example.com',
-    role: UserRole.CUSTOMER,
     permissions: [],
     groups: [],
     ...overrides,
@@ -57,37 +55,21 @@ describe('assertModelAccess', () => {
     }
   });
 
-  // ── Admin bypass — legacy role ────────────────────────────────────────────
-
-  it('bypasses check for admin legacy role', () => {
-    const admin = makeUser({ role: UserRole.ADMIN, permissions: [] });
-    // Should not throw even with no permissions
-    expect(() => assertModelAccess(admin, 'Order', 'unlink')).not.toThrow();
-  });
-
-  it('bypasses check for admin legacy role even on unknown model', () => {
-    const admin = makeUser({ role: UserRole.ADMIN, permissions: [] });
-    expect(() => assertModelAccess(admin, 'UnknownModel', 'create')).not.toThrow();
-  });
-
   // ── Admin bypass — administrators group ────────────────────────────────────
 
   it('bypasses check for user in administrators group', () => {
-    const admin = makeUser({
-      role: UserRole.STAFF,
-      groups: ['administrators'],
-      permissions: [],
-    });
+    const admin = makeUser({ groups: ['administrators'], permissions: [] });
     expect(() => assertModelAccess(admin, 'StoreSettings', 'write')).not.toThrow();
   });
 
   it('administrators group bypasses even on unknown model', () => {
-    const admin = makeUser({
-      role: UserRole.STAFF,
-      groups: ['administrators'],
-      permissions: [],
-    });
+    const admin = makeUser({ groups: ['administrators'], permissions: [] });
     expect(() => assertModelAccess(admin, 'GhostModel', 'create')).not.toThrow();
+  });
+
+  it('admin bypass (Order.unlink) via administrators group', () => {
+    const admin = makeUser({ groups: ['administrators'], permissions: [] });
+    expect(() => assertModelAccess(admin, 'Order', 'unlink')).not.toThrow();
   });
 
   // ── User with correct permission ───────────────────────────────────────────
@@ -186,22 +168,22 @@ describe('assertModelAccess', () => {
   // ── User model (Fase 4 ACL) ────────────────────────────────────────────────
 
   it('User.create: administrator group (non-legacy role) passes', () => {
-    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    const admin = makeUser({ groups: ['administrators'], permissions: [] });
     expect(() => assertModelAccess(admin, 'User', 'create')).not.toThrow();
   });
 
   it('User.write: administrator group (non-legacy role) passes', () => {
-    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    const admin = makeUser({ groups: ['administrators'], permissions: [] });
     expect(() => assertModelAccess(admin, 'User', 'write')).not.toThrow();
   });
 
   it('User.unlink: administrator group (non-legacy role) passes', () => {
-    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    const admin = makeUser({ groups: ['administrators'], permissions: [] });
     expect(() => assertModelAccess(admin, 'User', 'unlink')).not.toThrow();
   });
 
   it('User.read: administrator group (non-legacy role) passes', () => {
-    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    const admin = makeUser({ groups: ['administrators'], permissions: [] });
     expect(() => assertModelAccess(admin, 'User', 'read')).not.toThrow();
   });
 
@@ -221,7 +203,7 @@ describe('assertModelAccess', () => {
   });
 
   it('User.create: customer without create:user throws FORBIDDEN', () => {
-    const customer = makeUser({ role: UserRole.CUSTOMER, permissions: [] });
+    const customer = makeUser({ permissions: [] });
     expect(() => assertModelAccess(customer, 'User', 'create')).toThrow(GraphQLError);
     try {
       assertModelAccess(customer, 'User', 'create');
@@ -232,7 +214,7 @@ describe('assertModelAccess', () => {
   });
 
   it('User.unlink: customer without delete:user throws FORBIDDEN', () => {
-    const customer = makeUser({ role: UserRole.CUSTOMER, permissions: ['read:user'] });
+    const customer = makeUser({ permissions: ['read:user'] });
     expect(() => assertModelAccess(customer, 'User', 'unlink')).toThrow(GraphQLError);
     try {
       assertModelAccess(customer, 'User', 'unlink');

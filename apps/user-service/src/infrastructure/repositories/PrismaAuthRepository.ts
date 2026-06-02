@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { resolvePermissions, UserRole as AuthUserRole } from '@hbs/auth';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { EffectiveAuthz } from '@domain/interfaces/IEffectiveAuthz';
 import {
@@ -19,7 +18,7 @@ import {
   UserPasswordEntity,
   AuthTokens,
 } from '@domain/entities/Auth';
-import { UserProfile, UserRole } from '@domain/entities/User';
+import { UserProfile } from '@domain/entities/User';
 import {
   CreateUserSessionAnalyticsRequest,
   UpdateUserSessionAnalyticsRequest,
@@ -298,7 +297,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     await this.updateUserLastLogin(user.id);
 
     const userProfile = this.mapToUserProfile(user);
-    const tokens = this.generateTokens({ id: user.id, email: user.email, role: user.role });
+    const tokens = this.generateTokens({ id: user.id, email: user.email });
 
     return {
       user: userProfile,
@@ -348,17 +347,35 @@ export class PrismaAuthRepository implements IAuthRepository {
 
         user = this.mapToUserProfile(existingUser);
       } else {
-        // Create new user
-        const newUser = await this.prisma.userProfile.create({
-          data: {
-            email: googleUser.email,
-            firstName: googleUser.given_name,
-            lastName: googleUser.family_name,
-            avatar: googleUser.picture,
-            emailVerified: googleUser.verified_email,
-            role: 'customer',
-            isActive: true,
-          },
+        // Create new user + assign to 'customer' group
+        const customerGroup = await this.prisma.authGroup.findUnique({
+          where: { code: 'customer' },
+          select: { id: true },
+        });
+
+        const newUser = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.userProfile.create({
+            data: {
+              email: googleUser.email,
+              firstName: googleUser.given_name,
+              lastName: googleUser.family_name,
+              avatar: googleUser.picture,
+              emailVerified: googleUser.verified_email,
+              isActive: true,
+            },
+          });
+
+          if (customerGroup) {
+            await tx.userGroup.create({
+              data: {
+                userId: created.id,
+                groupId: customerGroup.id,
+                grantedBy: 'system-google-registration',
+              },
+            });
+          }
+
+          return created;
         });
 
         // Create Google account link
@@ -382,7 +399,7 @@ export class PrismaAuthRepository implements IAuthRepository {
     // Update last login
     await this.updateUserLastLogin(user.id);
 
-    const tokens = this.generateTokens({ id: user.id, email: user.email, role: user.role });
+    const tokens = this.generateTokens({ id: user.id, email: user.email });
 
     return {
       user,
@@ -406,14 +423,19 @@ export class PrismaAuthRepository implements IAuthRepository {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(data.password, saltRounds);
 
-    // Create user and password in transaction
+    // Resolve 'customer' group before the transaction
+    const customerGroup = await this.prisma.authGroup.findUnique({
+      where: { code: 'customer' },
+      select: { id: true },
+    });
+
+    // Create user, password, and group assignment in one transaction
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.userProfile.create({
         data: {
           email: data.email,
           firstName: data.firstName,
           lastName: data.lastName,
-          role: 'customer',
           emailVerified: false,
           isActive: true,
         },
@@ -426,11 +448,21 @@ export class PrismaAuthRepository implements IAuthRepository {
         },
       });
 
+      if (customerGroup) {
+        await tx.userGroup.create({
+          data: {
+            userId: user.id,
+            groupId: customerGroup.id,
+            grantedBy: 'system-registration',
+          },
+        });
+      }
+
       return user;
     });
 
     const userProfile = this.mapToUserProfile(result);
-    const tokens = this.generateTokens({ id: result.id, email: result.email, role: result.role });
+    const tokens = this.generateTokens({ id: result.id, email: result.email });
 
     return {
       user: userProfile,
@@ -476,7 +508,6 @@ export class PrismaAuthRepository implements IAuthRepository {
     return {
       userId: session.userId,
       email: session.user.email,
-      role: session.user.role,
       provider: primaryProvider,
       isActive: session.user.isActive,
       expiresAt: session.expiresAt,
@@ -521,7 +552,6 @@ export class PrismaAuthRepository implements IAuthRepository {
         {
           id: session.userId,
           email: session.user.email,
-          role: session.user.role,
         },
         effective,
       );
@@ -736,29 +766,25 @@ export class PrismaAuthRepository implements IAuthRepository {
   /**
    * Signs and returns a fresh pair of tokens.
    *
-   * When `effective` is provided (post-Fase-5.5 RBAC path), the access token
-   * embeds the resolved group codes and permission codes from the RBAC tables.
-   * When `effective` is absent or the user has no groups, the legacy
-   * role-based ROLE_PERMISSIONS mapping is used as a fallback — this covers
-   * newly registered users and users whose backfill has not yet been executed.
+   * When `effective` is provided, the access token embeds the resolved
+   * group codes and permission codes from the RBAC tables.
+   * When `effective` is absent (e.g. email auth flow — those paths now call
+   * the resolver in the use case before reaching the repo), an empty
+   * groups/permissions payload is emitted.
    */
   generateTokens(
-    user: { id: string; email: string; role: string },
+    user: { id: string; email: string },
     effective?: EffectiveAuthz,
   ): AuthTokens {
     const jwtSecret = process.env.JWT_SECRET!;
 
-    const hasRbacGroups = (effective?.groupCodes.length ?? 0) > 0;
-    const permissions: string[] = hasRbacGroups
-      ? effective!.permissionCodes
-      : (resolvePermissions(user.role as AuthUserRole) as unknown as string[]);
-    const groups: string[] = hasRbacGroups ? effective!.groupCodes : [];
+    const permissions: string[] = effective?.permissionCodes ?? [];
+    const groups: string[] = effective?.groupCodes ?? [];
 
     const accessToken = jwt.sign(
       {
         userId: user.id,
         email: user.email,
-        role: user.role,
         groups,
         permissions,
       },
@@ -840,7 +866,6 @@ export class PrismaAuthRepository implements IAuthRepository {
       phone: data.phone,
       dateOfBirth: data.dateOfBirth,
       avatar: data.avatar,
-      role: data.role as UserRole,
       emailVerified: data.emailVerified,
       isActive: data.isActive,
       createdAt: data.createdAt,

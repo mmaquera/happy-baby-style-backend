@@ -1,20 +1,12 @@
 import { GraphQLError } from 'graphql';
-import { Permission, TokenPayload, UserRole } from './types';
+import { Permission, TokenPayload } from './types';
 
-export function requireRole(
-  currentUser: TokenPayload | null | undefined,
-  ...allowedRoles: UserRole[]
-): void {
-  if (!currentUser) {
-    throw new GraphQLError('Authentication required', {
-      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
-    });
-  }
-  if (!allowedRoles.includes(currentUser.role as UserRole)) {
-    throw new GraphQLError('Insufficient privileges', {
-      extensions: { code: 'FORBIDDEN', http: { status: 403 } },
-    });
-  }
+/**
+ * Local helper — does NOT import from @hbs/authz to avoid a circular dependency.
+ * @hbs/authz depends on @hbs/auth; the reverse direction is forbidden.
+ */
+function isInGroup(user: TokenPayload, groupCode: string): boolean {
+  return Array.isArray(user.groups) && user.groups.includes(groupCode);
 }
 
 export function requirePermission(
@@ -36,8 +28,6 @@ export function requirePermission(
 /**
  * Throws FORBIDDEN if the user doesn't belong to the specified group.
  * Throws UNAUTHENTICATED if currentUser is null/undefined.
- * Backward-compat: if the token has no `groups` field (pre-Fase 5 token), throws FORBIDDEN —
- * caller should combine with role-based fallback if needed.
  */
 export function requireGroup(
   currentUser: TokenPayload | null | undefined,
@@ -48,7 +38,7 @@ export function requireGroup(
       extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
     });
   }
-  if (!currentUser.groups?.includes(groupCode)) {
+  if (!isInGroup(currentUser, groupCode)) {
     throw new GraphQLError('Insufficient privileges', {
       extensions: { code: 'FORBIDDEN', http: { status: 403 } },
     });
@@ -68,8 +58,7 @@ export function requireAnyGroup(
       extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
     });
   }
-  const userGroups = currentUser.groups ?? [];
-  const hasAny = groupCodes.some(code => userGroups.includes(code));
+  const hasAny = groupCodes.some(code => isInGroup(currentUser, code));
   if (!hasAny) {
     throw new GraphQLError('Insufficient privileges', {
       extensions: { code: 'FORBIDDEN', http: { status: 403 } },
@@ -77,11 +66,30 @@ export function requireAnyGroup(
   }
 }
 
-/** Alias kept for backward compatibility — functionally equivalent to requireRole(ADMIN). */
+/**
+ * Requires the user to belong to the `administrators` group.
+ * Throws UNAUTHENTICATED if not logged in; FORBIDDEN if not in the group.
+ */
 export function requireAdmin(currentUser: TokenPayload | null | undefined): void {
-  requireRole(currentUser, UserRole.ADMIN);
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  if (!isInGroup(currentUser, 'administrators')) {
+    throw new GraphQLError('Insufficient privileges', {
+      extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+    });
+  }
 }
 
+/**
+ * Requires the caller to be the resource owner OR belong to `administrators`.
+ * - Owner check: ctx.userId === ownerId (never trust ownerId from GraphQL input — callers
+ *   must pass the persisted owner id from the database).
+ * - Admin bypass: membership in the `administrators` group.
+ * Throws UNAUTHENTICATED if not logged in; FORBIDDEN if neither condition holds.
+ */
 export function assertOwnerOrAdmin(
   currentUser: TokenPayload | null | undefined,
   ownerId: string,
@@ -91,7 +99,9 @@ export function assertOwnerOrAdmin(
       extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
     });
   }
-  if (currentUser.role !== UserRole.ADMIN && currentUser.userId !== ownerId) {
+  const isOwner = currentUser.userId === ownerId;
+  const isAdmin = isInGroup(currentUser, 'administrators');
+  if (!isOwner && !isAdmin) {
     throw new GraphQLError('Forbidden: not the owner', {
       extensions: { code: 'FORBIDDEN', http: { status: 403 } },
     });

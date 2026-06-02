@@ -1,5 +1,5 @@
 import { requireGroup, requireAnyGroup } from '@hbs/auth';
-import { UserRole, Permission } from '@hbs/auth';
+import { Permission } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // requireGroup / requireAnyGroup do not use @hbs/logging — no mock needed.
@@ -12,8 +12,8 @@ function makeUser(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'user-1',
     email: 'test@example.com',
-    role: UserRole.CUSTOMER,
     permissions: [Permission.READ_PRODUCT],
+    groups: [],
     ...overrides,
   };
 }
@@ -39,8 +39,8 @@ describe('requireGroup', () => {
     );
   });
 
-  it('throws FORBIDDEN when the user has no groups field (pre-Fase-5 token)', () => {
-    const user = makeUser(); // groups absent — backward-compat scenario
+  it('throws FORBIDDEN when the user has an empty groups array', () => {
+    const user = makeUser({ groups: [] });
     expect(() => requireGroup(user, 'sales')).toThrow(
       expect.objectContaining({
         extensions: expect.objectContaining({ code: 'FORBIDDEN' }),
@@ -105,8 +105,8 @@ describe('requireAnyGroup', () => {
     );
   });
 
-  it('throws FORBIDDEN when the user has no groups field (pre-Fase-5 token)', () => {
-    const user = makeUser(); // groups absent
+  it('throws FORBIDDEN when the user has an empty groups array', () => {
+    const user = makeUser({ groups: [] });
     expect(() => requireAnyGroup(user, 'sales', 'support')).toThrow(
       expect.objectContaining({
         extensions: expect.objectContaining({ code: 'FORBIDDEN' }),

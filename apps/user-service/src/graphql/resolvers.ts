@@ -35,8 +35,7 @@ import { IUserRepository } from '@domain/repositories/IUserRepository';
 import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
-import { UserRole } from '@domain/entities/User';
-import { assertOwnerOrAdmin, UserRole as AuthUserRole, type TokenPayload } from '@hbs/auth';
+import { assertOwnerOrAdmin, type TokenPayload } from '@hbs/auth';
 // RBAC admin use cases
 import { CreateGroupUseCase } from '@application/use-cases/authz/CreateGroupUseCase';
 import { UpdateGroupUseCase } from '@application/use-cases/authz/UpdateGroupUseCase';
@@ -61,11 +60,7 @@ import { ListRecordRulesUseCase } from '@application/use-cases/authz/ListRecordR
 import { assertModelAccess, isAdmin } from '@hbs/authz';
 
 // ── requireAdministrator guard ──────────────────────────────────────────────
-// Accepts BOTH:
-//   1. Token with groups including 'administrators' (post-backfill / Fase 5.5 users)
-//   2. Legacy token with role=admin (pre-backfill / chicken-egg bootstrap)
-// This dual-path guard prevents lockout when nobody has been assigned to the
-// administrators group yet (classic chicken-egg problem).
+// Requires the caller to belong to the 'administrators' group (RBAC-only).
 function requireAdministrator(currentUser: TokenPayload | null | undefined): void {
   if (!currentUser) {
     throw new GraphQLError('Authentication required', {
@@ -73,8 +68,7 @@ function requireAdministrator(currentUser: TokenPayload | null | undefined): voi
     });
   }
   const inAdministratorsGroup = currentUser.groups?.includes('administrators') ?? false;
-  const isLegacyAdmin = currentUser.role === AuthUserRole.ADMIN;
-  if (!inAdministratorsGroup && !isLegacyAdmin) {
+  if (!inAdministratorsGroup) {
     throw new GraphQLError('Insufficient privileges — administrators group required', {
       extensions: { code: 'FORBIDDEN', http: { status: 403 } },
     });
@@ -96,9 +90,6 @@ function requireUserManagementAccess(currentUser: TokenPayload | null | undefine
     });
   }
   if (currentUser.groups?.some((g) => (USER_MANAGEMENT_GROUPS as readonly string[]).includes(g))) {
-    return;
-  }
-  if (currentUser.role === AuthUserRole.ADMIN || currentUser.role === AuthUserRole.STAFF) {
     return;
   }
   throw new GraphQLError('Insufficient privileges', {
@@ -178,7 +169,6 @@ const transformUserProfile = (profile: any) => ({
   phone: profile.phone || null,
   dateOfBirth: profile.dateOfBirth || profile.date_of_birth || null,
   avatar: profile.avatar || null,
-  role: profile.role || 'customer',
   emailVerified:
     profile.emailVerified !== undefined
       ? profile.emailVerified
@@ -202,7 +192,6 @@ const transformUserProfile = (profile: any) => ({
 const transformUser = (user: any) => ({
   id: user.id,
   email: user.email,
-  role: user.role,
   isActive:
     user.isActive !== undefined
       ? user.isActive
@@ -393,7 +382,6 @@ export function createResolvers(deps: UserServiceDeps) {
           const users = await getUsersUseCase.execute({
             limit,
             offset,
-            role: filter?.role,
             isActive: filter?.isActive,
             search: filter?.search,
           });
@@ -493,16 +481,6 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      usersByRole: async (_: any, { role }: { role: string }, context: any) => {
-        requireUserManagementAccess(context.currentUser);
-        try {
-          const users = await deps.userRepository.getUsersByRole(role as any);
-          return users.map(transformUser);
-        } catch {
-          return [];
-        }
-      },
-
       usersByProvider: async (_: any, { provider }: { provider: string }, context: any) => {
         requireAdministrator(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
@@ -538,7 +516,6 @@ export function createResolvers(deps: UserServiceDeps) {
               totalUsers: stats.totalUsers,
               activeUsers: stats.activeUsers,
               newUsersThisMonth: stats.newUsersThisMonth,
-              usersByRole: stats.usersByRole,
             },
             'User stats retrieved',
             RESPONSE_CODES.SUCCESS,
@@ -564,7 +541,6 @@ export function createResolvers(deps: UserServiceDeps) {
             totalUsers: stats.totalUsers,
             activeUsers: stats.activeUsers,
             newUsersThisMonth: stats.newUsersThisMonth,
-            usersByRole: stats.usersByRole,
             topSpenders: [],
             userEngagement: {},
           };
@@ -573,7 +549,6 @@ export function createResolvers(deps: UserServiceDeps) {
             totalUsers: 0,
             activeUsers: 0,
             newUsersThisMonth: 0,
-            usersByRole: {},
             topSpenders: [],
             userEngagement: {},
           };
@@ -1118,7 +1093,6 @@ export function createResolvers(deps: UserServiceDeps) {
           await createUserUseCase.execute({
             email: input.email,
             password: input.password,
-            role: UserRole.CUSTOMER,
             profile: { firstName: input.firstName, lastName: input.lastName },
           });
           const result = await authenticateUserUseCase.execute({
@@ -1265,7 +1239,6 @@ export function createResolvers(deps: UserServiceDeps) {
           const user = await createUserUseCase.execute({
             email: input.email,
             password: input.password,
-            role: input.role,
             isActive: input.isActive !== undefined ? input.isActive : true,
             profile: {
               firstName: input.firstName,
@@ -1309,12 +1282,6 @@ export function createResolvers(deps: UserServiceDeps) {
             avatarUrl: input.avatarUrl,
           },
         });
-        return transformUser(user);
-      },
-
-      updateUserRole: async (_: any, { id, input }: any, context: any) => {
-        assertModelAccess(context.currentUser, 'User', 'write');
-        const user = await updateUserUseCase.execute(id, { role: input.role });
         return transformUser(user);
       },
 
@@ -1446,7 +1413,6 @@ export function createResolvers(deps: UserServiceDeps) {
         const user = await createUserUseCase.execute({
           email: input.email,
           password: input.password,
-          role: input.role,
           isActive: input.isActive !== undefined ? input.isActive : true,
           profile: {
             firstName: input.firstName,

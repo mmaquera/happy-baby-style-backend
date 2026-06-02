@@ -27,11 +27,10 @@ export function belongsToGroup(
 }
 
 /**
- * Atajo: ¿es admin? Considera el rol legacy + el grupo `administrators` del nuevo modelo.
+ * Atajo: ¿es admin? Comprueba pertenencia al grupo `administrators`.
  */
 export function isAdmin(user: TokenPayload | null | undefined): boolean {
   if (!user) return false;
-  if (user.role === 'admin') return true; // legacy fallback (UserRole.ADMIN = 'admin')
   return belongsToGroup(user, 'administrators');
 }
 

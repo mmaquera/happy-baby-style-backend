@@ -15,7 +15,7 @@ import { assertWriteAccess, AssertWriteAccessOptions } from '../assert-write-acc
 import { NotFoundError } from '@hbs/shared-kernel';
 import { RecordRuleResolver } from '../record-rule-resolver';
 import type { IRecordRuleSource, RecordRule } from '../record-rule-resolver';
-import { UserRole, Permission } from '@hbs/auth';
+import { Permission } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +28,6 @@ function makeUser(overrides?: Partial<TokenPayload>): TokenPayload {
   return {
     userId: 'u-test',
     email: 'test@example.com',
-    role: UserRole.CUSTOMER,
     permissions: [Permission.READ_ORDER],
     groups: ['sales-user'],
     ...overrides,

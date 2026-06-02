@@ -19,9 +19,7 @@ jest.mock(
   { virtual: true },
 );
 
-jest.mock('@hbs/auth', () => ({
-  resolvePermissions: jest.fn().mockReturnValue(['read:product', 'create:order']),
-}), { virtual: true });
+jest.mock('@hbs/auth', () => ({}), { virtual: true });
 
 import { RefreshTokenUseCase } from '../RefreshTokenUseCase';
 import type { IAuthRepository } from '../../../../domain/repositories/IAuthRepository';
@@ -44,7 +42,6 @@ const FAKE_TOKEN = buildFakeRefreshToken('user-42');
 const makeUser = () => ({
   id: 'user-42',
   email: 'u@test.com',
-  role: 'customer' as any,
   isActive: true,
 });
 
@@ -113,22 +110,17 @@ describe('RefreshTokenUseCase', () => {
     });
   });
 
-  describe('fallback path — user without RBAC groups', () => {
-    it('passes empty effective to repo and logs a warning', async () => {
+  describe('user with empty RBAC groups', () => {
+    it('passes empty effective to repo (no legacy fallback)', async () => {
       const authRepo = makeAuthRepo();
-      const logger = makeLogger();
       const resolver = makeResolver(withoutGroups);
 
-      const uc = new RefreshTokenUseCase(authRepo, logger, resolver);
+      const uc = new RefreshTokenUseCase(authRepo, makeLogger(), resolver);
       await uc.execute({ refreshToken: FAKE_TOKEN });
 
       expect(authRepo.refreshUserSession).toHaveBeenCalledWith(
         FAKE_TOKEN,
         withoutGroups,
-      );
-      expect(logger.warn).toHaveBeenCalledWith(
-        'User has no RBAC groups during token refresh, using legacy permissions',
-        expect.objectContaining({ userId: 'user-42' }),
       );
     });
   });

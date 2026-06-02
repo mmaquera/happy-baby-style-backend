@@ -137,8 +137,7 @@ function resolveCtxPath(path: string, ctx: EvaluationContext): unknown {
     id: u => u?.userId,
     userId: u => u?.userId,
     email: u => u?.email,
-    role: u => u?.role,
-    groups: u => (u as any)?.groups ?? [],
+    groups: u => u?.groups ?? [],
     permissions: u => u?.permissions ?? [],
   };
 

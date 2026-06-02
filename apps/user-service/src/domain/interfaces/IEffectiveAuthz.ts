@@ -4,8 +4,9 @@
  * Computed by traversing user_groups → group_implications (transitively) →
  * group_permissions → permissions via a single recursive CTE query.
  *
- * When groupCodes is empty the caller MUST apply the legacy role-based
- * permission fallback (ROLE_PERMISSIONS map from @hbs/auth).
+ * groupCodes is empty only for users not yet assigned to any group (edge case
+ * after migration). No legacy role-based fallback — groups are the sole source
+ * of authorization from Fase A2 onward.
  */
 export interface EffectiveAuthz {
   /** Resolved group codes including transitively inherited groups. */

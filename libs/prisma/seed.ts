@@ -1,5 +1,5 @@
 /**
- * RBAC Seed — Fase 5.2
+ * RBAC Seed — Fase A2
  *
  * Seeds system groups, permissions, group_permissions mappings,
  * and group_implications hierarchy.
@@ -8,6 +8,10 @@
  * resolution required at seed time). The group_implications record is still
  * created so the inheritance machinery is present and can be activated
  * progressively in the authorization layer.
+ *
+ * Backfill (role → user_groups) removed in A2: user_profiles.role column
+ * is dropped by migration 0002_drop_legacy_role. New users are assigned to the
+ * 'customer' group inside the CreateUserUseCase transaction (see backend Fase 2).
  *
  * Idempotent: every write uses upsert — safe to run multiple times.
  */
@@ -217,125 +221,6 @@ async function upsertGroupImplications(
   return count;
 }
 
-// ── Backfill user_groups from legacy user_profiles.role ─────────────────────
-
-/**
- * Maps a legacy UserRole value to the list of group codes that replace it.
- *
- * Mapping (approved, non-negotiable):
- *   admin    → ['administrators']
- *   customer → ['customer']
- *   staff    → ['sales-user', 'inventory-user', 'customer-service']
- *
- * Returns an empty array for any unrecognised role (caller must handle).
- */
-function mapRoleToGroups(role: string): string[] {
-  switch (role) {
-    case 'admin':
-      return ['administrators'];
-    case 'customer':
-      return ['customer'];
-    case 'staff':
-      return ['sales-user', 'inventory-user', 'customer-service'];
-    default:
-      return [];
-  }
-}
-
-interface BackfillResult {
-  usersProcessed: number;
-  usersSkipped: number;
-  assignmentsCreated: number;
-  assignmentsByGroup: Record<string, number>;
-}
-
-/**
- * Assigns every existing user_profile to the group(s) that correspond to their
- * legacy `role` column.
- *
- * Idempotent: upsert with update:{} — running N times is safe, no duplicates.
- * The user_groups composite PK (user_id, group_id) is the conflict key.
- *
- * Does NOT modify user_profiles.role — that column is removed in Fase 5.11.
- */
-async function backfillUserGroups(): Promise<BackfillResult> {
-  const result: BackfillResult = {
-    usersProcessed: 0,
-    usersSkipped: 0,
-    assignmentsCreated: 0,
-    assignmentsByGroup: {},
-  };
-
-  // Paginate in batches of 500 to keep memory usage bounded even for large tables.
-  const BATCH_SIZE = 500;
-  let offset = 0;
-
-  // Build a local cache of group code → id to avoid N lookups per user.
-  const groupCache = new Map<string, string>();
-
-  const loadGroup = async (code: string): Promise<string | null> => {
-    if (groupCache.has(code)) return groupCache.get(code)!;
-    const group = await prisma.authGroup.findUnique({ where: { code } });
-    if (!group) {
-      console.warn(`[seed:backfill] WARNING — group code "${code}" not found in DB. Skipping.`);
-      return null;
-    }
-    groupCache.set(code, group.id);
-    return group.id;
-  };
-
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const batch = await prisma.userProfile.findMany({
-      select: { id: true, role: true },
-      skip: offset,
-      take: BATCH_SIZE,
-      orderBy: { id: 'asc' },
-    });
-
-    if (batch.length === 0) break;
-
-    for (const user of batch) {
-      const groupCodes = mapRoleToGroups(user.role);
-
-      if (groupCodes.length === 0) {
-        console.warn(
-          `[seed:backfill] WARNING — user ${user.id} has unrecognised role "${user.role}". Skipping.`,
-        );
-        result.usersSkipped++;
-        continue;
-      }
-
-      for (const code of groupCodes) {
-        const groupId = await loadGroup(code);
-        if (!groupId) {
-          result.usersSkipped++;
-          continue;
-        }
-
-        await prisma.userGroup.upsert({
-          where: { userId_groupId: { userId: user.id, groupId } },
-          create: {
-            userId: user.id,
-            groupId,
-            grantedBy: 'system-backfill',
-          },
-          update: {}, // idempotent — no fields to change on re-run
-        });
-
-        result.assignmentsCreated++;
-        result.assignmentsByGroup[code] = (result.assignmentsByGroup[code] ?? 0) + 1;
-      }
-
-      result.usersProcessed++;
-    }
-
-    offset += BATCH_SIZE;
-  }
-
-  return result;
-}
-
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -355,24 +240,10 @@ async function main(): Promise<void> {
   const giCount = await upsertGroupImplications(groupIdMap);
   console.log(`[seed] group_implications: ${giCount} upserted`);
 
-  console.log('[seed] Starting backfill: user_groups from user_profiles.role...');
-  const backfill = await backfillUserGroups();
-  console.log(
-    `[seed] backfill user_groups: ${backfill.usersProcessed} users processed | ` +
-      `${backfill.usersSkipped} skipped | ` +
-      `${backfill.assignmentsCreated} assignments upserted`,
-  );
-  if (Object.keys(backfill.assignmentsByGroup).length > 0) {
-    for (const [code, count] of Object.entries(backfill.assignmentsByGroup)) {
-      console.log(`[seed]   group "${code}": ${count} assignment(s)`);
-    }
-  }
-
   console.log('[seed] Done.');
   console.log(
     `[seed] Summary: ${groupIdMap.size} groups | ${permIdMap.size} permissions | ` +
-      `${gpCount} group_permission rows | ${giCount} group_implication rows | ` +
-      `${backfill.assignmentsCreated} user_group assignments`,
+      `${gpCount} group_permission rows | ${giCount} group_implication rows`,
   );
 }
 

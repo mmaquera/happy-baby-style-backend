@@ -25,7 +25,7 @@ import type {
   UpdatePaymentMethodInput,
 } from '../../../domain/repositories/IPaymentMethodRepository';
 import { NotFoundError } from '@hbs/shared-kernel';
-import { UserRole, Permission } from '@hbs/auth';
+import { Permission } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,6 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: 'user-1',
     email: 'owner@test.com',
-    role: UserRole.STAFF,
     permissions: [Permission.UPDATE_ORDER],
     groups: ['sales-manager'],
     ...overrides,

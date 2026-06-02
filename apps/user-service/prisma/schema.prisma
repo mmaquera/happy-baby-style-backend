@@ -15,7 +15,6 @@ model UserProfile {
   phone         String?
   dateOfBirth   DateTime? @map("date_of_birth")
   avatar        String?
-  role          UserRole  @default(customer)
   emailVerified Boolean   @default(false) @map("email_verified")
   isActive      Boolean   @default(true) @map("is_active")
   lastLoginAt   DateTime? @map("last_login_at")
@@ -266,12 +265,6 @@ model NewsletterSubscription {
   user UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("newsletter_subscriptions")
-}
-
-enum UserRole {
-  admin
-  customer
-  staff
 }
 
 enum AuthProvider {

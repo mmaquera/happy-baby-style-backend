@@ -112,7 +112,6 @@ export interface PasswordResetConfirmRequest {
 export interface SessionInfo {
   userId: string;
   email: string;
-  role: string;
   provider: AuthProvider;
   isActive: boolean;
   expiresAt: Date;
@@ -123,7 +122,6 @@ export interface SessionInfo {
 export interface JWTPayload {
   sub: string; // userId
   email: string;
-  role: string;
   provider: AuthProvider;
   sessionId: string;
   iat: number;

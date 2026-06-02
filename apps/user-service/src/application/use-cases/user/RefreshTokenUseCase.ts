@@ -2,7 +2,6 @@ import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { ILogger } from '@hbs/logging';
 import { ValidationError } from '@domain/errors/DomainError';
 import { LoggingDecorator } from '@hbs/logging';
-import { resolvePermissions } from '@hbs/auth';
 import type { IEffectivePermissionsResolver } from '@domain/interfaces/IEffectivePermissionsResolver';
 
 export interface RefreshTokenRequest {
@@ -80,7 +79,7 @@ export class RefreshTokenUseCase {
         : undefined;
 
       if (preResolvedUserId && (!effective || effective.groupCodes.length === 0)) {
-        this.logger.warn('User has no RBAC groups during token refresh, using legacy permissions', {
+        this.logger.warn('User has no RBAC groups during token refresh — token will carry empty permissions', {
           userId: preResolvedUserId,
         });
       }

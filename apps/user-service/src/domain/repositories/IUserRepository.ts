@@ -2,7 +2,6 @@ import {
   User,
   UserProfile,
   UserAddress,
-  UserRole,
   UserStats,
   CreateUserRequest,
   UpdateUserRequest,
@@ -16,7 +15,6 @@ export interface IUserRepository {
   getUsers(
     limit?: number,
     offset?: number,
-    role?: UserRole,
     isActive?: boolean,
   ): Promise<{ users: User[]; total: number }>;
   getUserById(id: string): Promise<User | null>;
@@ -24,7 +22,6 @@ export interface IUserRepository {
   updateUser(id: string, data: UpdateUserRequest): Promise<User>;
   deleteUser(id: string): Promise<void>;
   getUserStats(): Promise<UserStats>;
-  getUsersByRole(role: UserRole): Promise<User[]>;
   getActiveUsers(): Promise<User[]>;
   searchUsers(query: string): Promise<User[]>;
   getUserPasswordHash(userId: string): Promise<string | null>;

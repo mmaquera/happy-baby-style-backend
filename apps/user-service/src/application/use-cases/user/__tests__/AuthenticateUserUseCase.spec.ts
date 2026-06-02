@@ -22,7 +22,6 @@ jest.mock(
 );
 
 jest.mock('@hbs/auth', () => ({
-  resolvePermissions: jest.fn().mockReturnValue(['read:product', 'create:order', 'read:order', 'read:user']),
   TOKEN_TYPES: {
     REFRESH: 'refresh',
     MFA_CHALLENGE: 'mfa_challenge',
@@ -58,7 +57,6 @@ import bcrypt from 'bcryptjs';
 const makeUser = (overrides: Record<string, unknown> = {}) => ({
   id: 'user-42',
   email: 'user@test.com',
-  role: 'customer' as any,
   isActive: true,
   emailVerified: true,
   failedLoginAttempts: 0,
@@ -174,6 +172,7 @@ describe('AuthenticateUserUseCase', () => {
           userId: 'user-42',
           groups: ['customer'],
           permissions: ['read:product', 'create:order', 'read:order', 'read:user'],
+          // no `role` field — Fase A2 final token shape
         }),
         'test-secret',
         { expiresIn: '1h' },
@@ -202,23 +201,18 @@ describe('AuthenticateUserUseCase', () => {
     });
   });
 
-  describe('fallback path — user without RBAC groups (pre-backfill)', () => {
-    it('uses legacy role-based permissions and logs a warning', async () => {
+  describe('user with no RBAC groups (empty groups resolver)', () => {
+    it('signs token with empty groups and permissions when resolver returns none', async () => {
       const resolver = makeResolver(withoutGroups);
-      const logger = makeLogger();
-      const uc = makeUseCase(undefined, undefined, logger, resolver);
+      const uc = makeUseCase(undefined, undefined, undefined, resolver);
       const jwt = require('jsonwebtoken');
 
       await uc.execute(validRequest());
 
       expect(jwt.sign).toHaveBeenCalledWith(
-        expect.objectContaining({ groups: [] }),
+        expect.objectContaining({ groups: [], permissions: [] }),
         expect.any(String),
         expect.any(Object),
-      );
-      expect(logger.warn).toHaveBeenCalledWith(
-        'User has no RBAC groups, using legacy role-based permissions',
-        expect.objectContaining({ userId: 'user-42', role: 'customer' }),
       );
     });
   });

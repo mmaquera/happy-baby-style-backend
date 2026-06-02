@@ -60,7 +60,6 @@ export class CreateUserUseCase {
       // Create user
       this.logger.debug('Creating new user', {
         email: data.email,
-        role: data.role,
         hasProfile: !!data.profile,
         traceId,
       });
@@ -70,7 +69,6 @@ export class CreateUserUseCase {
       this.logger.info('User created successfully', {
         userId: user.id,
         email: user.email,
-        role: user.role,
         traceId,
       });
 

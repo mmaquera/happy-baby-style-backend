@@ -3,7 +3,6 @@ import {
   User,
   UserProfile,
   UserAddress,
-  UserRole,
   UserStats,
   CreateUserRequest,
   UpdateUserRequest,
@@ -12,6 +11,7 @@ import {
 } from '@domain/entities/User';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { BusinessLogicError } from '@domain/errors/DomainError';
 
 export class PrismaUserProfileRepository implements IUserRepository {
   constructor(private prisma: PrismaClient) {}
@@ -21,7 +21,6 @@ export class PrismaUserProfileRepository implements IUserRepository {
     return {
       id: prismaUserProfile.id,
       email: prismaUserProfile.email,
-      role: prismaUserProfile.role as UserRole,
       isActive: prismaUserProfile.isActive,
       emailVerified: prismaUserProfile.emailVerified,
       failedLoginAttempts: prismaUserProfile.failedLoginAttempts ?? 0,
@@ -36,7 +35,6 @@ export class PrismaUserProfileRepository implements IUserRepository {
         phone: prismaUserProfile.phone,
         dateOfBirth: prismaUserProfile.dateOfBirth,
         avatar: prismaUserProfile.avatar,
-        role: prismaUserProfile.role,
         emailVerified: prismaUserProfile.emailVerified,
         isActive: prismaUserProfile.isActive,
         lastLoginAt: prismaUserProfile.lastLoginAt,
@@ -81,7 +79,6 @@ export class PrismaUserProfileRepository implements IUserRepository {
       phone: prismaUserProfile.phone,
       dateOfBirth: prismaUserProfile.dateOfBirth,
       avatar: prismaUserProfile.avatar,
-      role: prismaUserProfile.role,
       emailVerified: prismaUserProfile.emailVerified,
       isActive: prismaUserProfile.isActive,
       lastLoginAt: prismaUserProfile.lastLoginAt,
@@ -99,7 +96,18 @@ export class PrismaUserProfileRepository implements IUserRepository {
     // Hash password
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // Create user profile and password in transaction
+    // Resolve the 'customer' group id once — fail-fast if seed hasn't been applied
+    const customerGroup = await this.prisma.authGroup.findUnique({
+      where: { code: 'customer' },
+      select: { id: true },
+    });
+    if (!customerGroup) {
+      throw new BusinessLogicError(
+        "RBAC seed not applied: 'customer' group missing. Run prisma db seed.",
+      );
+    }
+
+    // Create user profile, password, and group assignment in a single transaction
     const result = await this.prisma.$transaction(async (tx) => {
       // Create the user profile
       const userProfile = await tx.userProfile.create({
@@ -110,7 +118,6 @@ export class PrismaUserProfileRepository implements IUserRepository {
           phone: data.profile?.phone,
           dateOfBirth: data.profile?.birthDate,
           avatar: undefined,
-          role: data.role || 'customer',
           emailVerified: false,
           isActive: true,
         },
@@ -127,6 +134,15 @@ export class PrismaUserProfileRepository implements IUserRepository {
         },
       });
 
+      // Assign new user to the 'customer' group (RBAC baseline)
+      await tx.userGroup.create({
+        data: {
+          userId: userProfile.id,
+          groupId: customerGroup.id,
+          grantedBy: 'system-registration',
+        },
+      });
+
       return userProfile;
     });
 
@@ -136,16 +152,11 @@ export class PrismaUserProfileRepository implements IUserRepository {
   async getUsers(
     limit?: number,
     offset?: number,
-    role?: UserRole,
     isActive?: boolean,
   ): Promise<{ users: User[]; total: number }> {
     const where: any = {};
 
     // Only add filters for defined and non-null values
-    if (role !== undefined && role !== null) {
-      where.role = role;
-    }
-
     if (isActive !== undefined && isActive !== null) {
       where.isActive = isActive;
     }
@@ -199,7 +210,6 @@ export class PrismaUserProfileRepository implements IUserRepository {
     const updateData: any = {};
 
     if (data.email !== undefined) updateData.email = data.email;
-    if (data.role !== undefined) updateData.role = data.role;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
     if (data.profile) {
@@ -236,43 +246,23 @@ export class PrismaUserProfileRepository implements IUserRepository {
   }
 
   async getUserStats(): Promise<UserStats> {
-    const [totalUsers, activeUsers, adminUsers, customerUsers, staffUsers, usersThisMonth] =
-      await Promise.all([
-        this.prisma.userProfile.count(),
-        this.prisma.userProfile.count({ where: { isActive: true } }),
-        this.prisma.userProfile.count({ where: { role: 'admin' } }),
-        this.prisma.userProfile.count({ where: { role: 'customer' } }),
-        this.prisma.userProfile.count({ where: { role: 'staff' } }),
-        this.prisma.userProfile.count({
-          where: {
-            createdAt: {
-              gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-            },
+    const [totalUsers, activeUsers, usersThisMonth] = await Promise.all([
+      this.prisma.userProfile.count(),
+      this.prisma.userProfile.count({ where: { isActive: true } }),
+      this.prisma.userProfile.count({
+        where: {
+          createdAt: {
+            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
           },
-        }),
-      ]);
+        },
+      }),
+    ]);
 
     return {
       totalUsers,
       activeUsers,
       newUsersThisMonth: usersThisMonth,
-      usersByRole: {
-        admin: adminUsers,
-        customer: customerUsers,
-        staff: staffUsers,
-      },
     };
-  }
-
-  async getUsersByRole(role: UserRole): Promise<User[]> {
-    const userProfiles = await this.prisma.userProfile.findMany({
-      where: { role },
-      include: {
-        addresses: true,
-      },
-    });
-
-    return userProfiles.map((up) => this.mapToUser(up));
   }
 
   async getActiveUsers(): Promise<User[]> {

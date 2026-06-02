@@ -8,12 +8,11 @@ import { DeleteSvgUseCase } from '../application/use-cases/DeleteSvgUseCase';
 import { ResponseFactory, RESPONSE_CODES, DomainError } from '@hbs/shared-kernel';
 import { ImageEntityType } from '../domain/entities/Image';
 import { SvgEntityType } from '../domain/entities/Svg';
-import { UserRole, type TokenPayload, assertOwnerOrAdmin } from '@hbs/auth';
+import { type TokenPayload, assertOwnerOrAdmin } from '@hbs/auth';
 import { GraphQLError } from 'graphql';
 
 // ── Media management guard ───────────────────────────────────────────────────
 // Delete and non-user-entity upload mutations are restricted to administrators.
-// Accepts 'administrators' group (new RBAC token) OR legacy ADMIN role.
 function requireMediaManagementAccess(currentUser: TokenPayload | null | undefined): void {
   if (!currentUser) {
     throw new GraphQLError('Authentication required', {
@@ -23,33 +22,19 @@ function requireMediaManagementAccess(currentUser: TokenPayload | null | undefin
   if (currentUser.groups?.includes('administrators')) {
     return;
   }
-  if (currentUser.role === UserRole.ADMIN) {
-    return;
-  }
   throw new GraphQLError('Insufficient privileges', {
     extensions: { code: 'FORBIDDEN', http: { status: 403 } },
   });
 }
 
-// ── Owner-or-admin guard (RBAC-aware) ────────────────────────────────────────
-// assertOwnerOrAdmin from @hbs/auth only checks the legacy `role` field.
-// During the RBAC rollout, administrators may have groups=['administrators']
-// but still carry role=CUSTOMER. This wrapper checks groups first so RBAC
-// admins can manage any user's avatar.
+// ── Owner-or-admin guard ────────────────────────────────────────────────────
+// Uses assertOwnerOrAdmin from @hbs/auth (groups-based, Fase A2 final shape).
 function requireOwnerOrMediaAdmin(
   currentUser: TokenPayload | null | undefined,
   ownerId: string,
 ): void {
-  if (!currentUser) {
-    throw new GraphQLError('Authentication required', {
-      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
-    });
-  }
-  // RBAC path: group-based administrators override owner check
-  if (currentUser.groups?.includes('administrators')) {
-    return;
-  }
-  // Legacy path: delegate to library guard (checks role === ADMIN or userId === ownerId)
+  // Delegates entirely to the library guard which checks groups='administrators'
+  // or userId===ownerId.
   assertOwnerOrAdmin(currentUser, ownerId);
 }
 

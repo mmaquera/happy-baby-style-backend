@@ -19,7 +19,6 @@ jest.mock('@hbs/auth', () => ({
     EMAIL_VERIFICATION: 'email_verification',
   },
   decryptMfaSecret: jest.fn().mockReturnValue('PLAIN_TOTP_SECRET'),
-  resolvePermissions: jest.fn().mockReturnValue(['read:product']),
 }), { virtual: true });
 
 jest.mock('jsonwebtoken');
@@ -54,7 +53,6 @@ function makeUserRepo(overrides: Partial<any> = {}): any {
     getUserById: jest.fn().mockResolvedValue({
       id: USER_ID,
       email: 'user@example.com',
-      role: 'customer',
       isActive: true,
     }),
     getMfaData: jest.fn().mockResolvedValue({

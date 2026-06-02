@@ -24,7 +24,6 @@ import type {
   ShoppingCartItemData,
 } from '../../../domain/repositories/IShoppingCartRepository';
 import { NotFoundError } from '@hbs/shared-kernel';
-import { UserRole } from '@hbs/auth';
 import type { TokenPayload } from '@hbs/auth';
 
 // ---------------------------------------------------------------------------
@@ -48,7 +47,6 @@ function makeUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   return {
     userId: 'user-1',
     email: 'owner@test.com',
-    role: UserRole.CUSTOMER,
     permissions: [],
     groups: ['customer'],
     ...overrides,
