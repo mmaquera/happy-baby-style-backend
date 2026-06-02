@@ -27,6 +27,11 @@ if (!process.env.REDIS_URL) {
   process.exit(1);
 }
 
+if (!process.env.USER_SERVICE_INTERNAL_URL) {
+  console.error('FATAL: USER_SERVICE_INTERNAL_URL is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const PORT = parseInt(process.env.PRODUCT_SERVICE_PORT || '3003', 10);
 const REDIS_URL = process.env.REDIS_URL;
 const RBAC_STREAM_NAME = process.env.RBAC_STREAM_NAME ?? 'stream:record-rules-updated';
@@ -51,16 +56,17 @@ async function start() {
   const recordRuleSource = new StreamRecordRuleSource();
   const recordRuleResolver = new RecordRuleResolver(recordRuleSource);
 
-  const userServiceInternalUrl = process.env.USER_SERVICE_INTERNAL_URL;
-  if (userServiceInternalUrl) {
-    await fetchSnapshotAndPopulate(recordRuleSource, serviceLogger, {
-      userServiceUrl: userServiceInternalUrl,
-    });
-  } else {
-    serviceLogger.warn(
-      'USER_SERVICE_INTERNAL_URL not set — skipping RBAC snapshot fetch. Cache will fill from stream events only.',
-      { service: 'product-service' },
+  const userServiceInternalUrl = process.env.USER_SERVICE_INTERNAL_URL!;
+  const snapshotResult = await fetchSnapshotAndPopulate(recordRuleSource, serviceLogger, {
+    userServiceUrl: userServiceInternalUrl,
+  });
+  if (!snapshotResult.success) {
+    serviceLogger.error(
+      'FATAL: RBAC snapshot fetch failed after all retries. Refusing to start with an empty rule set (fail-closed).',
+      new Error('snapshot_unavailable'),
+      { service: 'product-service', userServiceUrl: userServiceInternalUrl },
     );
+    process.exit(1);
   }
 
   const rbacConsumer = new RecordRulesEventsConsumer(
