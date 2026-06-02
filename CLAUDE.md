@@ -465,6 +465,7 @@ before launching agents, list which ones will run, in what order, and wait for a
 
 | Trigger                                                            | Agent                   | Owns during execution                                                                  |
 |--------------------------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------|
+| Functional/product scope, feature prioritization, Odoo-process → requirement mapping, state-machine/RBAC scoping, user stories — the WHAT & WHY before any code | odoo-product-owner | Defines functional scope, MVP vs nice-to-have, acceptance criteria, FE/backend boundary. No architecture, no code. Hands the functional requirement to microservices-architect. |
 | /plan, /ultrareview, cross-service design, federation, supergraph  | microservices-architect | Splits plan into tasks, assigns specialists, runs `/ultrareview`, decides re-work.     |
 | Use cases, resolvers, repositories, adapters, messaging, refactors | backend-expert          | Implements application/infrastructure/graphql layers + Jest tests. No Prisma schema.   |
 | Prisma schema, migrations, indexes, N+1, query optimization        | database-expert         | Owns schema, migrations, indexes, repo query shape. Hands typed interface to backend.  |
@@ -478,6 +479,9 @@ Fallback to `general-purpose` only when no specialist fits.
 
 ### Workflow (post-/plan approval)
 
+0. **odoo-product-owner** (when scope is unclear or the feature is new): defines functional scope,
+   prioritization, acceptance criteria, and the FE/backend boundary → hands the functional requirement
+   to **architect**. Skip for purely technical tasks (refactors, perf, infra) where the WHAT is settled.
 1. **architect** splits approved plan into per-agent tasks → posts dispatch list → waits for approval.
 2. Independent tasks run in parallel (one message, multiple Agent calls); sequential when an
    agent's output feeds the next (e.g. db schema → backend repo). Never run two agents that
@@ -492,6 +496,7 @@ from invoking the same skill with conflicting intent.
 
 | Agent                   | Primary skills                                              | Scope restriction                                |
 |-------------------------|-------------------------------------------------------------|--------------------------------------------------|
+| odoo-product-owner      | `odoo-functional-consultant`                               | Functional/product decisions only — no architecture, no code, no schema. Defines the WHAT/WHY, then escalates the HOW to architect/specialists. |
 | microservices-architect | `senior-architect`, `database-architect`, `senior-security`, `code-review` | DB: design decisions only, not schema/indexes. Security: threat modeling only, not pentest. |
 | backend-expert          | `senior-backend`, `verify`, `run`, `code-review`            | No auth/authz decisions — escalate to security-analyst. |
 | database-expert         | `database-architect` (owner), `senior-backend`              | `senior-backend`: query context only.            |
