@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import type { TokenPayload } from '@hbs/auth';
 import type { RecordRuleResolver } from '@hbs/authz';
+import { assertWriteAccess } from '@hbs/authz';
 import {
   IOrderRepository,
   OrderFilters,
@@ -152,6 +153,13 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
+  /**
+   * Bypasses all record-level access rules.
+   *
+   * Use ONLY for callers without a user context (event consumers, internal background
+   * jobs). NEVER call this from a resolver mutation — use update/delete/updateStatus
+   * which enforce write-mode record rules via assertWriteAccess.
+   */
   async findByIdUnrestricted(id: string): Promise<Order | null> {
     try {
       const order = await this.prisma.order.findUnique({
@@ -169,7 +177,26 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
-  async update(id: string, orderData: UpdateOrderRequest): Promise<Order> {
+  async update(
+    id: string,
+    orderData: UpdateOrderRequest,
+    currentUser: TokenPayload | null,
+  ): Promise<Order> {
+    // Enforce write-mode record rules before mutating.
+    // assertWriteAccess throws NotFoundError (ambiguous 404) when the record does
+    // not exist OR when the rule denies access — prevents enumeration oracle.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Order',
+      mode: 'write',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.order
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     try {
       const updateData: any = {};
       if (orderData.status) updateData.status = orderData.status;
@@ -193,7 +220,20 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, currentUser: TokenPayload | null): Promise<boolean> {
+    // Enforce unlink-mode record rules before deleting.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Order',
+      mode: 'unlink',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.order
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     try {
       await this.prisma.order.delete({ where: { id } });
       return true;
@@ -240,7 +280,20 @@ export class PrismaOrderRepository implements IOrderRepository {
     }
   }
 
-  async updateStatus(id: string, status: string): Promise<Order> {
+  async updateStatus(id: string, status: string, currentUser: TokenPayload | null): Promise<Order> {
+    // Enforce write-mode record rules before mutating status.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Order',
+      mode: 'write',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.order
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     try {
       const updated = await this.prisma.order.update({
         where: { id },
@@ -377,6 +430,37 @@ export class PrismaOrderRepository implements IOrderRepository {
       );
       throw error;
     }
+  }
+
+  /**
+   * Verify write/unlink access on an order BEFORE any prefetch or business logic.
+   *
+   * Throws NotFoundError (ambiguous 404) when the order does not exist OR when
+   * a record rule denies access — same semantics as assertWriteAccess inside
+   * update/delete. This is intentionally a thin wrapper so the use case can
+   * call it as its very first line, ensuring no information leaks via business
+   * logic errors (e.g. invalid status transition) before the auth gate fires.
+   *
+   * Defence-in-depth: repo.update/delete still run their own assertWriteAccess
+   * internally. The double probe is acceptable (and preferable to removing the
+   * inner guard which would break callers that skip ensureWritable).
+   */
+  async ensureWritable(
+    id: string,
+    mode: 'write' | 'unlink',
+    currentUser: TokenPayload | null,
+  ): Promise<void> {
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Order',
+      mode,
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.order
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
   }
 
   async getOrdersByDateRange(startDate: Date, endDate: Date): Promise<Order[]> {

@@ -1,52 +1,81 @@
 import { PrismaClient } from '@prisma/client';
+import type { TokenPayload } from '@hbs/auth';
+
 import { IOrderRepository } from '../domain/repositories/IOrderRepository';
+import { IPaymentMethodRepository } from '../domain/repositories/IPaymentMethodRepository';
+import { IShoppingCartRepository } from '../domain/repositories/IShoppingCartRepository';
+import { ITransactionRepository } from '../domain/repositories/ITransactionRepository';
+import { ICouponRepository } from '../domain/repositories/ICouponRepository';
+import { IStoreSettingsRepository } from '../domain/repositories/IStoreSettingsRepository';
 import { IProductValidationPort } from '../domain/ports/IProductValidationPort';
 import { IEventPublisher } from '../domain/ports/IEventPublisher';
+
 import { CreateOrderUseCase } from '../application/use-cases/CreateOrderUseCase';
 import { GetOrdersUseCase } from '../application/use-cases/GetOrdersUseCase';
 import { GetOrderByIdUseCase } from '../application/use-cases/GetOrderByIdUseCase';
 import { UpdateOrderUseCase } from '../application/use-cases/UpdateOrderUseCase';
 import { GetOrderStatsUseCase } from '../application/use-cases/GetOrderStatsUseCase';
-import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { CreatePaymentMethodUseCase } from '../application/use-cases/CreatePaymentMethodUseCase';
+import { UpdatePaymentMethodUseCase } from '../application/use-cases/UpdatePaymentMethodUseCase';
+import { DeletePaymentMethodUseCase } from '../application/use-cases/DeletePaymentMethodUseCase';
+import {
+  GetUserPaymentMethodsUseCase,
+  GetPaymentMethodByIdUseCase,
+} from '../application/use-cases/GetUserPaymentMethodsUseCase';
+import {
+  GetUserTransactionsUseCase,
+  GetTransactionByIdUseCase,
+} from '../application/use-cases/GetUserTransactionsUseCase';
+import { AddToCartUseCase } from '../application/use-cases/AddToCartUseCase';
+import { UpdateCartItemUseCase } from '../application/use-cases/UpdateCartItemUseCase';
+import { RemoveFromCartUseCase } from '../application/use-cases/RemoveFromCartUseCase';
+import { ClearUserCartUseCase } from '../application/use-cases/ClearUserCartUseCase';
+import {
+  GetUserCartUseCase,
+  GetCartItemByIdUseCase,
+} from '../application/use-cases/GetUserCartUseCase';
+import {
+  GetCouponsUseCase,
+  GetCouponByIdUseCase,
+  GetCouponByCodeUseCase,
+  GetUserCouponUsageUseCase,
+} from '../application/use-cases/GetCouponUseCase';
+import {
+  GetStoreSettingsUseCase,
+  GetStoreSettingByKeyUseCase,
+} from '../application/use-cases/GetStoreSettingsUseCase';
+
+// ── Canonical guard — single source of truth for management group list ────────
+// Use assertOrderManagementAccess (throws GraphQLError UNAUTHENTICATED/FORBIDDEN) for
+// direct resolver guards (orders, orderStats, ordersByStatus). Use cases call the same
+// exported helpers from this module so both paths share one definition.
+import { assertOrderManagementAccess } from '../application/use-cases/guards/orderAuthGuards';
+
+import { NotFoundError, ForbiddenError } from '@hbs/shared-kernel';
 import { GraphQLError } from 'graphql';
-import { requirePermission, requireRole, Permission, UserRole, TokenPayload } from '@hbs/auth';
+import { requirePermission, requireRole, Permission, UserRole } from '@hbs/auth';
 
-// ── Local hybrid guard (Fase 5.9) ────────────────────────────────────────────
-// Supports BOTH new tokens (with `groups`) and legacy tokens (role only).
-// Used for admin-scoped order listings that were previously STAFF/ADMIN only.
-const ORDER_MANAGEMENT_GROUPS = [
-  'administrators',
-  'sales-manager',
-  'sales-user',
-  'customer-service',
-] as const;
+// ── Shared error mapper ───────────────────────────────────────────────────────
 
-/**
- * Grants access to administrative order listings.
- * Passes when the user belongs to any order management group (new token)
- * OR has role ADMIN/STAFF (legacy token without groups).
- * CUSTOMER + no management group → FORBIDDEN.
- */
-function requireOrderManagementAccess(
-  currentUser: TokenPayload | null | undefined,
-): void {
-  if (!currentUser) {
-    throw new GraphQLError('Authentication required', {
-      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+function mapDomainError(error: unknown): never {
+  if (error instanceof NotFoundError) {
+    throw new GraphQLError(error.message, {
+      extensions: { code: 'NOT_FOUND', http: { status: 404 } },
     });
   }
-  // New token path: group-based check
-  if (currentUser.groups?.some((g) => (ORDER_MANAGEMENT_GROUPS as readonly string[]).includes(g))) {
-    return;
+  if (error instanceof ForbiddenError) {
+    throw new GraphQLError(error.message, {
+      extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+    });
   }
-  // Legacy token path: role-based fallback
-  if (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.STAFF) {
-    return;
+  // GraphQLError (UNAUTHENTICATED / FORBIDDEN from use-case guards) passes through as-is.
+  if (error instanceof GraphQLError) {
+    throw error;
   }
-  throw new GraphQLError('Insufficient privileges', {
-    extensions: { code: 'FORBIDDEN', http: { status: 403 } },
-  });
+  throw error;
 }
+
+// ── Transformers ─────────────────────────────────────────────────────────────
 
 function transformOrder(order: any) {
   return {
@@ -124,12 +153,34 @@ function transformDeliverySlot(s: any) {
   return { ...s, createdAt: toIso(s.createdAt), updatedAt: toIso(s.updatedAt) };
 }
 
+function transformCartItem(item: any) {
+  return {
+    ...item,
+    price: Number(item.price),
+    cart: { __typename: 'ShoppingCart', id: item.cartId },
+    product: { __typename: 'Product', id: item.productId },
+  };
+}
+
+function transformCartData(c: any) {
+  return {
+    ...c,
+    items: (c.items || []).map(transformCartItem),
+  };
+}
+
 export function createResolvers(
   orderRepository: IOrderRepository,
   productValidation: IProductValidationPort,
   eventPublisher: IEventPublisher,
   prisma: PrismaClient,
+  paymentMethodRepository: IPaymentMethodRepository,
+  cartRepository: IShoppingCartRepository,
+  transactionRepository: ITransactionRepository,
+  couponRepository: ICouponRepository,
+  storeSettingsRepository: IStoreSettingsRepository,
 ) {
+  // ── Order use cases ────────────────────────────────────────────────────────
   const createOrderUseCase = new CreateOrderUseCase(
     orderRepository,
     productValidation,
@@ -140,11 +191,41 @@ export function createResolvers(
   const updateOrderUseCase = new UpdateOrderUseCase(orderRepository);
   const getOrderStatsUseCase = new GetOrderStatsUseCase(orderRepository);
 
+  // ── PaymentMethod use cases ────────────────────────────────────────────────
+  const createPaymentMethodUseCase = new CreatePaymentMethodUseCase(paymentMethodRepository);
+  const updatePaymentMethodUseCase = new UpdatePaymentMethodUseCase(paymentMethodRepository);
+  const deletePaymentMethodUseCase = new DeletePaymentMethodUseCase(paymentMethodRepository);
+  const getUserPaymentMethodsUseCase = new GetUserPaymentMethodsUseCase(paymentMethodRepository);
+  const getPaymentMethodByIdUseCase = new GetPaymentMethodByIdUseCase(paymentMethodRepository);
+
+  // ── Transaction use cases ──────────────────────────────────────────────────
+  const getUserTransactionsUseCase = new GetUserTransactionsUseCase(transactionRepository);
+  const getTransactionByIdUseCase = new GetTransactionByIdUseCase(transactionRepository);
+
+  // ── Cart use cases ─────────────────────────────────────────────────────────
+  const addToCartUseCase = new AddToCartUseCase(cartRepository);
+  const updateCartItemUseCase = new UpdateCartItemUseCase(cartRepository);
+  const removeFromCartUseCase = new RemoveFromCartUseCase(cartRepository);
+  const clearUserCartUseCase = new ClearUserCartUseCase(cartRepository);
+  const getUserCartUseCase = new GetUserCartUseCase(cartRepository);
+  const getCartItemByIdUseCase = new GetCartItemByIdUseCase(cartRepository);
+
+  // ── Coupon use cases ───────────────────────────────────────────────────────
+  const getCouponsUseCase = new GetCouponsUseCase(couponRepository);
+  const getCouponByIdUseCase = new GetCouponByIdUseCase(couponRepository);
+  const getCouponByCodeUseCase = new GetCouponByCodeUseCase(couponRepository);
+  const getUserCouponUsageUseCase = new GetUserCouponUsageUseCase(couponRepository);
+
+  // ── StoreSettings use cases ────────────────────────────────────────────────
+  const getStoreSettingsUseCase = new GetStoreSettingsUseCase(storeSettingsRepository);
+  const getStoreSettingByKeyUseCase = new GetStoreSettingByKeyUseCase(storeSettingsRepository);
+
   return {
     Query: {
       // ── Orders ──────────────────────────────────────────────────────────
+
       orders: async (_: any, { filter, pagination }: any, context: any) => {
-        requireOrderManagementAccess(context.currentUser);
+        assertOrderManagementAccess(context.currentUser);
         const result = await getOrdersUseCase.execute({
           filters: filter,
           pagination,
@@ -158,63 +239,109 @@ export function createResolvers(
       },
 
       order: async (_: any, { id }: { id: string }, context: any) => {
-        const order = await getOrderByIdUseCase.execute(id, context.currentUser ?? null);
-        return order ? transformOrder(order) : null;
+        // queries are not guarded by the authPlugin (only mutations are).
+        // Authentication is required to access any order data.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        try {
+          const order = await getOrderByIdUseCase.execute(id, context.currentUser);
+          return order ? transformOrder(order) : null;
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      orderStats: async () => getOrderStatsUseCase.execute(),
+      orderStats: async (_: any, __: any, context: any) => {
+        // Aggregate stats contain PII-adjacent revenue data — restrict to management roles.
+        assertOrderManagementAccess(context.currentUser);
+        return getOrderStatsUseCase.execute();
+      },
 
       ordersByStatus: async (_: any, { status }: { status: string }, context: any) => {
-        requireOrderManagementAccess(context.currentUser);
+        assertOrderManagementAccess(context.currentUser);
         const orders = await orderRepository.findByStatus(status);
         return orders.map(transformOrder);
       },
 
       // ── Payment methods ──────────────────────────────────────────────────
-      userPaymentMethods: async (_: any, { userId }: { userId: string }) => {
-        const pms = await prisma.paymentMethod.findMany({
-          where: { order: { userId } },
-          orderBy: { createdAt: 'desc' },
-        });
-        return pms.map(transformPaymentMethod);
+      // SECURITY: these queries were previously unguarded (direct prisma access).
+      // Now routed through use cases that enforce owner-or-management policy.
+
+      userPaymentMethods: async (_: any, { userId }: { userId: string }, context: any) => {
+        try {
+          const pms = await getUserPaymentMethodsUseCase.execute(userId, context.currentUser ?? null);
+          return pms.map(transformPaymentMethod);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      paymentMethod: async (_: any, { id }: { id: string }) => {
-        const pm = await prisma.paymentMethod.findUnique({ where: { id } });
-        return pm ? transformPaymentMethod(pm) : null;
+      paymentMethod: async (_: any, { id }: { id: string }, context: any) => {
+        try {
+          const pm = await getPaymentMethodByIdUseCase.execute(id, context.currentUser ?? null);
+          return transformPaymentMethod(pm);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       // ── Transactions ─────────────────────────────────────────────────────
-      userTransactions: async (_: any, { userId }: { userId: string }) => {
-        const txs = await prisma.transaction.findMany({
-          where: { userId },
-          orderBy: { createdAt: 'desc' },
-        });
-        return txs.map(transformTransaction);
+      // SECURITY: these queries were previously unguarded. Now enforce owner-or-management.
+
+      userTransactions: async (_: any, { userId }: { userId: string }, context: any) => {
+        try {
+          const txs = await getUserTransactionsUseCase.execute(userId, context.currentUser ?? null);
+          return txs.map(transformTransaction);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      transaction: async (_: any, { id }: { id: string }) => {
-        const tx = await prisma.transaction.findUnique({ where: { id } });
-        return tx ? transformTransaction(tx) : null;
+      transaction: async (_: any, { id }: { id: string }, context: any) => {
+        try {
+          const tx = await getTransactionByIdUseCase.execute(id, context.currentUser ?? null);
+          return transformTransaction(tx);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       // ── Coupons ──────────────────────────────────────────────────────────
-      coupons: async () => {
-        const items = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
-        return items.map(transformCoupon);
+      // SECURITY: coupons/coupon require management; couponByCode requires auth only.
+      // activeCoupons remains public (storefront needs it without login).
+
+      coupons: async (_: any, __: any, context: any) => {
+        try {
+          const items = await getCouponsUseCase.execute(context.currentUser ?? null);
+          return items.map(transformCoupon);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      coupon: async (_: any, { id }: { id: string }) => {
-        const c = await prisma.coupon.findUnique({ where: { id } });
-        return c ? transformCoupon(c) : null;
+      coupon: async (_: any, { id }: { id: string }, context: any) => {
+        try {
+          const c = await getCouponByIdUseCase.execute(id, context.currentUser ?? null);
+          return transformCoupon(c);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      couponByCode: async (_: any, { code }: { code: string }) => {
-        const c = await prisma.coupon.findUnique({ where: { code } });
-        return c ? transformCoupon(c) : null;
+      couponByCode: async (_: any, { code }: { code: string }, context: any) => {
+        try {
+          const c = await getCouponByCodeUseCase.execute(code, context.currentUser ?? null);
+          return c ? transformCoupon(c) : null;
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      activeCoupons: async () => {
+      activeCoupons: async (_: any, __: any, _context: any) => {
+        // PUBLIC — storefront requires coupon discovery without authentication.
         const now = new Date();
         const items = await prisma.coupon.findMany({
           where: { isActive: true, validFrom: { lte: now }, validUntil: { gte: now } },
@@ -223,15 +350,18 @@ export function createResolvers(
         return items.map(transformCoupon);
       },
 
-      userCouponUsage: async (_: any, { userId }: { userId: string }) => {
-        const items = await prisma.couponUsage.findMany({
-          where: { userId },
-          orderBy: { usedAt: 'desc' },
-        });
-        return items.map(transformCouponUsage);
+      userCouponUsage: async (_: any, { userId }: { userId: string }, context: any) => {
+        try {
+          const items = await getUserCouponUsageUseCase.execute(userId, context.currentUser ?? null);
+          return items.map(transformCouponUsage);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       // ── Shipping & logistics ─────────────────────────────────────────────
+      // PUBLIC — storefront needs these without login.
+
       carriers: async () => {
         const items = await prisma.carrier.findMany({ orderBy: { name: 'asc' } });
         return items.map(transformCarrier);
@@ -269,59 +399,51 @@ export function createResolvers(
       },
 
       // ── Shopping cart queries ────────────────────────────────────────────
+      // SECURITY: previously direct prisma access without auth guard.
+      // Now routed through use cases enforcing owner-or-management policy.
 
-      userCart: async (_: any, { userId }: any) => {
+      userCart: async (_: any, { userId }: any, context: any) => {
         try {
-          const carts = await prisma.shoppingCart.findMany({
-            where: { userId },
-            include: { items: true },
-          });
-          return carts.map((c) => ({
-            ...c,
-            items: c.items.map((i) => ({
-              ...i,
-              price: Number(i.price),
-              cart: { __typename: 'ShoppingCart', id: i.cartId },
-              product: { __typename: 'Product', id: i.productId },
-            })),
-          }));
-        } catch {
-          return [];
+          const carts = await getUserCartUseCase.execute(userId, context.currentUser ?? null);
+          return carts.map(transformCartData);
+        } catch (error) {
+          return mapDomainError(error);
         }
       },
 
-      cartItem: async (_: any, { id }: any) => {
+      cartItem: async (_: any, { id }: any, context: any) => {
         try {
-          const item = await prisma.shoppingCartItem.findUnique({ where: { id } });
-          if (!item) return null;
-          return {
-            ...item,
-            price: Number(item.price),
-            cart: { __typename: 'ShoppingCart', id: item.cartId },
-            product: { __typename: 'Product', id: item.productId },
-          };
-        } catch {
-          return null;
+          const item = await getCartItemByIdUseCase.execute(id, context.currentUser ?? null);
+          return transformCartItem(item);
+        } catch (error) {
+          return mapDomainError(error);
         }
       },
 
-      // ── Store settings & tax rates queries ───────────────────────────────
+      // ── Store settings ───────────────────────────────────────────────────
+      // SECURITY: previously unguarded direct prisma access.
+      // Now restricted to management/admin — settings contain sensitive config.
 
-      storeSettings: async () => {
+      storeSettings: async (_: any, __: any, context: any) => {
         try {
-          return await prisma.storeSettings.findMany({ where: { isActive: true } });
-        } catch {
-          return [];
+          const items = await getStoreSettingsUseCase.execute(context.currentUser ?? null);
+          return items;
+        } catch (error) {
+          return mapDomainError(error);
         }
       },
 
-      storeSetting: async (_: any, { key }: any) => {
+      storeSetting: async (_: any, { key }: any, context: any) => {
         try {
-          return await prisma.storeSettings.findUnique({ where: { settingKey: key } });
-        } catch {
-          return null;
+          const setting = await getStoreSettingByKeyUseCase.execute(key, context.currentUser ?? null);
+          return setting;
+        } catch (error) {
+          return mapDomainError(error);
         }
       },
+
+      // ── Tax rates ────────────────────────────────────────────────────────
+      // PUBLIC — storefront needs tax rates without login.
 
       taxRates: async () => {
         try {
@@ -344,6 +466,7 @@ export function createResolvers(
 
     Mutation: {
       // ── Orders ──────────────────────────────────────────────────────────
+
       createOrder: async (_: any, { input }: { input: any }, context: any) => {
         // customerEmail and userId are always derived from the authenticated JWT —
         // never accepted from client input (prevents BOLA / CWE-639).
@@ -363,24 +486,48 @@ export function createResolvers(
 
       updateOrder: async (_: any, { id, input }: { id: string; input: any }, context: any) => {
         requirePermission(context.currentUser, Permission.UPDATE_ORDER);
-        const order = await updateOrderUseCase.execute(id, {
-          status: input.status,
-          customerEmail: input.customerEmail,
-          customerName: input.customerName,
-          customerPhone: input.customerPhone,
-        });
-        return transformOrder(order);
+        try {
+          const order = await updateOrderUseCase.execute(
+            id,
+            {
+              status: input.status,
+              customerEmail: input.customerEmail,
+              customerName: input.customerName,
+              customerPhone: input.customerPhone,
+            },
+            context.currentUser ?? null,
+          );
+          return transformOrder(order);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      updateOrderStatus: async (_: any, { id, status }: { id: string; status: string }, context: any) => {
+      updateOrderStatus: async (
+        _: any,
+        { id, status }: { id: string; status: string },
+        context: any,
+      ) => {
         requirePermission(context.currentUser, Permission.UPDATE_ORDER);
-        const order = await updateOrderUseCase.execute(id, { status: status as any });
-        return transformOrder(order);
+        try {
+          const order = await updateOrderUseCase.execute(
+            id,
+            { status: status as any },
+            context.currentUser ?? null,
+          );
+          return transformOrder(order);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       deleteOrder: async (_: any, { id }: { id: string }, context: any) => {
         requireRole(context.currentUser, UserRole.ADMIN);
-        return orderRepository.delete(id);
+        try {
+          return await orderRepository.delete(id, context.currentUser ?? null);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       bulkUpdateOrderStatus: async (
@@ -389,41 +536,47 @@ export function createResolvers(
         context: any,
       ) => {
         requirePermission(context.currentUser, Permission.UPDATE_ORDER);
-        const updated = await Promise.all(
-          orders.map((id) => updateOrderUseCase.execute(id, { status: status as any })),
-        );
-        return updated.map(transformOrder);
+        try {
+          const updated = await Promise.all(
+            orders.map((id) =>
+              updateOrderUseCase.execute(id, { status: status as any }, context.currentUser ?? null),
+            ),
+          );
+          return updated.map(transformOrder);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       // ── Payment methods ──────────────────────────────────────────────────
-      createPaymentMethod: async (_: any, { input }: any) => {
-        const pm = await prisma.paymentMethod.create({
-          data: {
-            orderId: input.orderId,
-            type: input.type,
-            amount: input.amount,
-            status: input.status || 'pending',
-            transactionId: input.transactionId,
-            metadata: input.metadata || {},
-          },
-        });
-        return transformPaymentMethod(pm);
+      // CRITICAL 1 FIX: operations now go through use cases that enforce
+      // assertWriteAccess on the parent Order before mutating.
+      // The authPlugin already guarantees currentUser is non-null for all mutations.
+
+      createPaymentMethod: async (_: any, { input }: any, context: any) => {
+        try {
+          const pm = await createPaymentMethodUseCase.execute(input, context.currentUser!);
+          return transformPaymentMethod(pm);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      updatePaymentMethod: async (_: any, { id, input }: any) => {
-        const updateData: any = {};
-        if (input.type) updateData.type = input.type;
-        if (input.amount != null) updateData.amount = input.amount;
-        if (input.status) updateData.status = input.status;
-        if (input.transactionId !== undefined) updateData.transactionId = input.transactionId;
-        if (input.metadata) updateData.metadata = input.metadata;
-        const pm = await prisma.paymentMethod.update({ where: { id }, data: updateData });
-        return transformPaymentMethod(pm);
+      updatePaymentMethod: async (_: any, { id, input }: any, context: any) => {
+        try {
+          const pm = await updatePaymentMethodUseCase.execute(id, input, context.currentUser!);
+          return transformPaymentMethod(pm);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      deletePaymentMethod: async (_: any, { id }: { id: string }) => {
-        await prisma.paymentMethod.delete({ where: { id } });
-        return true;
+      deletePaymentMethod: async (_: any, { id }: { id: string }, context: any) => {
+        try {
+          return await deletePaymentMethodUseCase.execute(id, context.currentUser!);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       // ── Coupons ──────────────────────────────────────────────────────────
@@ -490,7 +643,11 @@ export function createResolvers(
         return transformCarrier(c);
       },
 
-      updateCarrier: async (_: any, { id, name, code, trackingUrlTemplate, isActive }: any, context: any) => {
+      updateCarrier: async (
+        _: any,
+        { id, name, code, trackingUrlTemplate, isActive }: any,
+        context: any,
+      ) => {
         requireRole(context.currentUser, UserRole.ADMIN);
         const updateData: any = {};
         if (name !== undefined) updateData.name = name;
@@ -539,51 +696,48 @@ export function createResolvers(
       },
 
       // ── Shopping cart mutations ──────────────────────────────────────────
+      // CRITICAL 2 FIX: identity is always derived from context.currentUser (JWT),
+      // never from client-supplied userId input.
+      // The authPlugin guarantees currentUser is non-null for all mutations.
 
-      addToCart: async (_: any, { userId, productId, quantity }: any) => {
-        let cart = await prisma.shoppingCart.findFirst({ where: { userId } });
-        if (!cart) {
-          cart = await prisma.shoppingCart.create({ data: { userId } });
-        }
-        const existing = await prisma.shoppingCartItem.findFirst({
-          where: { cartId: cart.id, productId },
-        });
-        if (existing) {
-          const item = await prisma.shoppingCartItem.update({
-            where: { id: existing.id },
-            data: { quantity: existing.quantity + quantity },
-          });
-          return { ...item, cart: { __typename: 'ShoppingCart', id: item.cartId }, product: { __typename: 'Product', id: item.productId } };
-        }
-        const item = await prisma.shoppingCartItem.create({
-          data: { cartId: cart.id, productId, quantity, price: 0 },
-        });
-        return { ...item, cart: { __typename: 'ShoppingCart', id: item.cartId }, product: { __typename: 'Product', id: item.productId } };
-      },
-
-      updateCartItem: async (_: any, { id, quantity }: any) => {
-        const item = await prisma.shoppingCartItem.update({ where: { id }, data: { quantity } });
-        return { ...item, cart: { __typename: 'ShoppingCart', id: item.cartId }, product: { __typename: 'Product', id: item.productId } };
-      },
-
-      removeFromCart: async (_: any, { id }: any) => {
+      addToCart: async (_: any, { productId, quantity }: any, context: any) => {
         try {
-          await prisma.shoppingCartItem.delete({ where: { id } });
+          const item = await addToCartUseCase.execute(productId, quantity, context.currentUser!);
+          return transformCartItem(item);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      updateCartItem: async (_: any, { id, quantity }: any, context: any) => {
+        try {
+          const item = await updateCartItemUseCase.execute(id, quantity, context.currentUser!);
+          return transformCartItem(item);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      removeFromCart: async (_: any, { id }: any, context: any) => {
+        try {
+          await removeFromCartUseCase.execute(id, context.currentUser!);
           return { success: true, message: 'Item removed from cart' };
-        } catch (e: any) {
-          return { success: false, message: e.message };
+        } catch (error) {
+          if (error instanceof NotFoundError) {
+            throw new GraphQLError(error.message, {
+              extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+            });
+          }
+          throw error;
         }
       },
 
-      clearUserCart: async (_: any, { userId }: any) => {
+      clearUserCart: async (_: any, __: any, context: any) => {
         try {
-          const carts = await prisma.shoppingCart.findMany({ where: { userId } });
-          for (const cart of carts) {
-            await prisma.shoppingCartItem.deleteMany({ where: { cartId: cart.id } });
-          }
+          await clearUserCartUseCase.execute(context.currentUser!);
           return { success: true, message: 'Cart cleared' };
-        } catch (e: any) {
-          return { success: false, message: e.message };
+        } catch (error) {
+          return mapDomainError(error);
         }
       },
     },

@@ -17,22 +17,40 @@ export interface IOrderRepository {
   findById(id: string, currentUser: TokenPayload | null): Promise<Order | null>;
   /**
    * Find a single order by id WITHOUT applying record-level access rules.
-   * Use ONLY in write-path operations (update, delete) where the authorization check
-   * has already been performed at the resolver layer (requirePermission/requireRole).
-   * NEVER use this for read-path queries exposed to clients.
+   *
+   * Use ONLY for callers that have no user context (e.g. event consumers, internal
+   * background jobs). NEVER call this from a resolver mutation — mutations must use
+   * update/delete/updateStatus which enforce write-mode record rules via assertWriteAccess.
    */
   findByIdUnrestricted(id: string): Promise<Order | null>;
   /**
    * List orders with optional filters, applying record-level access rules for currentUser.
    * @param currentUser - null for unauthenticated callers (will be denied by any rule).
-   * TODO (Fase futura): apply record rules to all remaining methods below.
    */
   findAll(filters?: OrderFilters, currentUser?: TokenPayload | null): Promise<Order[]>;
-  update(id: string, orderData: UpdateOrderRequest): Promise<Order>;
-  delete(id: string): Promise<boolean>;
+  /**
+   * Update an order, enforcing write-mode record rules for currentUser.
+   * Throws NotFoundError (ambiguous 404) when the record does not exist OR when
+   * a write-mode rule denies access for this user.
+   * @param currentUser - null for callers without user context (event consumers, jobs).
+   */
+  update(id: string, orderData: UpdateOrderRequest, currentUser: TokenPayload | null): Promise<Order>;
+  /**
+   * Delete an order, enforcing unlink-mode record rules for currentUser.
+   * Throws NotFoundError (ambiguous 404) when the record does not exist OR when
+   * an unlink-mode rule denies access for this user.
+   * @param currentUser - null for callers without user context (event consumers, jobs).
+   */
+  delete(id: string, currentUser: TokenPayload | null): Promise<boolean>;
   findByStatus(status: string): Promise<Order[]>;
   findByCustomerEmail(email: string): Promise<Order[]>;
-  updateStatus(id: string, status: string): Promise<Order>;
+  /**
+   * Update only the status field of an order, enforcing write-mode record rules for currentUser.
+   * Throws NotFoundError (ambiguous 404) when the record does not exist OR when
+   * a write-mode rule denies access for this user.
+   * @param currentUser - null for callers without user context (event consumers, jobs).
+   */
+  updateStatus(id: string, status: string, currentUser: TokenPayload | null): Promise<Order>;
   addOrderItem(
     orderId: string,
     item: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>,
@@ -43,6 +61,22 @@ export interface IOrderRepository {
   getShippingAddress(id: string): Promise<ShippingAddress | null>;
   getOrderStats(): Promise<OrderStats>;
   getOrdersByDateRange(startDate: Date, endDate: Date): Promise<Order[]>;
+  /**
+   * Verify that the order is accessible for the given user in the specified mode
+   * (write or unlink) before any prefetch or business logic runs.
+   *
+   * Throws NotFoundError (ambiguous 404) when the order does not exist OR when
+   * a write/unlink-mode record rule denies access for this user.
+   *
+   * Use as the FIRST call in any use case that writes to an order, so that
+   * no business-logic errors (state transition, etc.) can leak order existence
+   * information before the authorization gate is applied.
+   *
+   * @param id          - Order id to check.
+   * @param mode        - 'write' for updates; 'unlink' for deletions.
+   * @param currentUser - Authenticated user; null for internal callers without context.
+   */
+  ensureWritable(id: string, mode: 'write' | 'unlink', currentUser: TokenPayload | null): Promise<void>;
 }
 
 export interface OrderFilters {

@@ -479,10 +479,10 @@ export const typeDefs = gql`
     createShippingZone(input: CreateShippingZoneInput!): ShippingZone!
     createShippingRate(input: CreateShippingRateInput!): ShippingRate!
 
-    # Shopping cart
-    addToCart(userId: ID!, productId: ID!, quantity: Int!): ShoppingCartItem!
+    # Shopping cart — userId is always derived from the authenticated JWT, never from input.
+    addToCart(productId: ID!, quantity: Int!): ShoppingCartItem!
     updateCartItem(id: ID!, quantity: Int!): ShoppingCartItem!
     removeFromCart(id: ID!): SuccessResponse!
-    clearUserCart(userId: ID!): SuccessResponse!
+    clearUserCart: SuccessResponse!
   }
 `;

@@ -14,6 +14,11 @@ import { StreamRecordRuleSource, RecordRuleResolver, RecordRulesEventsConsumer, 
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaOrderRepository } from './infrastructure/repositories/PrismaOrderRepository';
+import { PrismaPaymentMethodRepository } from './infrastructure/repositories/PrismaPaymentMethodRepository';
+import { PrismaShoppingCartRepository } from './infrastructure/repositories/PrismaShoppingCartRepository';
+import { PrismaTransactionRepository } from './infrastructure/repositories/PrismaTransactionRepository';
+import { PrismaCouponRepository } from './infrastructure/repositories/PrismaCouponRepository';
+import { PrismaStoreSettingsRepository } from './infrastructure/repositories/PrismaStoreSettingsRepository';
 import { HttpProductValidationAdapter } from './infrastructure/adapters/HttpProductValidationAdapter';
 import { RedisEventPublisher } from './infrastructure/adapters/RedisEventPublisher';
 
@@ -40,6 +45,19 @@ async function start() {
   const serviceLogger = LoggerFactory.getInstance().createServiceLogger('order-service');
   const app = express();
   const requestLogger = new RequestLogger();
+
+  // Trust proxy: controls how req.ip is derived behind a reverse proxy/load balancer.
+  // 'loopback' (default) trusts only 127.0.0.1 / ::1; set TRUST_PROXY=1 when behind
+  // a single nginx/ALB hop in production. Never set to true — allows IP spoofing.
+  const rawTrustProxy = process.env.TRUST_PROXY;
+  const trustProxy: string | number | boolean = !rawTrustProxy
+    ? 'loopback'
+    : rawTrustProxy === 'false'
+      ? false
+      : rawTrustProxy === 'true'
+        ? 'loopback'
+        : (isNaN(parseInt(rawTrustProxy, 10)) ? rawTrustProxy : parseInt(rawTrustProxy, 10));
+  app.set('trust proxy', trustProxy);
 
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use(
@@ -93,10 +111,25 @@ async function start() {
   await rbacConsumer.start();
 
   const orderRepository = new PrismaOrderRepository(prisma, recordRuleResolver);
+  const paymentMethodRepository = new PrismaPaymentMethodRepository(prisma, recordRuleResolver);
+  const cartRepository = new PrismaShoppingCartRepository(prisma);
+  const transactionRepository = new PrismaTransactionRepository(prisma);
+  const couponRepository = new PrismaCouponRepository(prisma);
+  const storeSettingsRepository = new PrismaStoreSettingsRepository(prisma);
   const productValidation = new HttpProductValidationAdapter(PRODUCT_SERVICE_URL);
   const eventPublisher = new RedisEventPublisher(redisClient);
 
-  const resolvers = createResolvers(orderRepository, productValidation, eventPublisher, prisma);
+  const resolvers = createResolvers(
+    orderRepository,
+    productValidation,
+    eventPublisher,
+    prisma,
+    paymentMethodRepository,
+    cartRepository,
+    transactionRepository,
+    couponRepository,
+    storeSettingsRepository,
+  );
 
   const authPlugin = {
     async requestDidStart() {
