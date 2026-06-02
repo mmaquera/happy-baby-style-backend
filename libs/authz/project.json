@@ -28,5 +28,5 @@
     },
     "lint": {}
   },
-  "implicitDependencies": ["auth"]
+  "implicitDependencies": ["auth", "shared-kernel", "logging"]
 }
