@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma';
 import { LoggerFactory, ILogger } from '@hbs/logging';
 import type {
   IStoreSettingsRepository,

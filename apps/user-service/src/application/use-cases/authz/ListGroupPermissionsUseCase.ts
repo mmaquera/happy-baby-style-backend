@@ -1,7 +1,7 @@
 import { LoggerFactory, type ILogger } from '@hbs/logging';
 import { NotFoundError } from '@hbs/shared-kernel';
 import type { IAuthzRepository } from '../../../domain/repositories/IAuthzRepository';
-import type { GroupPermission } from '@prisma/client';
+import type { GroupPermissionEntity } from '../../../domain/entities/Authz';
 
 export class ListGroupPermissionsUseCase {
   private readonly logger: ILogger;
@@ -10,7 +10,7 @@ export class ListGroupPermissionsUseCase {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('ListGroupPermissionsUseCase');
   }
 
-  async execute(groupId: string): Promise<GroupPermission[]> {
+  async execute(groupId: string): Promise<GroupPermissionEntity[]> {
     const group = await this.repo.findGroupById(groupId);
     if (!group) {
       throw new NotFoundError('Group', groupId);

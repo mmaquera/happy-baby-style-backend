@@ -1,7 +1,7 @@
 import { LoggerFactory, type ILogger } from '@hbs/logging';
 import { ValidationError } from '@hbs/shared-kernel';
 import type { IAuthzRepository } from '../../../domain/repositories/IAuthzRepository';
-import type { AuthPermission } from '@prisma/client';
+import type { AuthPermissionEntity } from '../../../domain/entities/Authz';
 
 export class CreatePermissionUseCase {
   private readonly logger: ILogger;
@@ -15,7 +15,7 @@ export class CreatePermissionUseCase {
     name: string;
     description?: string;
     category: string;
-  }): Promise<AuthPermission> {
+  }): Promise<AuthPermissionEntity> {
     if (!input.code || !/^[a-z][a-z0-9:_-]+$/.test(input.code)) {
       throw new ValidationError(
         'Permission code must be lowercase, e.g. "create:product"',

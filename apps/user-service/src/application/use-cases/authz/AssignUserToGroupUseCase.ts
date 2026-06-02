@@ -1,7 +1,7 @@
 import { LoggerFactory, type ILogger } from '@hbs/logging';
 import { NotFoundError, ValidationError } from '@hbs/shared-kernel';
 import type { IAuthzRepository } from '../../../domain/repositories/IAuthzRepository';
-import type { UserGroup } from '@prisma/client';
+import type { UserGroupEntity } from '../../../domain/entities/Authz';
 
 export class AssignUserToGroupUseCase {
   private readonly logger: ILogger;
@@ -14,7 +14,7 @@ export class AssignUserToGroupUseCase {
     userId: string;
     groupId: string;
     grantedBy?: string;
-  }): Promise<UserGroup> {
+  }): Promise<UserGroupEntity> {
     const group = await this.repo.findGroupById(input.groupId);
     if (!group) {
       throw new NotFoundError('Group', input.groupId);

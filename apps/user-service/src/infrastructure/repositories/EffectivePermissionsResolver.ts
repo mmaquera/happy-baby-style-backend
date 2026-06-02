@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma';
 import { LoggerFactory } from '@hbs/logging';
 import { EffectiveAuthz } from '@domain/interfaces/IEffectiveAuthz';
 import { IEffectivePermissionsResolver } from '@domain/interfaces/IEffectivePermissionsResolver';

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { AuditLog, CreateAuditLogRequest } from '@domain/entities/Audit';
 import { ILogger } from '@hbs/logging';

@@ -1,7 +1,7 @@
 import { LoggerFactory, type ILogger } from '@hbs/logging';
 import { ValidationError } from '@hbs/shared-kernel';
 import type { IAuthzRepository } from '../../../domain/repositories/IAuthzRepository';
-import type { AuthGroup } from '@prisma/client';
+import type { AuthGroupEntity } from '../../../domain/entities/Authz';
 
 export class CreateGroupUseCase {
   private readonly logger: ILogger;
@@ -10,7 +10,7 @@ export class CreateGroupUseCase {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('CreateGroupUseCase');
   }
 
-  async execute(input: { code: string; name: string; description?: string }): Promise<AuthGroup> {
+  async execute(input: { code: string; name: string; description?: string }): Promise<AuthGroupEntity> {
     if (!input.code || !/^[a-z][a-z0-9-]+$/.test(input.code)) {
       throw new ValidationError('Group code must be lowercase kebab-case starting with a letter', 'code');
     }

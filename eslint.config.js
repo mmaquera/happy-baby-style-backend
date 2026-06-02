@@ -38,4 +38,24 @@ module.exports = tseslint.config(
       '@typescript-eslint/no-require-imports': 'warn',
     },
   },
+  // --- Enforcement: per-service Prisma client isolation (item 7.13) ---
+  // Direct imports from '@prisma/client' are banned in app code.
+  // Each service must use its own generated client via src/prisma.ts.
+  {
+    files: ['apps/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@prisma/client',
+              message:
+                "Do not import from '@prisma/client' directly. Use the per-service client in src/prisma.ts (item 7.13).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

@@ -10,12 +10,11 @@ WORKDIR /app
 
 ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc prisma.config.ts tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
 COPY libs/auth/package.json          libs/auth/
 COPY libs/authz/package.json         libs/authz/
 COPY libs/logging/package.json       libs/logging/
 COPY libs/prisma/package.json        libs/prisma/
-COPY libs/prisma/schema.prisma       libs/prisma/
 COPY libs/shared-kernel/package.json libs/shared-kernel/
 COPY apps/user-service/package.json  apps/user-service/
 RUN echo "shamefully-hoist=true" >> .npmrc && pnpm install --frozen-lockfile
@@ -23,8 +22,11 @@ RUN echo "shamefully-hoist=true" >> .npmrc && pnpm install --frozen-lockfile
 COPY libs/ libs/
 COPY apps/user-service ./apps/user-service
 
+RUN pnpm exec prisma generate --schema apps/user-service/prisma/schema.prisma
 RUN pnpm exec nx build user-service --skip-nx-cache
 RUN pnpm exec nx build authz --skip-nx-cache
+# Prisma generated client is plain JS — tsc does not copy it; place it where the compiled code requires it.
+RUN cp -r apps/user-service/src/generated apps/user-service/dist/src/
 
 # ---- runner ----
 FROM base AS runner

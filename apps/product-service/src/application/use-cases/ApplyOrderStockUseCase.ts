@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma } from '../../prisma';
 import { LoggerFactory, ILogger } from '@hbs/logging';
 
 export interface OrderCreatedEventItem {

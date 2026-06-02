@@ -9,7 +9,7 @@ import { buildSubgraphSchema } from '@apollo/subgraph';
 import { graphqlUploadExpress } from 'graphql-upload-cjs';
 import Redis from 'ioredis';
 import dotenv from 'dotenv';
-import { prisma } from '@hbs/prisma';
+import { prisma } from './prisma';
 import { buildAuthContext } from '@hbs/auth';
 import { LoggerFactory, RequestLogger } from '@hbs/logging';
 import { StreamRecordRuleSource, RecordRuleResolver, RecordRulesEventsConsumer, fetchSnapshotAndPopulate } from '@hbs/authz';

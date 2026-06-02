@@ -6,7 +6,7 @@
     "node": ">=22 <23"
   },
   "prisma": {
-    "seed": "ts-node --project libs/prisma/tsconfig.json libs/prisma/seed.ts"
+    "seed": "ts-node --project apps/user-service/tsconfig.json apps/user-service/prisma/seed.ts"
   },
   "scripts": {
     "start": "docker compose up -d",

@@ -9,7 +9,7 @@ import {
   CreateUserAddressRequest,
   UpdateUserAddressRequest,
 } from '@domain/entities/User';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma';
 import bcrypt from 'bcryptjs';
 import { BusinessLogicError } from '@domain/errors/DomainError';
 

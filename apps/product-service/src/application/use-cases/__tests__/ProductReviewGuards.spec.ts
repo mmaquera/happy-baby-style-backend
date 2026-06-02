@@ -66,7 +66,7 @@ jest.mock(
 );
 
 import { GraphQLError } from 'graphql';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../../prisma';
 import type { TokenPayload } from '@hbs/auth';
 
 // ── Factories ──────────────────────────────────────────────────────────────────

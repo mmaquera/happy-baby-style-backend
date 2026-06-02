@@ -7,7 +7,7 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import Redis from 'ioredis';
-import { prisma } from '@hbs/prisma';
+import { prisma } from './prisma';
 import { buildAuthContext } from '@hbs/auth';
 import { LoggerFactory, RequestLogger } from '@hbs/logging';
 import { StreamRecordRuleSource, RecordRuleResolver, RecordRulesEventsConsumer, fetchSnapshotAndPopulate } from '@hbs/authz';

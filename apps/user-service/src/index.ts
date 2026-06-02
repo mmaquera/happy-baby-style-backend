@@ -5,7 +5,7 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './prisma';
 import Redis from 'ioredis';
 import { LoggerFactory, RequestLogger } from '@hbs/logging';
 import { buildAuthContext } from '@hbs/auth';
@@ -145,7 +145,7 @@ async function start() {
     res.json({ status: 'OK', service: 'User Service', port: PORT });
   });
 
-  const prisma = new PrismaClient();
+  // prisma singleton imported from './prisma' — no local instantiation needed.
   const useCaseLogger = LoggerFactory.getInstance().createUseCaseLogger('user-service');
   const serviceLogger = LoggerFactory.getInstance().createServiceLogger('user-service');
 

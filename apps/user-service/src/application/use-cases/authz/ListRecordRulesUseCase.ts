@@ -1,6 +1,6 @@
 import { LoggerFactory, type ILogger } from '@hbs/logging';
 import type { IAuthzRepository, PaginationInput } from '../../../domain/repositories/IAuthzRepository';
-import type { AuthRecordRule } from '@prisma/client';
+import type { AuthRecordRuleEntity } from '../../../domain/entities/Authz';
 
 export class ListRecordRulesUseCase {
   private readonly logger: ILogger;
@@ -12,7 +12,7 @@ export class ListRecordRulesUseCase {
   async execute(
     filter: { modelName?: string },
     pagination: PaginationInput,
-  ): Promise<{ items: AuthRecordRule[]; total: number }> {
+  ): Promise<{ items: AuthRecordRuleEntity[]; total: number }> {
     const result = await this.repo.listRecordRules(filter, {
       limit: pagination.limit ?? 50,
       offset: pagination.offset ?? 0,

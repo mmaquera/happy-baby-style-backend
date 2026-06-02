@@ -4,7 +4,7 @@ import { DomainExprSchema } from '@hbs/authz';
 import { ZodError } from 'zod';
 import type { IAuthzRepository } from '../../../domain/repositories/IAuthzRepository';
 import type { IRecordRulesEventPublisher } from '../../ports/IRecordRulesEventPublisher';
-import type { AuthRecordRule } from '@prisma/client';
+import type { AuthRecordRuleEntity } from '../../../domain/entities/Authz';
 
 export class UpdateRecordRuleUseCase {
   private readonly logger: ILogger;
@@ -27,7 +27,7 @@ export class UpdateRecordRuleUseCase {
       domainExpression: unknown;
       isActive: boolean;
     }>,
-  ): Promise<AuthRecordRule> {
+  ): Promise<AuthRecordRuleEntity> {
     const rule = await this.repo.findRecordRuleById(id);
     if (!rule) {
       throw new NotFoundError('RecordRule', id);

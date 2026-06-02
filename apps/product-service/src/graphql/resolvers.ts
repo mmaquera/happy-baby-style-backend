@@ -1,5 +1,5 @@
 import { GraphQLScalarType, GraphQLError, Kind } from 'graphql';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma } from '../prisma';
 import { IProductRepository } from '../domain/repositories/IProductRepository';
 import { GetProductsUseCase } from '../application/use-cases/GetProductsUseCase';
 import { GetProductByIdUseCase } from '../application/use-cases/GetProductByIdUseCase';

@@ -3,7 +3,7 @@ import {
   CategoryFilters,
 } from '../../domain/repositories/ICategoryRepository';
 import { CategoryEntity } from '../../domain/entities/Category';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma';
 import { ILogger, LoggerFactory } from '@hbs/logging';
 import type { TokenPayload } from '@hbs/auth';
 import type { RecordRuleResolver } from '@hbs/authz';

@@ -1,7 +1,7 @@
 import { LoggerFactory, type ILogger } from '@hbs/logging';
 import { NotFoundError, ValidationError, BusinessLogicError } from '@hbs/shared-kernel';
 import type { IAuthzRepository } from '../../../domain/repositories/IAuthzRepository';
-import type { GroupImplication } from '@prisma/client';
+import type { GroupImplicationEntity } from '../../../domain/entities/Authz';
 
 export class AddGroupImplicationUseCase {
   private readonly logger: ILogger;
@@ -13,7 +13,7 @@ export class AddGroupImplicationUseCase {
   async execute(input: {
     groupId: string;
     impliedGroupId: string;
-  }): Promise<GroupImplication> {
+  }): Promise<GroupImplicationEntity> {
     if (input.groupId === input.impliedGroupId) {
       throw new ValidationError('Group cannot imply itself', 'impliedGroupId');
     }

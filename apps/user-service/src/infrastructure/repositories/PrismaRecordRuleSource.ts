@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '../../prisma';
 import { LoggerFactory } from '@hbs/logging';
 import type { ILogger } from '@hbs/logging';
 import type { IRecordRuleSource, RecordRule, RecordRuleMode } from '@hbs/authz';

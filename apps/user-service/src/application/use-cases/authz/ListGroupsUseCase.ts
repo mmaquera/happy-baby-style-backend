@@ -1,6 +1,6 @@
 import { LoggerFactory, type ILogger } from '@hbs/logging';
 import type { IAuthzRepository, PaginationInput } from '../../../domain/repositories/IAuthzRepository';
-import type { AuthGroup } from '@prisma/client';
+import type { AuthGroupEntity } from '../../../domain/entities/Authz';
 
 export class ListGroupsUseCase {
   private readonly logger: ILogger;
@@ -9,7 +9,7 @@ export class ListGroupsUseCase {
     this.logger = LoggerFactory.getInstance().createUseCaseLogger('ListGroupsUseCase');
   }
 
-  async execute(pagination: PaginationInput): Promise<{ items: AuthGroup[]; total: number }> {
+  async execute(pagination: PaginationInput): Promise<{ items: AuthGroupEntity[]; total: number }> {
     const result = await this.repo.listGroups({
       limit: pagination.limit ?? 50,
       offset: pagination.offset ?? 0,

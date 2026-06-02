@@ -8,16 +8,12 @@ RUN corepack enable && corepack prepare pnpm@11 --activate
 FROM base AS builder
 WORKDIR /app
 
-# Dummy DATABASE_URL needed by @prisma/client postinstall (schema validation only)
-ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc prisma.config.ts tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
 COPY libs/auth/package.json          libs/auth/
 COPY libs/logging/package.json       libs/logging/
 COPY libs/logging/tsconfig.json      libs/logging/
 COPY libs/logging/src                libs/logging/src
 COPY libs/prisma/package.json        libs/prisma/
-COPY libs/prisma/schema.prisma       libs/prisma/
 COPY libs/shared-kernel/package.json libs/shared-kernel/
 RUN pnpm install --frozen-lockfile
 

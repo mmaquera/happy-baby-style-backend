@@ -14,9 +14,12 @@
  * 'customer' group inside the CreateUserUseCase transaction (see backend Fase 2).
  *
  * Idempotent: every write uses upsert — safe to run multiple times.
+ *
+ * Moved from libs/prisma/seed.ts → apps/user-service/prisma/seed.ts (Fase B — item 7.13).
+ * Uses the user-service per-service generated client.
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../src/generated/prisma';
 
 const prisma = new PrismaClient();
 

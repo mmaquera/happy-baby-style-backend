@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma';
 import type { TokenPayload } from '@hbs/auth';
 import type { RecordRuleResolver } from '@hbs/authz';
 import { assertWriteAccess } from '@hbs/authz';

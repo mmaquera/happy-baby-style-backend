@@ -1,5 +1,5 @@
 import { GraphQLScalarType, GraphQLError, Kind } from 'graphql';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../prisma';
 import { NotFoundError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
 import { CreateUserUseCase } from '@application/use-cases/user/CreateUserUseCase';
 import { GetUsersUseCase } from '@application/use-cases/user/GetUsersUseCase';

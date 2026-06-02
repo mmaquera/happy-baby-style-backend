@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { SecurityEvent, CreateSecurityEventRequest } from '@domain/entities/Audit';
 import { ILogger } from '@hbs/logging';

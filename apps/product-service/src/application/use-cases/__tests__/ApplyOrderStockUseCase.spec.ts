@@ -15,7 +15,7 @@ jest.mock(
   { virtual: true },
 );
 
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../../prisma';
 import { ApplyOrderStockUseCase, OrderCreatedEvent } from '../ApplyOrderStockUseCase';
 
 const event: OrderCreatedEvent = {
