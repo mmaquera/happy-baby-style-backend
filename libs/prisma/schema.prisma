@@ -485,6 +485,7 @@ model ProductReview {
   photos  ReviewPhoto[]
   votes   ReviewVote[]
 
+  @@unique([productId, userId], map: "product_reviews_product_id_user_id_key")
   @@map("product_reviews")
 }
 

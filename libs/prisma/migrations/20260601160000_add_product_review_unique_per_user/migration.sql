@@ -1,0 +1,48 @@
+-- Migration: add_product_review_unique_per_user
+-- Adds a unique constraint on (product_id, user_id) in product_reviews so that
+-- a single user can only have one review per product.
+--
+-- Security motivation: without this constraint a user with a valid JWT can POST
+-- arbitrary review loops, skewing average ratings (spam / rating manipulation).
+--
+-- ============================================================
+-- IMPORTANT — PRE-PRODUCTION DEDUP STEP (run BEFORE this migration)
+-- ============================================================
+-- If the target database already has rows in product_reviews, duplicate
+-- (product_id, user_id) pairs will cause the CREATE UNIQUE INDEX below to fail
+-- with "could not create unique index" because of existing conflicting rows.
+--
+-- Run the following dedup SQL first to retain only the most-recent review per
+-- (product_id, user_id) and delete older duplicates:
+--
+--   DELETE FROM product_reviews
+--   WHERE id IN (
+--     SELECT id
+--     FROM (
+--       SELECT
+--         id,
+--         ROW_NUMBER() OVER (
+--           PARTITION BY product_id, user_id
+--           ORDER BY created_at DESC, id DESC   -- keep most recent; tie-break by id
+--         ) AS rn
+--       FROM product_reviews
+--     ) ranked
+--     WHERE rn > 1
+--   );
+--
+-- Verify zero duplicates remain before continuing:
+--
+--   SELECT product_id, user_id, COUNT(*) AS cnt
+--   FROM product_reviews
+--   GROUP BY product_id, user_id
+--   HAVING COUNT(*) > 1;
+--
+-- This query must return 0 rows before applying the migration.
+-- ============================================================
+
+-- Add unique constraint: one review per (product_id, user_id)
+-- Using CREATE UNIQUE INDEX (rather than ALTER TABLE ADD CONSTRAINT) so that
+-- Prisma's migration engine can track the named constraint and the index name
+-- matches the default Prisma convention used in @@unique with the map: parameter.
+CREATE UNIQUE INDEX "product_reviews_product_id_user_id_key"
+    ON "product_reviews" ("product_id", "user_id");
