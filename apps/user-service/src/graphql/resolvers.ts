@@ -36,7 +36,7 @@ import { IAuthRepository } from '@domain/repositories/IAuthRepository';
 import { IAuditRepository } from '@domain/repositories/IAuditRepository';
 import { ISecurityEventRepository } from '@domain/repositories/ISecurityEventRepository';
 import { UserRole } from '@domain/entities/User';
-import { requireRole, assertOwnerOrAdmin, UserRole as AuthUserRole, type TokenPayload } from '@hbs/auth';
+import { assertOwnerOrAdmin, UserRole as AuthUserRole, type TokenPayload } from '@hbs/auth';
 // RBAC admin use cases
 import { CreateGroupUseCase } from '@application/use-cases/authz/CreateGroupUseCase';
 import { UpdateGroupUseCase } from '@application/use-cases/authz/UpdateGroupUseCase';
@@ -58,6 +58,7 @@ import { CreateRecordRuleUseCase } from '@application/use-cases/authz/CreateReco
 import { UpdateRecordRuleUseCase } from '@application/use-cases/authz/UpdateRecordRuleUseCase';
 import { DeleteRecordRuleUseCase } from '@application/use-cases/authz/DeleteRecordRuleUseCase';
 import { ListRecordRulesUseCase } from '@application/use-cases/authz/ListRecordRulesUseCase';
+import { assertModelAccess, isAdmin } from '@hbs/authz';
 
 // ── requireAdministrator guard ──────────────────────────────────────────────
 // Accepts BOTH:
@@ -503,7 +504,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       usersByProvider: async (_: any, { provider }: { provider: string }, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        requireAdministrator(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `users-by-provider-${Date.now()}`;
         try {
@@ -1246,7 +1247,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       createUser: async (_: any, { input }: any, context: any) => {
-        requireAdministrator(context.currentUser);
+        assertModelAccess(context.currentUser, 'User', 'create');
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `create-user-${Date.now()}`;
         const startTime = Date.now();
@@ -1287,7 +1288,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       updateUser: async (_: any, { id, input }: any, context: any) => {
-        requireAdministrator(context.currentUser);
+        assertModelAccess(context.currentUser, 'User', 'write');
         const user = await updateUserUseCase.execute(id, {
           email: input.email,
           profile: {
@@ -1302,13 +1303,13 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       updateUserRole: async (_: any, { id, input }: any, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'User', 'write');
         const user = await updateUserUseCase.execute(id, { role: input.role });
         return transformUser(user);
       },
 
       deleteUser: async (_: any, { id }: any, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        assertModelAccess(context.currentUser, 'User', 'unlink');
         try {
           await deps.userRepository.deleteUser(id);
           return { success: true, message: 'User deleted successfully' };
@@ -1318,13 +1319,13 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       activateUser: async (_: any, { id }: any, context: any) => {
-        requireAdministrator(context.currentUser);
+        assertModelAccess(context.currentUser, 'User', 'write');
         const user = await updateUserUseCase.execute(id, { isActive: true });
         return transformUser(user);
       },
 
       deactivateUser: async (_: any, { id }: any, context: any) => {
-        requireAdministrator(context.currentUser);
+        assertModelAccess(context.currentUser, 'User', 'write');
         const user = await updateUserUseCase.execute(id, { isActive: false });
         return transformUser(user);
       },
@@ -1340,7 +1341,7 @@ export function createResolvers(deps: UserServiceDeps) {
           });
         }
         if (
-          context.currentUser.role !== UserRole.ADMIN &&
+          !isAdmin(context.currentUser) &&
           context.currentUser.email !== email
         ) {
           throw new GraphQLError('Forbidden: not the owner', {
@@ -1405,7 +1406,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       setUserPassword: async (_: any, { userId, newPassword }: any, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        requireAdministrator(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `set-password-${Date.now()}`;
         try {
@@ -1604,7 +1605,7 @@ export function createResolvers(deps: UserServiceDeps) {
         if (userId) {
           assertOwnerOrAdmin(context.currentUser, userId);
         } else {
-          requireRole(context.currentUser, AuthUserRole.ADMIN);
+          requireAdministrator(context.currentUser);
         }
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `revoke-session-${Date.now()}`;
@@ -1681,12 +1682,12 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       forcePasswordReset: async (_: any, { userId }: any, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        requireAdministrator(context.currentUser);
         return { success: true, message: 'Password reset forced' };
       },
 
       impersonateUser: async (_: any, { userId }: any, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        requireAdministrator(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `impersonate-${Date.now()}`;
         return ResponseFactory.createErrorResponse(
@@ -1852,7 +1853,7 @@ export function createResolvers(deps: UserServiceDeps) {
       // ── Notification mutations ───────────────────────────────────────────
 
       createPushNotification: async (_: any, { input }: any, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        requireAdministrator(context.currentUser);
         const notif = await prisma.pushNotification.create({
           data: {
             userId: input.userId,
@@ -1890,7 +1891,7 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       createNotificationTemplate: async (_: any, { input }: any, context: any) => {
-        requireRole(context.currentUser, AuthUserRole.ADMIN);
+        requireAdministrator(context.currentUser);
         const template = await prisma.notificationTemplate.create({
           data: {
             name: input.name,

@@ -98,4 +98,10 @@ export const MODEL_ACCESS_MAP: Record<string, Record<ModelOperation, string>> = 
     write: 'update:product',
     unlink: 'delete:product',
   },
+  User: {
+    create: 'create:user',
+    read: 'read:user',
+    write: 'update:user',
+    unlink: 'delete:user',
+  },
 } as const;

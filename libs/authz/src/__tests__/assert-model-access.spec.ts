@@ -182,4 +182,71 @@ describe('assertModelAccess', () => {
       expect((e as GraphQLError).extensions.code).toBe('FORBIDDEN');
     }
   });
+
+  // ── User model (Fase 4 ACL) ────────────────────────────────────────────────
+
+  it('User.create: administrator group (non-legacy role) passes', () => {
+    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    expect(() => assertModelAccess(admin, 'User', 'create')).not.toThrow();
+  });
+
+  it('User.write: administrator group (non-legacy role) passes', () => {
+    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    expect(() => assertModelAccess(admin, 'User', 'write')).not.toThrow();
+  });
+
+  it('User.unlink: administrator group (non-legacy role) passes', () => {
+    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    expect(() => assertModelAccess(admin, 'User', 'unlink')).not.toThrow();
+  });
+
+  it('User.read: administrator group (non-legacy role) passes', () => {
+    const admin = makeUser({ role: UserRole.CUSTOMER, groups: ['administrators'], permissions: [] });
+    expect(() => assertModelAccess(admin, 'User', 'read')).not.toThrow();
+  });
+
+  it('User.create: user with create:user permission passes', () => {
+    const user = makeUser({ permissions: ['create:user'] });
+    expect(() => assertModelAccess(user, 'User', 'create')).not.toThrow();
+  });
+
+  it('User.write: user with update:user permission passes', () => {
+    const user = makeUser({ permissions: ['update:user'] });
+    expect(() => assertModelAccess(user, 'User', 'write')).not.toThrow();
+  });
+
+  it('User.unlink: user with delete:user permission passes', () => {
+    const user = makeUser({ permissions: ['delete:user'] });
+    expect(() => assertModelAccess(user, 'User', 'unlink')).not.toThrow();
+  });
+
+  it('User.create: customer without create:user throws FORBIDDEN', () => {
+    const customer = makeUser({ role: UserRole.CUSTOMER, permissions: [] });
+    expect(() => assertModelAccess(customer, 'User', 'create')).toThrow(GraphQLError);
+    try {
+      assertModelAccess(customer, 'User', 'create');
+    } catch (e) {
+      expect((e as GraphQLError).extensions.code).toBe('FORBIDDEN');
+      expect((e as GraphQLError).extensions.http).toMatchObject({ status: 403 });
+    }
+  });
+
+  it('User.unlink: customer without delete:user throws FORBIDDEN', () => {
+    const customer = makeUser({ role: UserRole.CUSTOMER, permissions: ['read:user'] });
+    expect(() => assertModelAccess(customer, 'User', 'unlink')).toThrow(GraphQLError);
+    try {
+      assertModelAccess(customer, 'User', 'unlink');
+    } catch (e) {
+      expect((e as GraphQLError).extensions.code).toBe('FORBIDDEN');
+    }
+  });
+
+  it('User.write: FORBIDDEN error message mentions update:user permission code', () => {
+    const customer = makeUser({ permissions: [] });
+    try {
+      assertModelAccess(customer, 'User', 'write');
+    } catch (e) {
+      expect((e as GraphQLError).message).toContain('update:user');
+    }
+  });
 });
