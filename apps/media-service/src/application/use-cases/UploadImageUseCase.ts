@@ -1,3 +1,4 @@
+import type { TokenPayload } from '@hbs/auth';
 import { ImageEntity, ImageEntityType } from '../../domain/entities/Image';
 import { IImageRepository } from '../../domain/repositories/IImageRepository';
 import { IStorageService } from '../../domain/interfaces/IStorageService';
@@ -7,6 +8,7 @@ export interface UploadImageRequest {
   file: any;
   entityType: ImageEntityType;
   entityId: string;
+  currentUser?: TokenPayload | null;
 }
 
 export class UploadImageUseCase {
@@ -20,7 +22,7 @@ export class UploadImageUseCase {
   }
 
   async execute(request: UploadImageRequest): Promise<ImageEntity> {
-    const { file, entityType, entityId } = request;
+    const { file, entityType, entityId, currentUser = null } = request;
 
     let resolvedFile: any;
     let fileBuffer: Buffer;
@@ -89,7 +91,7 @@ export class UploadImageUseCase {
       entityId,
     });
 
-    const savedImage = await this.imageRepository.create(image);
+    const savedImage = await this.imageRepository.create(image, currentUser);
 
     this.logger.info('Image uploaded successfully', {
       imageId: savedImage.id,

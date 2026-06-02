@@ -1,3 +1,4 @@
+import type { TokenPayload } from '@hbs/auth';
 import { SvgEntity, SvgEntityType } from '../../domain/entities/Svg';
 import { ISvgRepository } from '../../domain/repositories/ISvgRepository';
 import { IStorageService } from '../../domain/interfaces/IStorageService';
@@ -21,6 +22,7 @@ export interface UploadSvgRequest {
   entityId: string;
   optimize?: boolean;
   sanitize?: boolean;
+  currentUser?: TokenPayload | null;
 }
 
 export class UploadSvgUseCase {
@@ -34,7 +36,7 @@ export class UploadSvgUseCase {
   }
 
   async execute(request: UploadSvgRequest): Promise<SvgEntity> {
-    const { file, entityType, entityId, optimize = true, sanitize = true } = request;
+    const { file, entityType, entityId, optimize = true, sanitize = true, currentUser = null } = request;
 
     SvgValidationService.validateSvgUploadRequest({ file, entityType, entityId });
 
@@ -82,7 +84,7 @@ export class UploadSvgUseCase {
       optimized: optimize && svgConfig.enableOptimization,
     });
 
-    const savedSvg = await this.svgRepository.create(svg);
+    const savedSvg = await this.svgRepository.create(svg, currentUser);
 
     this.logger.info('SVG uploaded successfully', { svgId: savedSvg.id, entityType, entityId });
 

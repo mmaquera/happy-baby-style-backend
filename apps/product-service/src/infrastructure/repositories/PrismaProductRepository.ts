@@ -1,9 +1,30 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { TokenPayload } from '@hbs/auth';
+import type { RecordRuleResolver } from '@hbs/authz';
+import { assertWriteAccess } from '@hbs/authz';
+import { LoggerFactory, ILogger } from '@hbs/logging';
+import { NotFoundError } from '../../domain/errors/DomainError';
 import { IProductRepository, ProductFilters } from '../../domain/repositories/IProductRepository';
 import { ProductEntity, ProductVariantEntity } from '../../domain/entities/Product';
 
 export class PrismaProductRepository implements IProductRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  private readonly logger: ILogger;
+
+  /**
+   * @param prisma - Singleton PrismaClient from @hbs/prisma.
+   * @param recordRuleResolver - Optional RecordRuleResolver for applying record-level
+   *   access rules on write operations. When absent (e.g. in tests without RBAC),
+   *   writes are unrestricted. When present, update/delete enforce write/unlink mode
+   *   record rules before mutating. Read paths (findById/findAll) remain unrestricted
+   *   because product listing is a public catalog operation; enforcement is applied
+   *   at the resolver level via requireProductManagementAccess for admin queries.
+   */
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly recordRuleResolver?: RecordRuleResolver,
+  ) {
+    this.logger = LoggerFactory.getInstance().createRepositoryLogger('PrismaProductRepository');
+  }
 
   async create(product: ProductEntity): Promise<ProductEntity> {
     const created = await this.prisma.product.create({
@@ -31,6 +52,29 @@ export class PrismaProductRepository implements IProductRepository {
       include: { variants: true },
     });
     return product ? this.mapToEntity(product) : null;
+  }
+
+  /**
+   * Bypasses all record-level access rules.
+   *
+   * Use ONLY for callers without a user context (event consumers, internal background
+   * jobs, stock updates from Redis stream events). NEVER call this from a resolver
+   * mutation — use update/delete which enforce write-mode record rules.
+   */
+  async findByIdUnrestricted(id: string): Promise<ProductEntity | null> {
+    try {
+      const product = await this.prisma.product.findUnique({
+        where: { id },
+        include: { variants: true },
+      });
+      return product ? this.mapToEntity(product) : null;
+    } catch (error) {
+      this.logger.error(
+        'Error finding product (unrestricted)',
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      throw error;
+    }
   }
 
   async findAll(filters?: ProductFilters): Promise<ProductEntity[]> {
@@ -63,10 +107,28 @@ export class PrismaProductRepository implements IProductRepository {
     return products.map((p) => this.mapToEntity(p));
   }
 
-  async update(id: string, product: Partial<ProductEntity>): Promise<ProductEntity> {
-    const existing = await this.prisma.product.findUnique({ where: { id } });
-    if (!existing) throw new Error('Product not found');
+  async update(
+    id: string,
+    product: Partial<ProductEntity>,
+    currentUser: TokenPayload | null,
+  ): Promise<ProductEntity> {
+    // Enforce write-mode record rules before mutating.
+    // assertWriteAccess throws NotFoundError (ambiguous 404) when the record does
+    // not exist OR when the rule denies access — prevents enumeration oracle.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Product',
+      mode: 'write',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.product
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
 
+    // assertWriteAccess already confirmed existence (or throws NotFoundError).
+    // No additional findUnique needed — go directly to building the update payload.
     const data: any = {};
     if (product.categoryId) data.categoryId = product.categoryId;
     if (product.name) data.name = product.name;
@@ -90,7 +152,46 @@ export class PrismaProductRepository implements IProductRepository {
     return this.mapToEntity(updated);
   }
 
-  async delete(id: string): Promise<void> {
+  /**
+   * Verify write/unlink access on a product BEFORE any prefetch or business logic.
+   *
+   * Throws NotFoundError (ambiguous 404) when the product does not exist OR when
+   * a record rule denies access — same semantics as assertWriteAccess inside
+   * update/delete. Defence-in-depth: repo.update/delete still run their own
+   * assertWriteAccess internally, preventing bypasses by callers that skip ensureWritable.
+   */
+  async ensureWritable(
+    id: string,
+    mode: 'write' | 'unlink',
+    currentUser: TokenPayload | null,
+  ): Promise<void> {
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Product',
+      mode,
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.product
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+  }
+
+  async delete(id: string, currentUser: TokenPayload | null): Promise<void> {
+    // Enforce unlink-mode record rules before deleting.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Product',
+      mode: 'unlink',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.product
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     await this.prisma.product.delete({ where: { id } });
   }
 
@@ -133,9 +234,19 @@ export class PrismaProductRepository implements IProductRepository {
     return products.map((p) => this.mapToEntity(p));
   }
 
-  async createVariant(variantData: any): Promise<ProductVariantEntity> {
-    const existing = await this.prisma.product.findUnique({ where: { id: variantData.productId } });
-    if (!existing) throw new Error('Product not found');
+  async createVariant(variantData: any, currentUser: TokenPayload | null): Promise<ProductVariantEntity> {
+    // Enforce create-access on the parent Product before adding a variant.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Product',
+      mode: 'write',
+      id: variantData.productId,
+      currentUser,
+      exists: (where) =>
+        this.prisma.product
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
 
     const created = await this.prisma.productVariant.create({
       data: {
@@ -159,9 +270,26 @@ export class PrismaProductRepository implements IProductRepository {
     return variants.map((v) => this.mapToVariantEntity(v));
   }
 
-  async updateVariant(id: string, variantData: Partial<any>): Promise<ProductVariantEntity> {
-    const existing = await this.prisma.productVariant.findUnique({ where: { id } });
-    if (!existing) throw new Error('Variant not found');
+  async updateVariant(
+    id: string,
+    variantData: Partial<any>,
+    currentUser: TokenPayload | null,
+  ): Promise<ProductVariantEntity> {
+    // Look up the variant's parent product to enforce write access on the Product model.
+    const existingVariant = await this.prisma.productVariant.findUnique({ where: { id } });
+    if (!existingVariant) throw new NotFoundError('ProductVariant', id);
+
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Product',
+      mode: 'write',
+      id: existingVariant.productId,
+      currentUser,
+      exists: (where) =>
+        this.prisma.product
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
 
     const data: any = {};
     if (variantData.name) data.name = variantData.name;
@@ -175,9 +303,23 @@ export class PrismaProductRepository implements IProductRepository {
     return this.mapToVariantEntity(updated);
   }
 
-  async deleteVariant(id: string): Promise<void> {
-    const existing = await this.prisma.productVariant.findUnique({ where: { id } });
-    if (!existing) throw new Error('Variant not found');
+  async deleteVariant(id: string, currentUser: TokenPayload | null): Promise<void> {
+    // Look up the variant's parent product to enforce unlink access on the Product model.
+    const existingVariant = await this.prisma.productVariant.findUnique({ where: { id } });
+    if (!existingVariant) throw new NotFoundError('ProductVariant', id);
+
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Product',
+      mode: 'unlink',
+      id: existingVariant.productId,
+      currentUser,
+      exists: (where) =>
+        this.prisma.product
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     await this.prisma.productVariant.delete({ where: { id } });
   }
 

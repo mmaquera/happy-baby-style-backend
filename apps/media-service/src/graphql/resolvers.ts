@@ -3,7 +3,7 @@ import { ISvgRepository } from '../domain/repositories/ISvgRepository';
 import { IStorageService } from '../domain/interfaces/IStorageService';
 import { UploadImageUseCase } from '../application/use-cases/UploadImageUseCase';
 import { UploadSvgUseCase } from '../application/use-cases/UploadSvgUseCase';
-import { ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { ResponseFactory, RESPONSE_CODES, DomainError } from '@hbs/shared-kernel';
 import { ImageEntityType } from '../domain/entities/Image';
 import { SvgEntityType } from '../domain/entities/Svg';
 import { requireRole, UserRole } from '@hbs/auth';
@@ -104,6 +104,7 @@ export function createResolvers(
             file,
             entityType: entityType as ImageEntityType,
             entityId,
+            currentUser: context?.currentUser ?? null,
           });
 
           const fullUrl = buildMediaUrl(result.url);
@@ -115,6 +116,10 @@ export function createResolvers(
             { requestId, traceId },
           );
         } catch (error: any) {
+          // DomainError subclasses (NotFoundError from record-rule denial, etc.)
+          // must propagate to Apollo so the client receives a proper error response.
+          if (error instanceof DomainError) throw error;
+
           let errorCode: string = RESPONSE_CODES.INTERNAL_ERROR;
           if (
             error.message?.includes('Invalid file type') ||
@@ -174,6 +179,7 @@ export function createResolvers(
             entityId,
             optimize,
             sanitize,
+            currentUser: context?.currentUser ?? null,
           });
 
           const fullUrl = buildMediaUrl(result.url);
@@ -191,6 +197,10 @@ export function createResolvers(
             { requestId, traceId },
           );
         } catch (error: any) {
+          // DomainError subclasses (NotFoundError from record-rule denial, etc.)
+          // must propagate to Apollo so the client receives a proper error response.
+          if (error instanceof DomainError) throw error;
+
           let errorCode: string = RESPONSE_CODES.SVG_UPLOAD_ERROR;
           if (
             error.message?.includes('Invalid SVG format') ||
@@ -224,9 +234,11 @@ export function createResolvers(
       deleteImage: async (_: any, { id }: { id: string }, context: any) => {
         requireRole(context?.currentUser, UserRole.ADMIN);
         try {
-          await imageRepository.delete(id);
+          await imageRepository.delete(id, context?.currentUser ?? null);
           return true;
-        } catch {
+        } catch (error) {
+          // DomainError (including NotFoundError from record-rule denial) must propagate.
+          if (error instanceof DomainError) throw error;
           return false;
         }
       },
@@ -234,8 +246,10 @@ export function createResolvers(
       deleteSvg: async (_: any, { id }: { id: string }, context: any) => {
         requireRole(context?.currentUser, UserRole.ADMIN);
         try {
-          return await svgRepository.delete(id);
-        } catch {
+          return await svgRepository.delete(id, context?.currentUser ?? null);
+        } catch (error) {
+          // DomainError (including NotFoundError from record-rule denial) must propagate.
+          if (error instanceof DomainError) throw error;
           return false;
         }
       },

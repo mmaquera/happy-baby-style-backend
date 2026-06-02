@@ -1,4 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import type { TokenPayload } from '@hbs/auth';
+import type { RecordRuleResolver } from '@hbs/authz';
+import { assertWriteAccess } from '@hbs/authz';
 import { SvgEntity, SvgEntityType } from '../../domain/entities/Svg';
 import { ISvgRepository } from '../../domain/repositories/ISvgRepository';
 import { LoggerFactory, ILogger } from '@hbs/logging';
@@ -6,11 +9,28 @@ import { LoggerFactory, ILogger } from '@hbs/logging';
 export class PrismaSvgRepository implements ISvgRepository {
   private readonly logger: ILogger;
 
-  constructor(private readonly prisma: PrismaClient) {
+  /**
+   * @param prisma - Singleton PrismaClient from @hbs/prisma.
+   * @param recordRuleResolver - Optional RecordRuleResolver for record-level write access.
+   *   When absent, writes are unrestricted (compat during rollout).
+   *
+   * READ access decision: SVG assets are public-facing files served statically.
+   * Reads are not gated behind record rules (same rationale as PrismaImageRepository).
+   */
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly recordRuleResolver?: RecordRuleResolver,
+  ) {
     this.logger = LoggerFactory.getInstance().createRepositoryLogger('SvgRepository');
   }
 
-  async create(svg: SvgEntity): Promise<SvgEntity> {
+  async create(svg: SvgEntity, currentUser: TokenPayload | null = null): Promise<SvgEntity> {
+    // CREATE is not gated by record rules in Fase 2.
+    // Authorization is handled by the requireRole(ADMIN) guard in the resolver layer.
+    // Record-rule enforcement for creates (if ever needed) is deferred to Fase 3.
+    // The currentUser parameter is retained for interface compatibility and audit logging.
+    void currentUser;
+
     try {
       const created = await this.prisma.image.create({
         data: {
@@ -97,7 +117,22 @@ export class PrismaSvgRepository implements ISvgRepository {
     }
   }
 
-  async update(id: string, updates: Partial<SvgEntity>): Promise<SvgEntity | null> {
+  async update(
+    id: string,
+    updates: Partial<SvgEntity>,
+    currentUser: TokenPayload | null = null,
+  ): Promise<SvgEntity | null> {
+    // Write guard: probes for the row under the record-rule filter before updating.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Image',
+      mode: 'write',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.image.findFirst({ where, select: { id: true } }).then(Boolean),
+    });
+
     try {
       const updateData: any = {};
       if (updates.fileName) updateData.fileName = updates.fileName;
@@ -124,7 +159,18 @@ export class PrismaSvgRepository implements ISvgRepository {
     }
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, currentUser: TokenPayload | null = null): Promise<boolean> {
+    // Unlink guard: probes for the row under the record-rule filter before deleting.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Image',
+      mode: 'unlink',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.image.findFirst({ where, select: { id: true } }).then(Boolean),
+    });
+
     try {
       await this.prisma.image.delete({ where: { id } });
       this.logger.info('SVG deleted', { svgId: id });

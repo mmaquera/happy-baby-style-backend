@@ -2,6 +2,7 @@ import { CategoryEntity } from '../../domain/entities/Category';
 import { ICategoryRepository } from '../../domain/repositories/ICategoryRepository';
 import { ILogger, LoggerFactory } from '@hbs/logging';
 import { NotFoundError, DuplicateError, ValidationError } from '../../domain/errors/DomainError';
+import type { TokenPayload } from '@hbs/auth';
 
 export interface UpdateCategoryRequest {
   id: string;
@@ -11,6 +12,8 @@ export interface UpdateCategoryRequest {
   imageUrl?: string;
   isActive?: boolean;
   sortOrder?: number;
+  /** Authenticated user forwarded to the repository so write-mode record rules are enforced. */
+  currentUser?: TokenPayload | null;
 }
 
 export interface UpdateCategoryResult {
@@ -93,7 +96,11 @@ export class UpdateCategoryUseCase {
         };
       }
 
-      const updatedCategory = await this.categoryRepository.update(request.id, updateData);
+      const updatedCategory = await this.categoryRepository.update(
+        request.id,
+        updateData,
+        request.currentUser ?? null,
+      );
       this.logger.info('Category updated successfully', {
         categoryId: request.id,
         changes,

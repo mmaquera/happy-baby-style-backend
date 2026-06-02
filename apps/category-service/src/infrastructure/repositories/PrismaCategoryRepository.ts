@@ -5,15 +5,44 @@ import {
 import { CategoryEntity } from '../../domain/entities/Category';
 import { PrismaClient } from '@prisma/client';
 import { ILogger, LoggerFactory } from '@hbs/logging';
+import type { TokenPayload } from '@hbs/auth';
+import type { RecordRuleResolver } from '@hbs/authz';
+import { assertWriteAccess } from '@hbs/authz';
 
+/**
+ * READ ACCESS DECISION (Fase 5.10):
+ * Category reads (findAll, findById, findBySlug, findActive, findByName) are intentionally
+ * NOT filtered by record rules. Rationale:
+ *   1. Categories are storefront catalogue data — anonymous end-users and product resolvers
+ *      need unrestricted read access. Breaking this would cascade across the federation.
+ *   2. No Category record rules exist in seeds yet; compileDomainExpr would return {} anyway.
+ *   3. If tenant-level read restrictions are needed in the future, pass currentUser into
+ *      findAll / findById and apply resolveWhere('Category', 'read', currentUser) there.
+ * Write/unlink operations DO enforce record rules when a resolver is injected.
+ */
 export class PrismaCategoryRepository implements ICategoryRepository {
   private readonly logger: ILogger;
 
-  constructor(private prisma: PrismaClient) {
+  /**
+   * @param prisma - Singleton PrismaClient from @hbs/prisma.
+   * @param recordRuleResolver - Optional RecordRuleResolver for applying record-level
+   *   access rules on write operations (create / update / delete / updateSortOrder).
+   *   When absent (e.g. in tests without RBAC), writes are unrestricted.
+   */
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly recordRuleResolver?: RecordRuleResolver,
+  ) {
     this.logger = LoggerFactory.getInstance().createRepositoryLogger('PrismaCategoryRepository');
   }
 
-  async create(category: CategoryEntity): Promise<CategoryEntity> {
+  async create(category: CategoryEntity, _currentUser?: TokenPayload | null): Promise<CategoryEntity> {
+    // Record rules are NOT applied to CREATE. There is no existing row to probe, so
+    // assertWriteAccess semantics (probe-by-id) do not apply. Creation is authorised
+    // at the resolver level by requireCategoryAdmin (model-level gate). If row-level
+    // create restrictions are needed in a future phase, add an explicit domain-expression
+    // evaluation here against the incoming data fields (not a row probe).
+
     try {
       const created = await this.prisma.category.create({
         data: {
@@ -105,7 +134,26 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     }
   }
 
-  async update(id: string, categoryData: Partial<CategoryEntity>): Promise<CategoryEntity> {
+  async update(
+    id: string,
+    categoryData: Partial<CategoryEntity>,
+    currentUser?: TokenPayload | null,
+  ): Promise<CategoryEntity> {
+    // Enforce write-mode record rules before mutating.
+    // assertWriteAccess throws NotFoundError (ambiguous 404) when the record does
+    // not exist OR when the rule denies access — prevents enumeration oracle.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Category',
+      mode: 'write',
+      id,
+      currentUser: currentUser ?? null,
+      exists: (where) =>
+        this.prisma.category
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     try {
       const updated = await this.prisma.category.update({
         where: { id },
@@ -129,7 +177,20 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     }
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, currentUser?: TokenPayload | null): Promise<void> {
+    // Enforce unlink-mode record rules before deleting.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Category',
+      mode: 'unlink',
+      id,
+      currentUser: currentUser ?? null,
+      exists: (where) =>
+        this.prisma.category
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     try {
       await this.prisma.category.delete({ where: { id } });
     } catch (error) {
@@ -158,7 +219,20 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     }
   }
 
-  async updateSortOrder(id: string, sortOrder: number): Promise<void> {
+  async updateSortOrder(id: string, sortOrder: number, currentUser?: TokenPayload | null): Promise<void> {
+    // Enforce write-mode record rules before mutating sort order.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Category',
+      mode: 'write',
+      id,
+      currentUser: currentUser ?? null,
+      exists: (where) =>
+        this.prisma.category
+          .findFirst({ where: where as any, select: { id: true } })
+          .then(Boolean),
+    });
+
     try {
       await this.prisma.category.update({ where: { id }, data: { sortOrder } });
     } catch (error) {

@@ -36,6 +36,12 @@
         }
       }
     },
-    "lint": {}
+    "lint": {},
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "jest --config apps/media-service/jest.config.js"
+      }
+    }
   }
 }

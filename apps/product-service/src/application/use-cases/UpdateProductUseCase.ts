@@ -1,6 +1,8 @@
+import type { TokenPayload } from '@hbs/auth';
 import { ProductEntity } from '../../domain/entities/Product';
 import { IProductRepository } from '../../domain/repositories/IProductRepository';
-import { ValidationError } from '../../domain/errors/DomainError';
+import { ValidationError, NotFoundError } from '../../domain/errors/DomainError';
+import { LoggerFactory } from '@hbs/logging';
 
 export interface UpdateProductRequest {
   id: string;
@@ -17,20 +19,31 @@ export interface UpdateProductRequest {
   tags?: string[];
   rating?: number;
   reviewCount?: number;
+  currentUser?: TokenPayload | null;
 }
 
 export class UpdateProductUseCase {
+  private readonly logger = LoggerFactory.getInstance().createUseCaseLogger('UpdateProductUseCase');
+
   constructor(private readonly productRepository: IProductRepository) {}
 
   async execute(request: UpdateProductRequest): Promise<ProductEntity> {
-    if (!request.id) throw new Error('Product ID is required');
+    if (!request.id) throw new ValidationError('Product ID is required');
+
+    const currentUser = request.currentUser ?? null;
+
+    // Write-gate FIRST: verify access before any business validation runs.
+    // This prevents information leaks (e.g. SKU conflict error revealing existence)
+    // to callers whose record rule denies write access to this product.
+    // ensureWritable throws NotFoundError (ambiguous 404) when denied or missing.
+    await this.productRepository.ensureWritable(request.id, 'write', currentUser);
 
     const existingProduct = await this.productRepository.findById(request.id);
-    if (!existingProduct) throw new Error('Product not found');
+    if (!existingProduct) throw new NotFoundError('Product', request.id);
 
     if (request.sku && request.sku !== existingProduct.sku) {
       const existingSku = await this.productRepository.findBySku(request.sku);
-      if (existingSku) throw new Error('SKU already exists');
+      if (existingSku) throw new ValidationError('SKU already exists');
     }
 
     if (request.price !== undefined && request.price < 0)
@@ -67,6 +80,7 @@ export class UpdateProductUseCase {
       reviewCount: request.reviewCount,
     };
 
-    return this.productRepository.update(request.id, updateData);
+    this.logger.info('Updating product', { productId: request.id });
+    return this.productRepository.update(request.id, updateData, currentUser);
   }
 }

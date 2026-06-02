@@ -368,7 +368,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       updateProduct: async (_: any, { id, input }: any, context: any) => {
         requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         try {
-          const product = await updateProductUseCase.execute({ id, ...input });
+          const product = await updateProductUseCase.execute({ id, ...input, currentUser: context.currentUser });
           const transformed = transformProduct(product);
           const changes = Object.keys(input).filter((k) => input[k] !== undefined);
           return ResponseFactory.createSuccessResponse(
@@ -393,7 +393,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       deleteProduct: async (_: any, { id }: { id: string }, context: any) => {
         requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
         try {
-          await deleteProductUseCase.execute(id);
+          await deleteProductUseCase.execute(id, context.currentUser);
           return ResponseFactory.createSuccessResponse(
             { id, deletedAt: new Date().toISOString(), softDelete: false },
             'Product deleted successfully',
@@ -410,26 +410,26 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       createProductVariant: async (_: any, { input }: any, context: any) => {
         requirePermission(context.currentUser, Permission.CREATE_PRODUCT);
-        const variant = await productRepository.createVariant(input);
+        const variant = await productRepository.createVariant(input, context.currentUser);
         return transformVariant(variant);
       },
 
       updateProductVariant: async (_: any, { id, input }: any, context: any) => {
         requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
-        const variant = await productRepository.updateVariant(id, input);
+        const variant = await productRepository.updateVariant(id, input, context.currentUser);
         return transformVariant(variant);
       },
 
       deleteProductVariant: async (_: any, { id }: { id: string }, context: any) => {
         requirePermission(context.currentUser, Permission.DELETE_PRODUCT);
-        await productRepository.deleteVariant(id);
+        await productRepository.deleteVariant(id, context.currentUser);
         return { success: true, message: 'Product variant deleted successfully' };
       },
 
       bulkUpdateProducts: async (_: any, { ids, input }: any, context: any) => {
         requirePermission(context.currentUser, Permission.UPDATE_PRODUCT);
         const updated = await Promise.all(
-          ids.map((id: string) => updateProductUseCase.execute({ id, ...input })),
+          ids.map((id: string) => updateProductUseCase.execute({ id, ...input, currentUser: context.currentUser })),
         );
         return updated.map(transformProduct);
       },

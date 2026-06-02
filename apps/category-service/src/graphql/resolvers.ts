@@ -212,6 +212,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
             imageUrl: input.image,
             isActive: input.isActive,
             sortOrder: input.sortOrder,
+            currentUser: context.currentUser ?? null,
           });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
@@ -244,7 +245,11 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
 
         try {
-          const result = await deleteCategoryUseCase.execute({ id, forceDelete: false });
+          const result = await deleteCategoryUseCase.execute({
+            id,
+            forceDelete: false,
+            currentUser: context.currentUser ?? null,
+          });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
             {

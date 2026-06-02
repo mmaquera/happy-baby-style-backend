@@ -1,10 +1,13 @@
 import { ICategoryRepository } from '../../domain/repositories/ICategoryRepository';
 import { NotFoundError } from '../../domain/errors/DomainError';
 import { ILogger, LoggerFactory } from '@hbs/logging';
+import type { TokenPayload } from '@hbs/auth';
 
 export interface DeleteCategoryRequest {
   id: string;
   forceDelete?: boolean;
+  /** Authenticated user forwarded to the repository so write-mode record rules are enforced. */
+  currentUser?: TokenPayload | null;
 }
 
 export interface DeleteCategoryResult {
@@ -39,10 +42,10 @@ export class DeleteCategoryUseCase {
       const softDelete = !request.forceDelete;
 
       if (softDelete) {
-        await this.categoryRepository.update(request.id, { isActive: false });
+        await this.categoryRepository.update(request.id, { isActive: false }, request.currentUser ?? null);
         this.logger.info('Category soft deleted successfully', { categoryId: request.id, traceId });
       } else {
-        await this.categoryRepository.delete(request.id);
+        await this.categoryRepository.delete(request.id, request.currentUser ?? null);
         this.logger.info('Category hard deleted successfully', { categoryId: request.id, traceId });
       }
 

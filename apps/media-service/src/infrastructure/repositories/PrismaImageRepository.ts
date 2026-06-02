@@ -1,16 +1,40 @@
 import { PrismaClient } from '@prisma/client';
+import type { TokenPayload } from '@hbs/auth';
+import type { RecordRuleResolver } from '@hbs/authz';
+import { assertWriteAccess } from '@hbs/authz';
 import { IImageRepository, ImageFilters } from '../../domain/repositories/IImageRepository';
 import { ImageEntity, ImageEntityType } from '../../domain/entities/Image';
 import { LoggerFactory, ILogger } from '@hbs/logging';
+import { NotFoundError } from '@hbs/shared-kernel';
 
 export class PrismaImageRepository implements IImageRepository {
   private readonly logger: ILogger;
 
-  constructor(private prisma: PrismaClient) {
+  /**
+   * @param prisma - Singleton PrismaClient from @hbs/prisma.
+   * @param recordRuleResolver - Optional RecordRuleResolver for record-level write access.
+   *   When absent, writes are unrestricted (compat during rollout).
+   *
+   * READ access decision: media assets (images/SVGs) are public-facing files whose
+   * URLs are served statically. Reads are therefore not gated behind record rules —
+   * the existing auth plugin already requires authentication for mutations, and
+   * `requireRole(ADMIN)` guards deletes. If private-asset rules are required in a
+   * future phase, add resolveWhere('Image', 'read', currentUser) to findById/findAll.
+   */
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly recordRuleResolver?: RecordRuleResolver,
+  ) {
     this.logger = LoggerFactory.getInstance().createRepositoryLogger('PrismaImageRepository');
   }
 
-  async create(image: ImageEntity): Promise<ImageEntity> {
+  async create(image: ImageEntity, currentUser: TokenPayload | null = null): Promise<ImageEntity> {
+    // CREATE is not gated by record rules in Fase 2.
+    // Authorization is handled by the requireRole(ADMIN) guard in the resolver layer.
+    // Record-rule enforcement for creates (if ever needed) is deferred to Fase 3.
+    // The currentUser parameter is retained for interface compatibility and audit logging.
+    void currentUser;
+
     try {
       const created = await this.prisma.image.create({
         data: {
@@ -94,7 +118,18 @@ export class PrismaImageRepository implements IImageRepository {
     }
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, currentUser: TokenPayload | null = null): Promise<void> {
+    // Unlink guard: probes for the row under the record-rule filter before deleting.
+    await assertWriteAccess({
+      resolver: this.recordRuleResolver,
+      modelName: 'Image',
+      mode: 'unlink',
+      id,
+      currentUser,
+      exists: (where) =>
+        this.prisma.image.findFirst({ where, select: { id: true } }).then(Boolean),
+    });
+
     try {
       await this.prisma.image.delete({ where: { id } });
       this.logger.info('Image deleted', { imageId: id });
@@ -108,7 +143,25 @@ export class PrismaImageRepository implements IImageRepository {
     }
   }
 
-  async deleteByEntityId(entityId: string, entityType: ImageEntityType): Promise<void> {
+  async deleteByEntityId(
+    entityId: string,
+    entityType: ImageEntityType,
+    currentUser: TokenPayload | null = null,
+  ): Promise<void> {
+    // Bulk delete: resolve the rule where-clause.
+    // If ruleWhere is non-empty (any restriction including DENY_WHERE), throw — we cannot
+    // safely apply per-row semantics across a bulk operation and the caller should use
+    // single-record delete paths instead. This preserves consistent error semantics with
+    // the single-record delete which probes and throws NotFoundError on denial.
+    const ruleWhere = this.recordRuleResolver
+      ? await this.recordRuleResolver.resolveWhere('Image', 'unlink', currentUser)
+      : {};
+
+    if (Object.keys(ruleWhere).length > 0) {
+      this.logger.warn('deleteByEntityId denied by record rule', { entityId, entityType });
+      throw new NotFoundError('Image', `entity:${entityType}:${entityId}`);
+    }
+
     try {
       await this.prisma.image.deleteMany({ where: { entityId, entityType } });
       this.logger.info('Images deleted by entity', { entityId, entityType });
