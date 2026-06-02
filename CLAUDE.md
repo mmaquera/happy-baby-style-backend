@@ -229,7 +229,7 @@ admin mutation → use case → IEventPublisher.publishRecordRuleUpdated()
           → next repo query picks up new where clause
 ```
 
-Snapshot-on-boot: call `fetchSnapshotAndPopulate(source)` in `index.ts` → hits `GET /internal/record-rules` on user-service. Wired in 4/5 subgraphs (order, product, category, media). **user-service is the only one without it** — confirm whether by design (it's the *producer* of record rules; its PII reads are guarded by owner-or-management groups, not record rules) or a gap, before closing Phase C.
+Snapshot-on-boot: call `fetchSnapshotAndPopulate(source)` in `index.ts` → hits `GET /internal/record-rules` on user-service. Wired in 4/5 subgraphs (order, product, category, media). **user-service does NOT use it — by design**: it has direct DB access, so it wires `PrismaRecordRuleSource` (loads `record_rules` from its own DB on boot) and *serves* the snapshot to the others via `loadAllActive()` at `/internal/record-rules`. Record rules are populated on boot in all 5 subgraphs (4 via HTTP fetch, user-service via direct DB read).
 
 ### Adding groups / permissions / rules
 
@@ -254,7 +254,7 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 |-------|-------------------------------------------|-------------|
 | A     | Schema + seeds + login CTE                | Done        |
 | B     | JWT carries groups+permissions; auth lib guards; order-service pilot | Done |
-| C     | All subgraphs snapshot-on-boot + BOLA fixes + DROP legacy role column | Mostly done — BOLA ✅; DROP `role` ✅ (A2, 2026-06-02; group-only authz verified end-to-end); only user-service snapshot-on-boot decision remains |
+| C     | All subgraphs snapshot-on-boot + BOLA fixes + DROP legacy role column | **Done** ✅ (2026-06-02) — BOLA ✅; DROP `role` ✅ (A2); record rules populated on boot in all 5 (4 via HTTP snapshot, user-service via `PrismaRecordRuleSource` direct DB read) |
 
 ### Known backlog
 
@@ -267,7 +267,7 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 **Activo / próximos (orden recomendado):**
 - **A1 — Migrations**: `prisma db push` → `prisma migrate deploy` con baseline limpio. Los 5 servicios hacen `db push` en el CMD del Dockerfile. *En planificación (microservices-architect).*
 - ~~**A2 — Drop `user_profiles.role`**~~ ✅ **DONE** (2026-06-02): columna + enum `UserRole` eliminados; `TokenPayload`/login/guards sin `role`; usuarios reciben grupo `customer` por defecto; verificado end-to-end (JWT sin `role`, login OK).
-- **user-service snapshot-on-boot**: confirmar si es gap o by-design antes de cerrar Phase C.
+- ~~**user-service snapshot-on-boot**~~ ✅ resuelto (by-design): usa `PrismaRecordRuleSource` (lee `record_rules` de su propia DB en boot), no necesita el fetch HTTP. **Phase C cerrada.**
 
 **Pre-prod (urgencia baja sin prod):** stream consumer lag metrics (`record-rules-updated` + `order-events`); outbox transaccional (`XADD` post-commit puede perder eventos); CI `ci.yml` (6.1); secrets + MinIO bucket privado/presigned.
 
