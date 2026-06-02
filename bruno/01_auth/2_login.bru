@@ -51,3 +51,10 @@ script:post-response {
     }
   }
 }
+
+docs {
+  Happy path login. On success captures ACCESS_TOKEN, REFRESH_TOKEN, USER_ID.
+  When mfaRequired=true captures MFA_CHALLENGE_TOKEN for step-2 in Verify TOTP.
+  Error on bad credentials: { success: false, message: "Invalid email or password" }.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.loginUser
+}

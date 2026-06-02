@@ -19,6 +19,8 @@ body:graphql {
       data {
         accessToken
         refreshToken
+        mfaRequired
+        mfaChallengeToken
         user {
           id
           email
@@ -38,4 +40,19 @@ body:graphql:vars {
       "lastName": "Maquera"
     }
   }
+}
+
+script:post-response {
+  const data = res.body?.data?.registerUser?.data;
+  if (res.status === 200 && data?.accessToken) {
+    bru.setEnvVar("ACCESS_TOKEN", data.accessToken);
+    bru.setEnvVar("REFRESH_TOKEN", data.refreshToken);
+    bru.setEnvVar("USER_ID", data.user.id);
+  }
+}
+
+docs {
+  Registers a new user and returns a full AuthResponse (same shape as loginUser).
+  On success captures ACCESS_TOKEN, REFRESH_TOKEN, USER_ID.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.registerUser
 }

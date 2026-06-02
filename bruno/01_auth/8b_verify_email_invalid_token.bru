@@ -1,0 +1,38 @@
+meta {
+  name: Verify Email (Invalid Token - Error Canary)
+  type: graphql
+  seq: 85
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: none
+}
+
+body:graphql {
+  mutation VerifyEmailInvalidToken($token: String!) {
+    verifyEmail(token: $token) {
+      success
+      code
+      message
+      data {
+        emailVerified
+        timestamp
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "token": "invalid-or-expired-token-000000000000"
+  }
+}
+
+docs {
+  Regression canary: verifyEmail with a deliberately invalid/expired token.
+  Expected: success=false, code=UNAUTHORIZED or VALIDATION_ERROR, emailVerified absent or false.
+  Run after any changes to the email-verification use case to confirm error handling is intact.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.verifyEmail
+}

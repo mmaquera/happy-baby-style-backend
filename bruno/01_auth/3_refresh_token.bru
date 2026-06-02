@@ -6,6 +6,8 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: none
 }
 
 body:graphql {
@@ -39,4 +41,9 @@ script:post-response {
     bru.setEnvVar("ACCESS_TOKEN", data.accessToken);
     bru.setEnvVar("REFRESH_TOKEN", data.refreshToken);
   }
+}
+
+docs {
+  Exchanges a valid REFRESH_TOKEN for a new access/refresh pair. Captures both tokens on success.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.refreshToken
 }
