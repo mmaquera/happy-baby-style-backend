@@ -6,7 +6,28 @@ import { UploadSvgUseCase } from '../application/use-cases/UploadSvgUseCase';
 import { ResponseFactory, RESPONSE_CODES, DomainError } from '@hbs/shared-kernel';
 import { ImageEntityType } from '../domain/entities/Image';
 import { SvgEntityType } from '../domain/entities/Svg';
-import { requireRole, UserRole } from '@hbs/auth';
+import { UserRole, type TokenPayload } from '@hbs/auth';
+import { GraphQLError } from 'graphql';
+
+// ── Media management guard ───────────────────────────────────────────────────
+// Delete mutations are restricted to administrators only.
+// Accepts 'administrators' group (new RBAC token) OR legacy ADMIN role.
+function requireMediaManagementAccess(currentUser: TokenPayload | null | undefined): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
+  if (currentUser.groups?.includes('administrators')) {
+    return;
+  }
+  if (currentUser.role === UserRole.ADMIN) {
+    return;
+  }
+  throw new GraphQLError('Insufficient privileges', {
+    extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+  });
+}
 
 const STORAGE_BASE_URL = process.env.STORAGE_BASE_URL || 'http://localhost:3001';
 
@@ -232,7 +253,7 @@ export function createResolvers(
       },
 
       deleteImage: async (_: any, { id }: { id: string }, context: any) => {
-        requireRole(context?.currentUser, UserRole.ADMIN);
+        requireMediaManagementAccess(context?.currentUser);
         try {
           await imageRepository.delete(id, context?.currentUser ?? null);
           return true;
@@ -244,7 +265,7 @@ export function createResolvers(
       },
 
       deleteSvg: async (_: any, { id }: { id: string }, context: any) => {
-        requireRole(context?.currentUser, UserRole.ADMIN);
+        requireMediaManagementAccess(context?.currentUser);
         try {
           return await svgRepository.delete(id, context?.currentUser ?? null);
         } catch (error) {
