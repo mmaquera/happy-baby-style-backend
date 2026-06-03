@@ -94,6 +94,8 @@ const makeAuthRepo = (): jest.Mocked<IAuthRepository> =>
   ({
     createSession: jest.fn().mockResolvedValue(makeSession()),
     createSessionAnalytics: jest.fn().mockResolvedValue({}),
+    // New in Ola 2: force-password-reset gate. Returns null by default (no reset required).
+    getMustChangePasswordAt: jest.fn().mockResolvedValue(null),
   } as any);
 
 const makeSecurityEventRepo = (): jest.Mocked<ISecurityEventRepository> =>

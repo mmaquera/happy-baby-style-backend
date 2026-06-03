@@ -43,6 +43,10 @@ const PERMISSIONS = [
   { code: 'manage:users', name: 'Manage Users', category: 'user' },
   { code: 'manage:system', name: 'Manage System', category: 'system' },
   { code: 'view:analytics', name: 'View Analytics', category: 'analytics' },
+  // Ola 1 — Catálogo: moderate product reviews (approve / reject)
+  { code: 'reviews:moderate', name: 'Moderate Reviews', category: 'product' },
+  // FE-0 — Fiscal profile (SUNAT)
+  { code: 'update:fiscal-profile', name: 'Update Fiscal Profile', category: 'user' },
 ] as const;
 
 const GROUPS = [
@@ -67,6 +71,7 @@ const GROUPS = [
       'manage:users',
       'manage:system',
       'view:analytics',
+      'update:fiscal-profile',
     ],
   },
   {
@@ -99,16 +104,16 @@ const GROUPS = [
   {
     code: 'customer-service',
     name: 'Customer Service',
-    description: 'Read user info + read orders + view analytics.',
+    description: 'Read user info + read orders + view analytics. Can moderate product reviews.',
     isSystem: true,
-    permissionCodes: ['read:user', 'read:order', 'view:analytics', 'read:product'],
+    permissionCodes: ['read:user', 'read:order', 'view:analytics', 'read:product', 'reviews:moderate'],
   },
   {
     code: 'customer',
     name: 'Customer',
     description: 'End user. Browse products, place own orders.',
     isSystem: true,
-    permissionCodes: ['read:product', 'create:order', 'read:order', 'read:user'],
+    permissionCodes: ['read:product', 'create:order', 'read:order', 'read:user', 'update:fiscal-profile'],
   },
 ] as const;
 
@@ -202,6 +207,72 @@ async function upsertGroupPermissions(
   return count;
 }
 
+/**
+ * Record rules for UserFiscalProfile (FE-0).
+ * The `customer` group can read and write only their own fiscal profile.
+ * Self-service access is enforced by ownership (userId == $ctx.userId).
+ * Administrators have no record rule restriction — they can access all records.
+ */
+const FISCAL_PROFILE_RECORD_RULES: Array<{
+  name: string;
+  modelName: string;
+  groupCode: string;
+  mode: string;
+  domainExpression: object;
+}> = [
+  {
+    name: 'Customer: own fiscal profile (read)',
+    modelName: 'UserFiscalProfile',
+    groupCode: 'customer',
+    mode: 'read',
+    domainExpression: { op: '=', field: 'userId', value: { $ctx: 'userId' } },
+  },
+  {
+    name: 'Customer: own fiscal profile (write)',
+    modelName: 'UserFiscalProfile',
+    groupCode: 'customer',
+    mode: 'write',
+    domainExpression: { op: '=', field: 'userId', value: { $ctx: 'userId' } },
+  },
+];
+
+async function upsertFiscalProfileRecordRules(groupIdMap: Map<string, string>): Promise<number> {
+  let count = 0;
+  for (const rule of FISCAL_PROFILE_RECORD_RULES) {
+    const groupId = groupIdMap.get(rule.groupCode);
+    if (!groupId) continue;
+
+    // Upsert by (modelName, groupId, mode) — unique enough for our seed
+    const existing = await prisma.authRecordRule.findFirst({
+      where: { modelName: rule.modelName, groupId, mode: rule.mode as any },
+    });
+
+    if (existing) {
+      await prisma.authRecordRule.update({
+        where: { id: existing.id },
+        data: {
+          name: rule.name,
+          domainExpression: rule.domainExpression,
+          isActive: true,
+        },
+      });
+    } else {
+      await prisma.authRecordRule.create({
+        data: {
+          name: rule.name,
+          modelName: rule.modelName,
+          groupId,
+          mode: rule.mode as any,
+          domainExpression: rule.domainExpression,
+          isActive: true,
+        },
+      });
+    }
+    count++;
+  }
+  return count;
+}
+
 async function upsertGroupImplications(
   groupIdMap: Map<string, string>,
 ): Promise<number> {
@@ -242,6 +313,9 @@ async function main(): Promise<void> {
 
   const giCount = await upsertGroupImplications(groupIdMap);
   console.log(`[seed] group_implications: ${giCount} upserted`);
+
+  const rrCount = await upsertFiscalProfileRecordRules(groupIdMap);
+  console.log(`[seed] fiscal_profile_record_rules: ${rrCount} upserted`);
 
   console.log('[seed] Done.');
   console.log(

@@ -387,8 +387,7 @@ export const typeDefs = gql`
   type UserActivitySummary {
     recentOrders: [Order!]!
     favoriteProducts: [Product!]!
-    cartItemsCount: Int!
-    totalSpent: Decimal!
+    totalFavorites: Int!
     joinDate: DateTime!
     lastActivity: DateTime!
   }
@@ -425,15 +424,6 @@ export const typeDefs = gql`
     totalPages: Int!
   }
 
-  type GetUsersByProviderResponse {
-    success: Boolean!
-    message: String!
-    code: String!
-    timestamp: String!
-    data: [User!]!
-    metadata: ResponseMetadata
-  }
-
   type GetCurrentUserResponse {
     success: Boolean!
     message: String!
@@ -467,6 +457,7 @@ export const typeDefs = gql`
     refreshToken: String
     mfaRequired: Boolean
     mfaChallengeToken: String
+    forcePasswordReset: Boolean
   }
 
   type CreateUserResponse {
@@ -841,7 +832,6 @@ export const typeDefs = gql`
     currentUser: GetCurrentUserResponse!
     searchUsers(query: String!): [User!]!
     activeUsers: [User!]!
-    usersByProvider(provider: AuthProvider!): GetUsersByProviderResponse!
     userStats: UserStatsResponse!
     userAnalytics: UserAnalytics!
 
@@ -860,7 +850,7 @@ export const typeDefs = gql`
       userId: ID!
       filter: UserOrderHistoryFilter
       pagination: PaginationInput
-    ): UserOrderHistoryResponse!
+    ): UserOrderHistoryResponse! @deprecated(reason: "Use User.orders field instead — resolved by order-service via federation.")
     userFavoriteStats(userId: ID!): UserFavoriteStats!
     userActivitySummary(userId: ID!): UserActivitySummary!
 
@@ -893,6 +883,9 @@ export const typeDefs = gql`
     # Audit & security queries
     userAuditLogs(userId: ID!): GetUserAuditLogsResponse!
     userSecurityEvents(userId: ID!): GetUserSecurityEventsResponse!
+
+    # Fiscal profile (SUNAT — FE-0)
+    userFiscalProfile(userId: ID!): GetFiscalProfileResponse!
 
     # RBAC admin queries (requires administrators group or legacy role=admin)
     groups(pagination: PaginationInput): GroupsListResponse!
@@ -1257,6 +1250,9 @@ export const typeDefs = gql`
     verifyMFASetup(code: String!): MFASetupConfirmResponse!
     disableMFA(password: String!): SuccessResponse!
     verifyTotp(mfaChallengeToken: String!, code: String!): AuthResponse!
+
+    # Fiscal profile (SUNAT — FE-0)
+    updateFiscalProfile(input: UpdateFiscalProfileInput!): UpdateFiscalProfileResponse!
   }
 
   type UnlockUserAccountResponse {
@@ -1332,5 +1328,49 @@ export const typeDefs = gql`
   type MFASetupConfirmData {
     backupCodes: [String!]!
     mfaEnabled: Boolean!
+  }
+
+  # ── Fiscal profile (SUNAT — FE-0) ───────────────────────────────────────────
+
+  enum TaxDocumentType {
+    ruc
+    dni
+    ce
+  }
+
+  type UserFiscalProfile @key(fields: "id") {
+    id: ID!
+    userId: ID!
+    documentType: TaxDocumentType!
+    documentNumber: String!
+    legalName: String
+    verifiedAt: DateTime
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  input UpdateFiscalProfileInput {
+    userId: ID!
+    documentType: TaxDocumentType!
+    documentNumber: String!
+    legalName: String
+  }
+
+  type GetFiscalProfileResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UserFiscalProfile
+    metadata: ResponseMetadata
+  }
+
+  type UpdateFiscalProfileResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: UserFiscalProfile
+    metadata: ResponseMetadata
   }
 `;

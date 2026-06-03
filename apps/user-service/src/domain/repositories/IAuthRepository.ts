@@ -79,4 +79,18 @@ export interface IAuthRepository {
   deleteSessionAnalytics(id: string): Promise<void>;
   deleteSessionAnalyticsBySessionId(sessionId: string): Promise<void>;
   deleteSessionAnalyticsByUserId(userId: string): Promise<void>;
+
+  // Force-password-reset operations
+  /**
+   * Sets mustChangePasswordAt = now for the user, forcing a password change on next login.
+   */
+  setMustChangePassword(userId: string, at: Date): Promise<void>;
+  /**
+   * Reads the mustChangePasswordAt field for a user. Returns null if not set or not found.
+   */
+  getMustChangePasswordAt(userId: string): Promise<Date | null>;
+  /**
+   * Clears mustChangePasswordAt after the user successfully changes their password.
+   */
+  clearMustChangePassword(userId: string): Promise<void>;
 }

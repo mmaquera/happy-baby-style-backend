@@ -39,6 +39,11 @@ export interface AuthenticateUserResponse {
   // MFA step-up fields
   mfaRequired?: boolean;
   mfaChallengeToken?: string;
+  // Force-password-reset flag (set by admin via ForcePasswordResetUseCase).
+  // When true, caller MUST NOT issue normal tokens — the user must change their
+  // password before they can log in. The client should redirect to the
+  // change-password flow.
+  forcePasswordReset?: boolean;
 }
 
 export class AuthenticateUserUseCase {
@@ -133,6 +138,17 @@ export class AuthenticateUserUseCase {
 
       // 6. Successful auth — reset lockout counters
       await this.userRepository.resetUserLockout(user.id);
+
+      // 6.3 Force-password-reset gate: admin can require the user to change password before login.
+      // We check BEFORE MFA so the user cannot bypass the reset via the MFA flow.
+      const mustChangeAt = await this.authRepository.getMustChangePasswordAt(user.id);
+      if (mustChangeAt) {
+        this.logger.info('Login blocked — user must change password before login', {
+          userId: user.id,
+          mustChangePasswordAt: mustChangeAt.toISOString(),
+        });
+        return { forcePasswordReset: true };
+      }
 
       // 6.5 MFA step-up: if MFA is enabled, issue challenge token and stop here
       if (this.mfaChallengeStore) {

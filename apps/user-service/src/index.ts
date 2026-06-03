@@ -37,6 +37,16 @@ import {
   GetUserOrderHistoryUseCase,
   IUserOrderRepository,
 } from './application/use-cases/user/GetUserOrderHistoryUseCase';
+import { ListSavedPaymentMethodsUseCase } from './application/use-cases/user/ListSavedPaymentMethodsUseCase';
+import { CreateSavedPaymentMethodUseCase } from './application/use-cases/user/CreateSavedPaymentMethodUseCase';
+import { UpdateSavedPaymentMethodUseCase } from './application/use-cases/user/UpdateSavedPaymentMethodUseCase';
+import { DeleteSavedPaymentMethodUseCase } from './application/use-cases/user/DeleteSavedPaymentMethodUseCase';
+import { GetUserAppEventsUseCase } from './application/use-cases/user/GetUserAppEventsUseCase';
+import { GetProductAppEventsUseCase } from './application/use-cases/user/GetProductAppEventsUseCase';
+import { ForcePasswordResetUseCase } from './application/use-cases/user/ForcePasswordResetUseCase';
+import { GetUserActivitySummaryUseCase } from './application/use-cases/user/GetUserActivitySummaryUseCase';
+import { PrismaSavedPaymentMethodRepository } from './infrastructure/repositories/PrismaSavedPaymentMethodRepository';
+import { PrismaAppEventRepository } from './infrastructure/repositories/PrismaAppEventRepository';
 import { CreateUserSessionAnalyticsUseCase } from './application/use-cases/user/CreateUserSessionAnalyticsUseCase';
 import { UpdateUserSessionAnalyticsUseCase } from './application/use-cases/user/UpdateUserSessionAnalyticsUseCase';
 import { GetUserSessionAnalyticsUseCase } from './application/use-cases/user/GetUserSessionAnalyticsUseCase';
@@ -77,6 +87,9 @@ import { CreateRecordRuleUseCase } from './application/use-cases/authz/CreateRec
 import { UpdateRecordRuleUseCase } from './application/use-cases/authz/UpdateRecordRuleUseCase';
 import { DeleteRecordRuleUseCase } from './application/use-cases/authz/DeleteRecordRuleUseCase';
 import { ListRecordRulesUseCase } from './application/use-cases/authz/ListRecordRulesUseCase';
+import { PrismaUserFiscalProfileRepository } from './infrastructure/repositories/PrismaUserFiscalProfileRepository';
+import { GetFiscalProfileUseCase } from './application/use-cases/user/GetFiscalProfileUseCase';
+import { UpdateFiscalProfileUseCase } from './application/use-cases/user/UpdateFiscalProfileUseCase';
 
 dotenv.config();
 
@@ -102,7 +115,12 @@ const RBAC_CACHE_TTL_MS = parseInt(process.env.RBAC_CACHE_TTL_MS ?? '300000', 10
 const FRONTEND_URLS = (process.env.FRONTEND_URLS || 'http://localhost:3000').split(',');
 const HOSTNAME = process.env.HOSTNAME ?? `user-service-${process.pid}`;
 
-// Stub: order history queries route to order-service via federation in production
+// LEGACY STUB — intentional, do not replace with a real implementation.
+// Order history is resolved via federation: User.orders is owned and served by
+// order-service (see apps/order-service/src/graphql/resolvers.ts User.orders resolver).
+// The userOrderHistory query is @deprecated in the SDL; it returns an empty payload
+// so existing clients do not break while they migrate to User.orders.
+// This stub satisfies the GetUserOrderHistoryUseCase constructor — no DB access needed.
 class StubUserOrderRepository implements IUserOrderRepository {
   async getUserOrders(_params: any) {
     return { orders: [], total: 0 };
@@ -177,6 +195,8 @@ async function start() {
   const auditRepository = new PrismaAuditRepository(prisma);
   const securityEventRepository = new PrismaSecurityEventRepository(prisma);
   const userFavoritesRepository = new PrismaUserFavoritesRepository(prisma);
+  const savedPaymentMethodRepository = new PrismaSavedPaymentMethodRepository(prisma);
+  const appEventRepository = new PrismaAppEventRepository(prisma);
   const effectivePermissionsResolver = new EffectivePermissionsResolver(prisma);
 
   // Email service
@@ -256,6 +276,24 @@ async function start() {
     useCaseLogger,
   );
   const manageUserFavoritesUseCase = new ManageUserFavoritesUseCase(userFavoritesRepository);
+
+  // Ola 2 use cases
+  const listSavedPaymentMethodsUseCase = new ListSavedPaymentMethodsUseCase(savedPaymentMethodRepository);
+  const createSavedPaymentMethodUseCase = new CreateSavedPaymentMethodUseCase(savedPaymentMethodRepository);
+  const updateSavedPaymentMethodUseCase = new UpdateSavedPaymentMethodUseCase(savedPaymentMethodRepository);
+  const deleteSavedPaymentMethodUseCase = new DeleteSavedPaymentMethodUseCase(savedPaymentMethodRepository);
+  const getUserAppEventsUseCase = new GetUserAppEventsUseCase(appEventRepository);
+  const getProductAppEventsUseCase = new GetProductAppEventsUseCase(appEventRepository);
+  const forcePasswordResetUseCase = new ForcePasswordResetUseCase(
+    userRepository,
+    authRepository,
+    auditRepository,
+    useCaseLogger,
+  );
+  const getUserActivitySummaryUseCase = new GetUserActivitySummaryUseCase(
+    userRepository,
+    userFavoritesRepository,
+  );
   const unlockUserAccountUseCase = new UnlockUserAccountUseCase(
     userRepository,
     securityEventRepository,
@@ -300,6 +338,14 @@ async function start() {
     mfaChallengeStore,
     effectivePermissionsResolver,
     useCaseLogger,
+  );
+
+  // Fiscal profile (SUNAT — FE-0)
+  const fiscalProfileRepository = new PrismaUserFiscalProfileRepository(prisma);
+  const getFiscalProfileUseCase = new GetFiscalProfileUseCase(fiscalProfileRepository);
+  const updateFiscalProfileUseCase = new UpdateFiscalProfileUseCase(
+    fiscalProfileRepository,
+    fiscalProfileRepository, // implements IFiscalProfileTransactionRunner (runs upsert + audit + securityEvent atomically)
   );
 
   // RBAC admin infrastructure + use cases (Fase 5.10)
@@ -391,6 +437,18 @@ async function start() {
     verifyMfaSetupUseCase,
     disableMfaUseCase,
     verifyTotpUseCase,
+    // Ola 2
+    listSavedPaymentMethodsUseCase,
+    createSavedPaymentMethodUseCase,
+    updateSavedPaymentMethodUseCase,
+    deleteSavedPaymentMethodUseCase,
+    getUserAppEventsUseCase,
+    getProductAppEventsUseCase,
+    forcePasswordResetUseCase,
+    getUserActivitySummaryUseCase,
+    // Fiscal profile (SUNAT — FE-0)
+    getFiscalProfileUseCase,
+    updateFiscalProfileUseCase,
   });
 
   const server = new ApolloServer({

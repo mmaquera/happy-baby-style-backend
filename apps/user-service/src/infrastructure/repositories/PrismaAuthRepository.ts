@@ -844,6 +844,38 @@ export class PrismaAuthRepository implements IAuthRepository {
     };
   }
 
+  // Force-password-reset operations
+
+  async setMustChangePassword(userId: string, at: Date): Promise<void> {
+    // Use upsert because OAuth-only users may not have a userPassword row.
+    // For OAuth users: creates a minimal row with mustChangePasswordAt set.
+    // For password users: updates the existing row.
+    await this.prisma.userPassword.upsert({
+      where: { userId },
+      update: { mustChangePasswordAt: at },
+      create: {
+        userId,
+        passwordHash: '', // Not a valid hash — user must set a real password.
+        mustChangePasswordAt: at,
+      },
+    });
+  }
+
+  async getMustChangePasswordAt(userId: string): Promise<Date | null> {
+    const row = await this.prisma.userPassword.findUnique({
+      where: { userId },
+      select: { mustChangePasswordAt: true },
+    });
+    return row?.mustChangePasswordAt ?? null;
+  }
+
+  async clearMustChangePassword(userId: string): Promise<void> {
+    await this.prisma.userPassword.update({
+      where: { userId },
+      data: { mustChangePasswordAt: null },
+    });
+  }
+
   private mapToUserPassword(data: any): UserPassword {
     return {
       id: data.id,
@@ -852,6 +884,7 @@ export class PrismaAuthRepository implements IAuthRepository {
       salt: data.salt,
       resetToken: data.resetToken,
       resetExpiresAt: data.resetExpiresAt,
+      mustChangePasswordAt: data.mustChangePasswordAt ?? undefined,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
     };

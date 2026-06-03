@@ -1,6 +1,7 @@
 import { GraphQLScalarType, GraphQLError, Kind } from 'graphql';
 import { PrismaClient } from '../prisma';
 import { NotFoundError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
+import { LoggerFactory } from '@hbs/logging';
 import { CreateUserUseCase } from '@application/use-cases/user/CreateUserUseCase';
 import { GetUsersUseCase } from '@application/use-cases/user/GetUsersUseCase';
 import { GetUserByIdUseCase } from '@application/use-cases/user/GetUserByIdUseCase';
@@ -58,6 +59,17 @@ import { UpdateRecordRuleUseCase } from '@application/use-cases/authz/UpdateReco
 import { DeleteRecordRuleUseCase } from '@application/use-cases/authz/DeleteRecordRuleUseCase';
 import { ListRecordRulesUseCase } from '@application/use-cases/authz/ListRecordRulesUseCase';
 import { assertModelAccess, isAdmin } from '@hbs/authz';
+import { ListSavedPaymentMethodsUseCase } from '@application/use-cases/user/ListSavedPaymentMethodsUseCase';
+import { CreateSavedPaymentMethodUseCase } from '@application/use-cases/user/CreateSavedPaymentMethodUseCase';
+import { UpdateSavedPaymentMethodUseCase } from '@application/use-cases/user/UpdateSavedPaymentMethodUseCase';
+import { DeleteSavedPaymentMethodUseCase } from '@application/use-cases/user/DeleteSavedPaymentMethodUseCase';
+import { GetUserAppEventsUseCase } from '@application/use-cases/user/GetUserAppEventsUseCase';
+import { GetProductAppEventsUseCase } from '@application/use-cases/user/GetProductAppEventsUseCase';
+import { ForcePasswordResetUseCase } from '@application/use-cases/user/ForcePasswordResetUseCase';
+import { GetUserActivitySummaryUseCase } from '@application/use-cases/user/GetUserActivitySummaryUseCase';
+import { GetFiscalProfileUseCase } from '@application/use-cases/user/GetFiscalProfileUseCase';
+import { UpdateFiscalProfileUseCase } from '@application/use-cases/user/UpdateFiscalProfileUseCase';
+import { toFiscalProfileDTO } from './transformers/fiscalProfileTransformer';
 
 // ── requireAdministrator guard ──────────────────────────────────────────────
 // Requires the caller to belong to the 'administrators' group (RBAC-only).
@@ -275,11 +287,25 @@ export interface UserServiceDeps {
   verifyMfaSetupUseCase: VerifyMfaSetupUseCase;
   disableMfaUseCase: DisableMfaUseCase;
   verifyTotpUseCase: VerifyTotpUseCase;
+  // Ola 2 use cases
+  listSavedPaymentMethodsUseCase: ListSavedPaymentMethodsUseCase;
+  createSavedPaymentMethodUseCase: CreateSavedPaymentMethodUseCase;
+  updateSavedPaymentMethodUseCase: UpdateSavedPaymentMethodUseCase;
+  deleteSavedPaymentMethodUseCase: DeleteSavedPaymentMethodUseCase;
+  getUserAppEventsUseCase: GetUserAppEventsUseCase;
+  getProductAppEventsUseCase: GetProductAppEventsUseCase;
+  forcePasswordResetUseCase: ForcePasswordResetUseCase;
+  getUserActivitySummaryUseCase: GetUserActivitySummaryUseCase;
+  // Fiscal profile (SUNAT — FE-0)
+  getFiscalProfileUseCase: GetFiscalProfileUseCase;
+  updateFiscalProfileUseCase: UpdateFiscalProfileUseCase;
 }
 
 // ── Resolver factory ─────────────────────────────────────────────────────────
 
 export function createResolvers(deps: UserServiceDeps) {
+  const resolverLogger = LoggerFactory.getInstance().createServiceLogger('UserServiceResolvers');
+
   const {
     prisma,
     authRepository,
@@ -336,6 +362,16 @@ export function createResolvers(deps: UserServiceDeps) {
     verifyMfaSetupUseCase,
     disableMfaUseCase,
     verifyTotpUseCase,
+    listSavedPaymentMethodsUseCase,
+    createSavedPaymentMethodUseCase,
+    updateSavedPaymentMethodUseCase,
+    deleteSavedPaymentMethodUseCase,
+    getUserAppEventsUseCase,
+    getProductAppEventsUseCase,
+    forcePasswordResetUseCase,
+    getUserActivitySummaryUseCase,
+    getFiscalProfileUseCase,
+    updateFiscalProfileUseCase,
   } = deps;
 
   return {
@@ -346,16 +382,33 @@ export function createResolvers(deps: UserServiceDeps) {
     // ── Federation reference resolvers ─────────────────────────────────────
 
     User: {
+      // NO auth guard here by design: __resolveReference is called by the Apollo Federation
+      // gateway when resolving cross-service entity references (e.g. order-service linking
+      // back to a User). It runs in an internal federation context without a user-facing
+      // currentUser. Adding a guard would break all federation lookups for User entities.
+      // Error handling: catch NotFoundError and return null so stale federation references
+      // degrade gracefully instead of crashing the entire federated query.
       __resolveReference: async (ref: { id: string }) => {
-        const user = await getUserByIdUseCase.execute(ref.id);
-        return user ? transformUser(user) : null;
+        try {
+          const user = await getUserByIdUseCase.execute(ref.id);
+          return transformUser(user);
+        } catch {
+          return null;
+        }
       },
     },
 
     UserProfile: {
+      // NO auth guard here by design: same reason as User.__resolveReference above.
+      // __resolveReference is invoked by the gateway during federation entity resolution,
+      // not by end-user GraphQL queries. currentUser is not available in this context.
       __resolveReference: async (ref: { id: string }) => {
-        const user = await getUserByIdUseCase.execute(ref.id);
-        return user?.profile ? transformUserProfile(user.profile) : null;
+        try {
+          const user = await getUserByIdUseCase.execute(ref.id);
+          return user?.profile ? transformUserProfile(user.profile) : null;
+        } catch {
+          return null;
+        }
       },
     },
 
@@ -414,12 +467,42 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      user: async (_: any, { id }: { id: string }) => {
+      user: async (_: any, { id }: { id: string }, context: any) => {
+        // BOLA guard: owner sees their own record; user-management roles (administrators,
+        // customer-service) see any record. Any other authenticated caller receives null
+        // (same response as "not found") to prevent user enumeration (CWE-203).
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        const isOwner = context.currentUser.userId === id;
+        const hasManagementAccess = context.currentUser.groups?.some((g: string) =>
+          (USER_MANAGEMENT_GROUPS as readonly string[]).includes(g),
+        );
+        if (!isOwner && !hasManagementAccess) {
+          // Return null (not ForbiddenError) to avoid confirming whether the id exists.
+          return null;
+        }
         const user = await getUserByIdUseCase.execute(id);
         return user ? transformUser(user) : null;
       },
 
-      userProfile: async (_: any, { userId }: { userId: string }) => {
+      userProfile: async (_: any, { userId }: { userId: string }, context: any) => {
+        // BOLA guard: mirrors Query.user — owner or user-management roles only.
+        // Non-owner callers receive null (anti-enumeration, CWE-203).
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        const isOwner = context.currentUser.userId === userId;
+        const hasManagementAccess = context.currentUser.groups?.some((g: string) =>
+          (USER_MANAGEMENT_GROUPS as readonly string[]).includes(g),
+        );
+        if (!isOwner && !hasManagementAccess) {
+          return null;
+        }
         const user = await getUserByIdUseCase.execute(userId);
         return user?.profile ? transformUserProfile(user.profile) : null;
       },
@@ -478,28 +561,6 @@ export function createResolvers(deps: UserServiceDeps) {
           return users.map(transformUser);
         } catch {
           return [];
-        }
-      },
-
-      usersByProvider: async (_: any, { provider }: { provider: string }, context: any) => {
-        requireAdministrator(context.currentUser);
-        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
-        const traceId = `users-by-provider-${Date.now()}`;
-        try {
-          const accounts = await authRepository.findUserAccountByProvider(provider as any, '');
-          return ResponseFactory.createSuccessResponse(
-            [],
-            'Users by provider retrieved',
-            RESPONSE_CODES.SUCCESS,
-            { requestId, traceId, duration: 0 },
-          );
-        } catch (error: any) {
-          return ResponseFactory.createErrorResponse(
-            'Operation failed',
-            RESPONSE_CODES.INTERNAL_ERROR,
-            {},
-            { requestId, traceId, duration: 0 },
-          );
         }
       },
 
@@ -710,15 +771,20 @@ export function createResolvers(deps: UserServiceDeps) {
         }
       },
 
-      userActivitySummary: async (_: any, { userId }: { userId: string }) => {
-        return {
-          recentOrders: [],
-          favoriteProducts: [],
-          cartItemsCount: 0,
-          totalSpent: 0,
-          joinDate: new Date(),
-          lastActivity: new Date(),
-        };
+      userActivitySummary: async (_: any, { userId }: { userId: string }, context: any) => {
+        assertOwnerOrAdmin(context.currentUser, userId);
+        try {
+          const summary = await getUserActivitySummaryUseCase.execute(userId);
+          return summary;
+        } catch {
+          return {
+            recentOrders: [],
+            favoriteProducts: [],
+            totalFavorites: 0,
+            joinDate: new Date(),
+            lastActivity: new Date(),
+          };
+        }
       },
 
       userAuditLogs: async (_: any, { userId }: { userId: string }, context: any) => {
@@ -797,10 +863,7 @@ export function createResolvers(deps: UserServiceDeps) {
       savedPaymentMethods: async (_: any, { userId }: { userId: string }, context: any) => {
         assertOwnerOrAdmin(context.currentUser, userId);
         try {
-          const methods = await prisma.savedPaymentMethod.findMany({
-            where: { userId, isActive: true },
-            orderBy: { createdAt: 'desc' },
-          });
+          const methods = await listSavedPaymentMethodsUseCase.execute({ userId });
           return methods.map((m) => ({
             ...m,
             user: { __typename: 'UserProfile', id: m.userId },
@@ -811,6 +874,8 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       // ── Loyalty & rewards queries ────────────────────────────────────────
+      // TODO(Tier 3): extract to LoyaltyProgramRepository + use case when promotions-service
+      // is implemented. Direct prisma access is intentional pre-prod shortcut.
 
       loyaltyPrograms: async () => {
         try {
@@ -856,6 +921,8 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       // ── Notification queries ─────────────────────────────────────────────
+      // TODO(Tier 3): extract to notification-service when implemented. Direct prisma
+      // access here is an intentional pre-prod shortcut.
 
       userNotifications: async (_: any, { userId }: { userId: string }, context: any) => {
         assertOwnerOrAdmin(context.currentUser, userId);
@@ -910,6 +977,8 @@ export function createResolvers(deps: UserServiceDeps) {
       },
 
       // ── Newsletter queries ───────────────────────────────────────────────
+      // TODO(Tier 3): extract to notification-service when implemented. Direct prisma
+      // access here is an intentional pre-prod shortcut.
 
       newsletterSubscriptions: async () => {
         try {
@@ -939,11 +1008,7 @@ export function createResolvers(deps: UserServiceDeps) {
       userAppEvents: async (_: any, { userId }: { userId: string }, context: any) => {
         assertOwnerOrAdmin(context.currentUser, userId);
         try {
-          const events = await prisma.appEvent.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-          });
+          const events = await getUserAppEventsUseCase.execute({ userId });
           return events.map((e) => ({
             ...e,
             user: e.userId ? { __typename: 'UserProfile', id: e.userId } : null,
@@ -955,11 +1020,7 @@ export function createResolvers(deps: UserServiceDeps) {
 
       productAppEvents: async (_: any, { productId }: { productId: string }) => {
         try {
-          const events = await prisma.appEvent.findMany({
-            where: { productId },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-          });
+          const events = await getProductAppEventsUseCase.execute({ productId });
           return events.map((e) => ({
             ...e,
             user: e.userId ? { __typename: 'UserProfile', id: e.userId } : null,
@@ -1080,6 +1141,64 @@ export function createResolvers(deps: UserServiceDeps) {
           { requestId, traceId, duration: 0 },
         );
       },
+
+      // ── Fiscal profile (SUNAT — FE-0) ─────────────────────────────────────
+
+      userFiscalProfile: async (_: any, { userId }: { userId: string }, context: any) => {
+        // BOLA guard: owner o user-management roles solamente.
+        // Anti-enumeración (CWE-203): no-autorizado y no-encontrado devuelven el
+        // mismo código/mensaje genérico — NUNCA revelan si el recurso existe.
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `get-fiscal-profile-${Date.now()}`;
+
+        const isOwner = context.currentUser.userId === userId;
+        const hasManagementAccess = context.currentUser.groups?.some((g: string) =>
+          (USER_MANAGEMENT_GROUPS as readonly string[]).includes(g),
+        );
+        if (!isOwner && !hasManagementAccess) {
+          // Devuelve respuesta tipada con data:null — nunca null crudo (schema dice non-null).
+          return ResponseFactory.createErrorResponse(
+            'Fiscal profile not found',
+            RESPONSE_CODES.RESOURCE_NOT_FOUND,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
+        try {
+          const profile = await getFiscalProfileUseCase.execute(userId);
+          return ResponseFactory.createSuccessResponse(
+            toFiscalProfileDTO(profile),
+            'Fiscal profile retrieved',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
+        } catch (error: any) {
+          if (error?.code === 'NOT_FOUND') {
+            // Profile no encontrado — mismo mensaje que no-autorizado (anti-BOLA, CWE-203).
+            return ResponseFactory.createErrorResponse(
+              'Fiscal profile not found',
+              RESPONSE_CODES.RESOURCE_NOT_FOUND,
+              {},
+              { requestId, traceId, duration: 0 },
+            );
+          }
+          resolverLogger.error('Unexpected error retrieving fiscal profile', error as Error, {
+            userId,
+            traceId,
+          });
+          return ResponseFactory.createErrorResponse(
+            'Failed to retrieve fiscal profile',
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
+      },
     },
 
     // ── Mutations ──────────────────────────────────────────────────────────
@@ -1159,6 +1278,16 @@ export function createResolvers(deps: UserServiceDeps) {
             ipAddress: context?.req?.ip,
           });
           const duration = Date.now() - startTime;
+
+          // Force-password-reset gate: user must change password before receiving tokens.
+          if (result.forcePasswordReset) {
+            return ResponseFactory.createSuccessResponse(
+              { forcePasswordReset: true },
+              'Password change required before login',
+              RESPONSE_CODES.SUCCESS,
+              { requestId, traceId, duration },
+            );
+          }
 
           // MFA step-up: return challenge token instead of final tokens
           if (result.mfaRequired) {
@@ -1665,13 +1794,43 @@ export function createResolvers(deps: UserServiceDeps) {
 
       forcePasswordReset: async (_: any, { userId }: any, context: any) => {
         requireAdministrator(context.currentUser);
-        return { success: true, message: 'Password reset forced' };
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `force-pwd-reset-${Date.now()}`;
+        try {
+          const result = await forcePasswordResetUseCase.execute({
+            targetUserId: userId,
+            adminUserId: context.currentUser!.userId,
+            ipAddress: context.req?.ip,
+            userAgent: context.req?.headers?.['user-agent'],
+          });
+          return ResponseFactory.createSuccessResponse(
+            {
+              userId: result.targetUserId,
+              forcedAt: result.forcedAt.toISOString(),
+              passwordUpdated: true,
+            },
+            'Password reset forced — user must change password on next login',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
+        } catch (error: any) {
+          return ResponseFactory.createErrorResponse(
+            'Failed to force password reset',
+            RESPONSE_CODES.INTERNAL_ERROR,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
       },
 
-      impersonateUser: async (_: any, { userId }: any, context: any) => {
+      impersonateUser: async (_: any, { userId: _userId }: any, context: any) => {
         requireAdministrator(context.currentUser);
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
         const traceId = `impersonate-${Date.now()}`;
+        // ADR: impersonation deliberately not implemented.
+        // Requirements: TokenPayload.impersonatedBy, short-lived token, revocation table,
+        // audit trail, and cross-service propagation are not yet in place.
+        // See: apps/user-service/ADR-impersonate-user.md for full design.
         return ResponseFactory.createErrorResponse(
           'Impersonation not supported in this environment',
           RESPONSE_CODES.INTERNAL_ERROR,
@@ -1832,8 +1991,8 @@ export function createResolvers(deps: UserServiceDeps) {
 
       createSavedPaymentMethod: async (_: any, { input }: any, context: any) => {
         assertOwnerOrAdmin(context.currentUser, input.userId);
-        const method = await prisma.savedPaymentMethod.create({
-          data: {
+        try {
+          const method = await createSavedPaymentMethodUseCase.execute({
             userId: input.userId,
             type: input.type,
             provider: input.provider,
@@ -1843,40 +2002,51 @@ export function createResolvers(deps: UserServiceDeps) {
             cardholderName: input.cardholderName,
             isDefault: input.isDefault ?? false,
             metadata: input.metadata ?? {},
-          },
-        });
-        return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
+          });
+          return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
+        } catch (error: any) {
+          throw error;
+        }
       },
 
       updateSavedPaymentMethod: async (_: any, { id, input }: any, context: any) => {
-        const existing = await prisma.savedPaymentMethod.findUnique({ where: { id } });
-        if (!existing) throw new NotFoundError('SavedPaymentMethod', id);
-        assertOwnerOrAdmin(context.currentUser, existing.userId);
-        const method = await prisma.savedPaymentMethod.update({
-          where: { id },
-          data: {
-            isDefault: input.isDefault,
-            isActive: input.isActive,
-            metadata: input.metadata,
-          },
-        });
-        return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+        try {
+          const method = await updateSavedPaymentMethodUseCase.execute({
+            id,
+            requestingUserId: context.currentUser.userId,
+            isAdmin: isAdmin(context.currentUser),
+            data: {
+              isDefault: input.isDefault,
+              isActive: input.isActive,
+              metadata: input.metadata,
+            },
+          });
+          return { ...method, user: { __typename: 'UserProfile', id: method.userId } };
+        } catch (error: any) {
+          // CWE-203: ambiguous not-found for absent or non-owned records.
+          throw error;
+        }
       },
 
       deleteSavedPaymentMethod: async (_: any, { id }: any, context: any) => {
-        const existing = await prisma.savedPaymentMethod.findUnique({ where: { id } });
-        // CWE-203: identical "not found" for absent or non-owned records (anti-enumeration).
-        const ownsPaymentMethod =
-          !!existing &&
-          (isAdmin(context.currentUser) || context.currentUser?.userId === existing.userId);
-        if (!ownsPaymentMethod) {
+        if (!context.currentUser) {
           return { success: false, message: 'Payment method not found' };
         }
         try {
-          await prisma.savedPaymentMethod.update({ where: { id }, data: { isActive: false } });
+          await deleteSavedPaymentMethodUseCase.execute({
+            id,
+            requestingUserId: context.currentUser.userId,
+            isAdmin: isAdmin(context.currentUser),
+          });
           return { success: true, message: 'Payment method deleted' };
         } catch (error: any) {
-          return { success: false, message: 'Failed to delete payment method' };
+          // CWE-203: ambiguous response for absent or non-owned records.
+          return { success: false, message: 'Payment method not found' };
         }
       },
 
@@ -2311,6 +2481,65 @@ export function createResolvers(deps: UserServiceDeps) {
           return ResponseFactory.createErrorResponse(
             'Invalid email or password',
             RESPONSE_CODES.AUTHENTICATION_FAILED,
+            {},
+            { requestId, traceId, duration: 0 },
+          );
+        }
+      },
+
+      // ── Fiscal profile (SUNAT — FE-0) ───────────────────────────────────────
+
+      updateFiscalProfile: async (_: any, { input }: any, context: any) => {
+        // assertOwnerOrAdmin: permite al propietario actualizar su propio perfil
+        // o a un administrador actualizar el de cualquier usuario.
+        assertOwnerOrAdmin(context.currentUser, input.userId);
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `update-fiscal-profile-${Date.now()}`;
+        try {
+          const profile = await updateFiscalProfileUseCase.execute({
+            userId: input.userId,
+            documentType: input.documentType,
+            documentNumber: input.documentNumber,
+            legalName: input.legalName ?? null,
+          });
+          return ResponseFactory.createSuccessResponse(
+            toFiscalProfileDTO(profile),
+            'Fiscal profile updated successfully',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId, duration: 0 },
+          );
+        } catch (error: any) {
+          if (error?.code === 'NOT_FOUND') {
+            return ResponseFactory.createErrorResponse(
+              error.message,
+              RESPONSE_CODES.RESOURCE_NOT_FOUND,
+              {},
+              { requestId, traceId, duration: 0 },
+            );
+          }
+          // DuplicateError.code === 'CONFLICT' (hereda de ConflictError, no 'DUPLICATE')
+          if (error?.code === 'CONFLICT' || error?.code === 'VALIDATION_ERROR') {
+            return ResponseFactory.createErrorResponse(
+              error.message,
+              RESPONSE_CODES.VALIDATION_ERROR,
+              {},
+              { requestId, traceId, duration: 0 },
+            );
+          }
+          // Enmascara el documento en los logs — nunca el RUC/DNI completo.
+          const rawDoc: string | undefined = input?.documentNumber;
+          const maskedDoc = rawDoc
+            ? rawDoc.slice(-4).padStart(rawDoc.length, '*')
+            : 'unknown';
+          resolverLogger.error('Unexpected error updating fiscal profile', error as Error, {
+            userId: input?.userId,
+            documentType: input?.documentType,
+            documentNumberMasked: maskedDoc,
+            traceId,
+          });
+          return ResponseFactory.createErrorResponse(
+            'Failed to update fiscal profile',
+            RESPONSE_CODES.INTERNAL_ERROR,
             {},
             { requestId, traceId, duration: 0 },
           );

@@ -46,6 +46,12 @@ export interface UserPassword {
   salt?: string;
   resetToken?: string;
   resetExpiresAt?: Date;
+  /**
+   * When set, the user MUST change their password before receiving a normal JWT.
+   * Set by ForcePasswordResetUseCase (admin action). Cleared when the user
+   * successfully changes their password.
+   */
+  mustChangePasswordAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

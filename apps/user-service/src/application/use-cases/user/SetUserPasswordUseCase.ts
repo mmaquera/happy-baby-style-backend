@@ -99,6 +99,9 @@ export class SetUserPasswordUseCase {
         resetExpiresAt: undefined,
       });
 
+      // Clear any pending force-password-reset flag — admin explicitly set a new password.
+      await this.authRepository.clearMustChangePassword(data.userId).catch(() => undefined);
+
       // 7. Registrar evento de seguridad
       try {
         await this.securityEventRepository.create({

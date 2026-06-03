@@ -1,5 +1,6 @@
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { User } from '../../../domain/entities/User';
+import { ValidationError } from '../../../domain/errors/DomainError';
 
 export interface GetUsersFilters {
   limit?: number;
@@ -16,11 +17,11 @@ export class GetUsersUseCase {
 
     // Validate pagination parameters
     if (limit < 1 || limit > 100) {
-      throw new Error('Limit must be between 1 and 100');
+      throw new ValidationError('Limit must be between 1 and 100', 'limit');
     }
 
     if (offset < 0) {
-      throw new Error('Offset must be non-negative');
+      throw new ValidationError('Offset must be non-negative', 'offset');
     }
 
     // If search is provided, use search method

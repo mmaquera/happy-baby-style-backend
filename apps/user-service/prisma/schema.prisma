@@ -49,6 +49,7 @@ model UserProfile {
   savedPaymentMethods SavedPaymentMethod[]
   securityEvents      SecurityEvent[]
   groups              UserGroup[]
+  fiscalProfile       UserFiscalProfile?
 
   @@map("user_profiles")
 }
@@ -113,14 +114,16 @@ model UserSessionAnalytics {
 }
 
 model UserPassword {
-  id             String    @id @default(uuid())
-  userId         String    @unique @map("user_id")
-  passwordHash   String    @map("password_hash")
-  salt           String?
-  resetToken     String?   @unique @map("reset_token")
-  resetExpiresAt DateTime? @map("reset_expires_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id                  String    @id @default(uuid())
+  userId              String    @unique @map("user_id")
+  passwordHash        String    @map("password_hash")
+  salt                String?
+  resetToken          String?   @unique @map("reset_token")
+  resetExpiresAt      DateTime? @map("reset_expires_at")
+  // ForcePasswordReset: non-null means login must redirect to change-password flow
+  mustChangePasswordAt DateTime? @map("must_change_password_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -167,6 +170,7 @@ model SavedPaymentMethod {
 
   user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("saved_payment_methods")
 }
 
@@ -252,6 +256,10 @@ model AppEvent {
 
   user UserProfile? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
+  @@index([productId])
+  @@index([userId, eventType])
+  @@index([createdAt])
   @@map("app_events")
 }
 
@@ -298,6 +306,14 @@ enum PaymentMethodType {
   cash_on_delivery
 }
 
+enum TaxDocumentType {
+  ruc @map("ruc")
+  dni @map("dni")
+  ce  @map("ce")
+
+  @@map("tax_document_type")
+}
+
 model UserFavorite {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
@@ -308,6 +324,35 @@ model UserFavorite {
 
   @@unique([userId, productId])
   @@map("user_favorites")
+}
+
+// =====================================================
+// FISCAL MODELS (SUNAT — Facturación Electrónica, FE-0)
+// =====================================================
+
+// UserFiscalProfile: datos tributarios del usuario para facturación electrónica SUNAT.
+// Relación 1:1 con UserProfile; es opcional (no todo usuario requiere datos fiscales).
+// La obligatoriedad de legalName cuando documentType=ruc se valida en application layer.
+//
+// NOTA — Partial unique sobre document_number WHERE document_type='ruc':
+//   Prisma no soporta partial unique en el schema DSL. Se implementa vía SQL crudo
+//   en la migración 0004 (ver CREATE UNIQUE INDEX ... WHERE). No genera @@unique aquí.
+model UserFiscalProfile {
+  id             String          @id @default(uuid())
+  userId         String          @unique @map("user_id")
+  documentType   TaxDocumentType @map("document_type")
+  documentNumber String          @map("document_number") @db.VarChar(20)
+  legalName      String?         @map("legal_name")
+  verifiedAt     DateTime?       @map("verified_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // userId @unique ya garantiza 1:1 — el index implícito de Prisma lo cubre.
+  // Lookup por documento para invoicing-service (búsqueda por RUC/DNI/CE + número).
+  @@index([documentType, documentNumber])
+  @@map("user_fiscal_profiles")
 }
 
 // =====================================================

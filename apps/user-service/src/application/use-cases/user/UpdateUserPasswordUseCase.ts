@@ -94,6 +94,9 @@ export class UpdateUserPasswordUseCase {
     // Update password
     await this.authRepository.updatePassword(user.id, data.newPassword);
 
+    // Clear any pending force-password-reset flag now that the user has changed their password.
+    await this.authRepository.clearMustChangePassword(user.id).catch(() => undefined);
+
     // Register security event
     try {
       await this.securityEventRepository.create({
