@@ -107,6 +107,7 @@ function makeStorageService(): jest.Mocked<IStorageService> {
     getPublicUrl: jest.fn().mockReturnValue(''),
     validateFile: jest.fn().mockReturnValue(true),
     getBucketName: jest.fn().mockReturnValue('images'),
+    getSignedUrl: jest.fn().mockResolvedValue('http://localhost/signed'),
   } as any;
 }
 

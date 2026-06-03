@@ -84,6 +84,24 @@ export const typeDefs = gql`
     data: UploadSvgData
   }
 
+  """
+  Response for signedImageUrl query.
+  signedUrl is valid for [ttl] seconds (clamped server-side to 60–3600 s).
+  """
+  type SignedUrlData {
+    signedUrl: String!
+    "Effective TTL in seconds (clamped to 60–3600 regardless of requested value)."
+    ttl: Int!
+    imageId: String!
+  }
+
+  type SignedUrlResponse {
+    success: Boolean!
+    message: String
+    code: String
+    data: SignedUrlData
+  }
+
   type Query {
     image(id: ID!): Image
     imagesByEntity(entityId: ID!, entityType: ImageEntityType!, limit: Int, offset: Int): [Image!]!
@@ -91,13 +109,21 @@ export const typeDefs = gql`
     svgsByEntity(entityType: SvgEntityType!, entityId: ID!, limit: Int, offset: Int): [Svg!]!
     svgs(limit: Int, offset: Int): [Svg!]!
     svgsCount: Int!
+    """
+    Returns a presigned (or public) URL for downloading the image identified by [id].
+    [ttl] is clamped server-side to [60, 3600] seconds (default 300 s).
+    Currently public (bucket is public). Activate JWT guard when bucket turns private (Fase 4b).
+    """
+    signedImageUrl(id: ID!, ttl: Int): SignedUrlResponse!
   }
 
   type Mutation {
-    uploadImage(file: Upload!, entityType: String!, entityId: String!): UploadImageResponse!
+    "Upload a raster image. entityType must be one of the ImageEntityType enum values."
+    uploadImage(file: Upload!, entityType: ImageEntityType!, entityId: String!): UploadImageResponse!
+    "Upload an SVG. entityType must be one of the SvgEntityType enum values."
     uploadSvg(
       file: Upload!
-      entityType: String!
+      entityType: SvgEntityType!
       entityId: String!
       optimize: Boolean
     ): UploadSvgResponse!

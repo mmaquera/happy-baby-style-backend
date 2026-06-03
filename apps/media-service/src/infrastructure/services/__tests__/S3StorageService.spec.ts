@@ -26,11 +26,18 @@ const mockSend = jest.fn();
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({ send: mockSend })),
   DeleteObjectCommand: jest.fn().mockImplementation((params) => ({ ...params, _cmd: 'delete' })),
+  GetObjectCommand: jest.fn().mockImplementation((params) => ({ ...params, _cmd: 'getObject' })),
 }));
 
 const mockUploadDone = jest.fn();
 jest.mock('@aws-sdk/lib-storage', () => ({
   Upload: jest.fn().mockImplementation(() => ({ done: mockUploadDone })),
+}));
+
+const MOCK_PRESIGNED_URL = 'https://minio:9000/media-bucket/products/p1/test.jpg?X-Amz-Signature=abc';
+const mockAwsGetSignedUrl = jest.fn().mockResolvedValue(MOCK_PRESIGNED_URL);
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: (...args: any[]) => mockAwsGetSignedUrl(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -39,7 +46,7 @@ jest.mock('@aws-sdk/lib-storage', () => ({
 import { S3StorageService } from '../S3StorageService';
 import { StorageConfigurationError, FileUploadError, FileDeleteError } from '../../../domain/errors/StorageError';
 import { Upload } from '@aws-sdk/lib-storage';
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -252,6 +259,86 @@ describe('S3StorageService', () => {
     it('returns false for an invalid MIME type', () => {
       const svc = makeService();
       expect(svc.validateFile('file.exe', 'application/octet-stream', 1024)).toBe(false);
+    });
+  });
+
+  // ── getSignedUrl (R4 + R6) ────────────────────────────────────────────────
+
+  describe('getSignedUrl', () => {
+    beforeEach(() => {
+      mockAwsGetSignedUrl.mockResolvedValue(MOCK_PRESIGNED_URL);
+    });
+
+    it('calls GetObjectCommand with Bucket, Key (extracted from raw key), and ResponseContentDisposition=attachment (R4)', async () => {
+      const svc = makeService();
+      const url = await svc.getSignedUrl('products/p1/test.jpg', 300, 'image/jpeg');
+
+      expect(GetObjectCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Bucket: 'media-bucket',
+          Key: 'products/p1/test.jpg',
+          ResponseContentDisposition: 'attachment',
+          ResponseContentType: 'image/jpeg',
+        }),
+      );
+      expect(url).toBe(MOCK_PRESIGNED_URL);
+    });
+
+    it('calls GetObjectCommand with ResponseCacheControl=no-store for SVG mimeType (R4)', async () => {
+      const svc = makeService();
+      await svc.getSignedUrl('icons/logo.svg', 300, 'image/svg+xml');
+
+      expect(GetObjectCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ResponseContentDisposition: 'attachment',
+          ResponseContentType: 'image/svg+xml',
+          ResponseCacheControl: 'no-store',
+        }),
+      );
+    });
+
+    it('does NOT set ResponseCacheControl for non-SVG mimeType (R4)', async () => {
+      const svc = makeService();
+      await svc.getSignedUrl('products/p1/photo.jpg', 300, 'image/jpeg');
+
+      const MockedGetObjectCommand = GetObjectCommand as unknown as jest.Mock;
+      const callArg = MockedGetObjectCommand.mock.calls[0][0];
+      expect(callArg).not.toHaveProperty('ResponseCacheControl');
+    });
+
+    it('extracts key from a full public URL before passing to GetObjectCommand (R1 compat)', async () => {
+      const svc = makeService();
+      await svc.getSignedUrl(
+        'http://localhost:9000/media-bucket/products/p1/test.jpg',
+        300,
+        'image/jpeg',
+      );
+
+      expect(GetObjectCommand).toHaveBeenCalledWith(
+        expect.objectContaining({ Key: 'products/p1/test.jpg' }),
+      );
+    });
+
+    it('passes ttl to awsGetSignedUrl as expiresIn option', async () => {
+      const svc = makeService();
+      await svc.getSignedUrl('products/p1/test.jpg', 600);
+
+      expect(mockAwsGetSignedUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ expiresIn: 600 }),
+      );
+    });
+
+    it('works without mimeType (omits ResponseContentType and ResponseCacheControl)', async () => {
+      const svc = makeService();
+      await svc.getSignedUrl('products/p1/test.jpg', 300);
+
+      const MockedGetObjectCommand = GetObjectCommand as unknown as jest.Mock;
+      const callArg = MockedGetObjectCommand.mock.calls[0][0];
+      expect(callArg).not.toHaveProperty('ResponseContentType');
+      expect(callArg).not.toHaveProperty('ResponseCacheControl');
+      expect(callArg.ResponseContentDisposition).toBe('attachment');
     });
   });
 });

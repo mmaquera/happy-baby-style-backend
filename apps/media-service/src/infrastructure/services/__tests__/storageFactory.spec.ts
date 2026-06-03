@@ -109,7 +109,7 @@ describe('storage factory (STORAGE_DRIVER selector)', () => {
     expect(svc).toBeInstanceOf(S3StorageService);
   });
 
-  it('both drivers satisfy IStorageService interface (uploadFile, deleteFile, getPublicUrl, validateFile, getBucketName)', () => {
+  it('both drivers satisfy IStorageService interface (uploadFile, deleteFile, getPublicUrl, validateFile, getBucketName, getSignedUrl)', () => {
     // local
     const local = createStorageService();
     expect(typeof local.uploadFile).toBe('function');
@@ -117,6 +117,7 @@ describe('storage factory (STORAGE_DRIVER selector)', () => {
     expect(typeof local.getPublicUrl).toBe('function');
     expect(typeof local.validateFile).toBe('function');
     expect(typeof local.getBucketName).toBe('function');
+    expect(typeof local.getSignedUrl).toBe('function');
     expect(local.getBucketName()).toBe('local');
 
     // s3
@@ -128,6 +129,7 @@ describe('storage factory (STORAGE_DRIVER selector)', () => {
     expect(typeof s3.getPublicUrl).toBe('function');
     expect(typeof s3.validateFile).toBe('function');
     expect(typeof s3.getBucketName).toBe('function');
+    expect(typeof s3.getSignedUrl).toBe('function');
     expect(s3.getBucketName()).toBe('media-bucket');
   });
 });

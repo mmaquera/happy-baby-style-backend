@@ -197,6 +197,30 @@ export class LocalStorageService implements IStorageService {
     return 'local';
   }
 
+  /**
+   * R6 — Local driver does not sign URLs; the bucket is always public.
+   * Returns the plain public URL so that GetSignedUrlUseCase works without a
+   * real S3 backend in tests and local dev.
+   *
+   * Key normalisation:
+   *   - Already absolute URL → return as-is (already includes host + path).
+   *   - Already prefixed with the uploadDir ('uploads/...') → prepend baseUrl only.
+   *   - Raw storage key (e.g. 'products/p1/file.jpg', no uploadDir prefix) →
+   *     prepend both baseUrl and uploadDir so the URL matches the Express static mount.
+   */
+  async getSignedUrl(key: string, _ttl: number, _mimeType?: string): Promise<string> {
+    if (key.startsWith('http://') || key.startsWith('https://')) {
+      return key;
+    }
+    const uploadDir = storageConfig.uploadDir; // 'uploads' by default
+    // If the key already contains the uploads dir prefix, avoid doubling it.
+    if (key.startsWith(`${uploadDir}/`) || key === uploadDir) {
+      return `${this.baseUrl}/${key}`;
+    }
+    // Raw storage key from image.path (e.g. 'products/p1/file.jpg') — prepend uploadDir.
+    return `${this.baseUrl}/${uploadDir}/${key}`;
+  }
+
   private async ensureDirectoryExists(dirPath: string): Promise<void> {
     try {
       await stat(dirPath);

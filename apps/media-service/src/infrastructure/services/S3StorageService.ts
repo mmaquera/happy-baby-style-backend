@@ -1,4 +1,5 @@
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl as awsGetSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Readable } from 'stream';
 import { IStorageService } from '../../domain/interfaces/IStorageService';
@@ -191,8 +192,52 @@ export class S3StorageService implements IStorageService {
     return this.config.bucket;
   }
 
+  /**
+   * R6 — Generate a presigned GET URL for the given storage key.
+   *
+   * R4 headers applied to the GetObjectCommand:
+   *   - ResponseContentDisposition: 'attachment'         — force browser download, no inline rendering
+   *   - ResponseContentType: <mimeType>                  — serve the correct MIME to the client
+   *   - ResponseCacheControl: 'no-store' (SVG only)      — prevent caching of potentially-dangerous SVG
+   *
+   * The TTL cap (60–3600 s) is enforced by GetSignedUrlUseCase; this method trusts the caller.
+   */
+  async getSignedUrl(key: string, ttl: number, mimeType?: string): Promise<string> {
+    const resolvedKey = this.extractKeyFromUrl(key);
+
+    const commandParams: Record<string, string> = {
+      Bucket: this.config.bucket,
+      Key: resolvedKey,
+      // R4 — content disposition: always force attachment (prevents inline SVG/HTML execution)
+      ResponseContentDisposition: 'attachment',
+    };
+
+    // R4 — content type: include it in the presigned URL so the browser gets the right MIME
+    if (mimeType) {
+      commandParams['ResponseContentType'] = mimeType;
+    }
+
+    // R4 — SVG-specific cache control: no-store to prevent cached malicious payload surviving sanitizer updates
+    if (mimeType === 'image/svg+xml') {
+      commandParams['ResponseCacheControl'] = 'no-store';
+    }
+
+    const command = new GetObjectCommand(commandParams as any);
+
+    const url = await awsGetSignedUrl(this.client, command, { expiresIn: ttl });
+
+    this.logger.info('Presigned URL generated', {
+      key: resolvedKey,
+      bucket: this.config.bucket,
+      ttl,
+      mimeType,
+    });
+
+    return url;
+  }
+
   // ---------------------------------------------------------------------------
-  // Private helpers
+  // Helpers (public so GetSignedUrlUseCase can reuse key extraction without duplication)
   // ---------------------------------------------------------------------------
 
   /**
@@ -201,8 +246,9 @@ export class S3StorageService implements IStorageService {
    *   - A raw key path: already the key (no protocol prefix)
    *
    * The public URL base may end with a trailing slash or not — we handle both.
+   * Exposed as public to allow reuse in GetSignedUrlUseCase (R note: no duplication).
    */
-  private extractKeyFromUrl(fileUrl: string): string {
+  public extractKeyFromUrl(fileUrl: string): string {
     if (!fileUrl) return '';
 
     // Full URL case: strip the publicUrl prefix (with or without trailing slash)

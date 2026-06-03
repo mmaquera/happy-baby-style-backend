@@ -196,14 +196,16 @@ describe('createResolvers — RBAC guards (Control 2)', () => {
       expect(result.success).toBe(true);
     });
 
-    it('guard is case-insensitive for entityType (Finding 6)', async () => {
-      // entityType='USER' (uppercase) should still route to the owner check, not management check
+    it('routes entityType=user (lowercase enum value) to owner check (R5 — SDL enum now enforces casing)', async () => {
+      // R5: entityType is now ImageEntityType! enum in the SDL; GraphQL rejects non-enum values
+      // (e.g. 'USER') before the resolver runs. This test verifies the resolver guard using the
+      // canonical lowercase enum value as Apollo would pass it.
       const customer = makeCustomer('user-42');
       const ctx = makeContext(customer);
-      // customer uploading their own avatar with uppercase entityType — should succeed
+      // customer uploading their own avatar with canonical enum value — should succeed
       const result = await resolvers.Mutation.uploadImage(
         {},
-        { file: makeFakeFile(), entityType: 'USER', entityId: 'user-42' },
+        { file: makeFakeFile(), entityType: 'user', entityId: 'user-42' },
         ctx,
       );
       expect(result.success).toBe(true);

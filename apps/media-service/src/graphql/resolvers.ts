@@ -5,6 +5,7 @@ import { UploadImageUseCase } from '../application/use-cases/UploadImageUseCase'
 import { UploadSvgUseCase } from '../application/use-cases/UploadSvgUseCase';
 import { DeleteImageUseCase } from '../application/use-cases/DeleteImageUseCase';
 import { DeleteSvgUseCase } from '../application/use-cases/DeleteSvgUseCase';
+import { GetSignedUrlUseCase } from '../application/use-cases/GetSignedUrlUseCase';
 import { ResponseFactory, RESPONSE_CODES, DomainError } from '@hbs/shared-kernel';
 import { ImageEntityType } from '../domain/entities/Image';
 import { SvgEntityType } from '../domain/entities/Svg';
@@ -36,6 +37,20 @@ function requireOwnerOrMediaAdmin(
   // Delegates entirely to the library guard which checks groups='administrators'
   // or userId===ownerId.
   assertOwnerOrAdmin(currentUser, ownerId);
+}
+
+// ── JWT guard placeholder (R3) ───────────────────────────────────────────────
+// Defined but NOT called while the bucket is public (Fase ②).
+// Activate in Fase 4b when the bucket switches to private:
+//   1. Call requireJWT(context?.currentUser) at the top of signedImageUrl resolver.
+//   2. Remove anonymous MinIO access: `mc anonymous remove <alias>/<bucket>`.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function requireJWT(currentUser: TokenPayload | null | undefined): void {
+  if (!currentUser) {
+    throw new GraphQLError('Authentication required', {
+      extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+    });
+  }
 }
 
 const STORAGE_BASE_URL = process.env.STORAGE_BASE_URL || 'http://localhost:3001';
@@ -72,6 +87,8 @@ export function createResolvers(
   // ITEM E — delete use cases coordinate storage + DB deletion (Clean Architecture).
   const deleteImageUseCase = new DeleteImageUseCase(imageRepository, storageService);
   const deleteSvgUseCase = new DeleteSvgUseCase(svgRepository, storageService);
+  // Presigned URL use case — R1/R2/R5 enforced inside the use case.
+  const getSignedUrlUseCase = new GetSignedUrlUseCase(imageRepository, storageService);
 
   return {
     Query: {
@@ -137,6 +154,39 @@ export function createResolvers(
       svgsCount: async () => {
         return svgRepository.count();
       },
+
+      signedImageUrl: async (
+        _: any,
+        { id, ttl }: { id: string; ttl?: number },
+        context: any,
+      ) => {
+        // R3 — JWT guard placeholder.
+        // Activate in Fase 4b when the bucket becomes private (mc anonymous remove):
+        //   requireJWT(context?.currentUser)
+        // The query is intentionally PUBLIC while the bucket is public (Fase ②).
+        const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
+        const traceId = `signed-url-${Date.now()}-${id}`;
+
+        try {
+          const result = await getSignedUrlUseCase.execute({ id, ttl, currentUser: context?.currentUser ?? null });
+
+          return ResponseFactory.createSuccessResponse(
+            { signedUrl: result.signedUrl, ttl: result.ttl, imageId: result.imageId },
+            'Presigned URL generated',
+            RESPONSE_CODES.SUCCESS,
+            { requestId, traceId },
+          );
+        } catch (error: any) {
+          if (error instanceof DomainError) throw error;
+
+          return ResponseFactory.createErrorResponse(
+            'Failed to generate presigned URL',
+            RESPONSE_CODES.INTERNAL_ERROR,
+            { operation: 'signedImageUrl', id },
+            { requestId, traceId },
+          );
+        }
+      },
     },
 
     Mutation: {
@@ -145,13 +195,15 @@ export function createResolvers(
         { file, entityType, entityId }: { file: any; entityType: string; entityId: string },
         context: any,
       ) => {
-        // Normalize entityType — schema uses String! not an enum, so clients could
-        // send 'USER' or 'User'. Normalize to lowercase before guard comparison.
-        const normalizedEntityType = entityType?.toLowerCase();
+        // R5 — SDL now declares entityType: ImageEntityType! (enum), so GraphQL rejects values
+        // not in the enum before this resolver runs (e.g. arbitrary strings, uppercase variants).
+        // As a backstop for stale SDL propagation or direct resolver calls in tests, we compare
+        // the string value directly against the enum constant (no toLowerCase() normalization).
+        // If somehow an unrecognised string arrives, the management guard blocks it.
 
         // Control 2 — RBAC guard: user uploads are owner-only; all other entity types
-        // require media management access (administrators / legacy ADMIN).
-        if (normalizedEntityType === 'user') {
+        // require media management access.
+        if (entityType === ImageEntityType.USER) {
           requireOwnerOrMediaAdmin(context?.currentUser, entityId);
         } else {
           requireMediaManagementAccess(context?.currentUser);
@@ -226,12 +278,13 @@ export function createResolvers(
         },
         context: any,
       ) => {
-        // Normalize entityType — schema uses String! not an enum.
-        const normalizedEntityType = entityType?.toLowerCase();
+        // R5 — SDL now declares entityType: SvgEntityType! (enum), so GraphQL rejects values
+        // not in the enum before this resolver runs. String comparison against enum constant
+        // (no toLowerCase()): SDL values are lowercase, enum values are lowercase.
 
         // Control 2 — RBAC guard: user SVGs (avatars) are owner-only; icons/logos/
         // product/category SVGs require media management access.
-        if (normalizedEntityType === 'user') {
+        if (entityType === SvgEntityType.USER) {
           requireOwnerOrMediaAdmin(context?.currentUser, entityId);
         } else {
           requireMediaManagementAccess(context?.currentUser);
