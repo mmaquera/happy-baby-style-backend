@@ -270,6 +270,12 @@ pnpm run docker:up && docker logs order-service -f | grep record-rule
 - ~~**A2 — Drop `user_profiles.role`**~~ ✅ **DONE** (2026-06-02): columna + enum `UserRole` eliminados; `TokenPayload`/login/guards sin `role`; usuarios reciben grupo `customer` por defecto; verificado end-to-end (JWT sin `role`, login OK).
 - ~~**user-service snapshot-on-boot**~~ ✅ resuelto (by-design): usa `PrismaRecordRuleSource` (lee `record_rules` de su propia DB en boot), no necesita el fetch HTTP. **Phase C cerrada.**
 
+**Ola FE-0 — campos fiscales SUNAT (✅ implementada 2026-06-02):** doc tributario del cliente (`user_fiscal_profiles` 1:1, tipo GraphQL `UserFiscalProfile` aislado) + afectación IGV del producto (`taxAffectation` enum, default `gravado`) + snapshot `billing_*` inmutable en la orden. 3 servicios verdes, security sign-off OK. Desbloquea Oleada 0 del FE y es prerequisito de datos maestros para invoicing-service. Deuda de seguimiento (resolver **antes de arrancar invoicing-service**):
+- **W-2 (prereq hard de invoicing)**: `UserFiscalProfile @key(fields:"id")` declarado SIN `__resolveReference` → cuando invoicing-service haga el stub de este tipo y lo referencie por `id`, Apollo Federation devolverá `null` silencioso. Implementar `__resolveReference` (vía `getFiscalProfileUseCase`) **en el mismo ciclo** en que se añada el stub en invoicing.
+- **W-1 (higiene de capas)**: puerto `IFiscalProfileTransactionRunner` vive en `application/use-cases/user/` en vez de `domain/ports/` (mismo desvío que `PrismaUserFavoritesRepository`). Mover a domain.
+- **F-4 (diferido, decisión de diseño)**: `documentNumber` se devuelve completo en el DTO a admin/customer-service (no enmascarado para no-owner). Revisar cuando customer-service entre en operación.
+- **Atado a A1**: el partial-unique de RUC (`WHERE document_type='ruc'`) vive en SQL crudo de la migración `0004` y **no se aplica bajo `db push`** → la unicidad de RUC depende del guard app-level (TOCTOU best-effort en `UpdateFiscalProfileUseCase`) hasta migrar a `migrate deploy`. Cerrar junto con A1.
+
 **Pre-prod (urgencia baja sin prod):** stream consumer lag metrics (`record-rules-updated` + `order-events`); outbox transaccional (`XADD` post-commit puede perder eventos); CI `ci.yml` (6.1); secrets + MinIO bucket privado/presigned.
 
 **Higiene / QA (no bloquea):** `console.error`→`ILogger` en `PrismaAuthRepository`; limpiar log engañoso `snapshot-fetcher.ts:74`; items 7.12/7.14 (**7.13 ✅ resuelto**: clientes Prisma per-servicio + ban ESLint de `@prisma/client`); Bruno backfill (~110 ops + canarios de caso-negativo).
@@ -384,6 +390,9 @@ Prioridad de adopción: **payment → invoicing → inventory → shipping → p
 
 **No es un módulo genérico**: es regulatorio y específico de SUNAT. Equivale a `l10n_pe_edi` en Odoo.
 
+**Prerequisitos ya resueltos por la Ola FE-0** (datos maestros fiscales — ver *Known backlog*): doc tributario del adquiriente (`UserFiscalProfile`: RUC/DNI/CE + razón social) y afectación IGV por producto (`taxAffectation`). El comprobante lee el snapshot `billing_*` inline de la orden (no consulta user-service en runtime).
+**Deuda FE-0 a cerrar al arrancar este servicio (bloqueante):** implementar `__resolveReference` de `UserFiscalProfile` (item **W-2**) en el mismo ciclo en que invoicing añada el stub de ese tipo federado; sin él, la resolución por `id` devuelve `null` silencioso.
+
 **Comprobantes a soportar:**
 - **Factura** (serie `F001`, correlativo) — ventas con RUC.
 - **Boleta de Venta** (serie `B001`) — consumidor final (DNI o sin documento).
@@ -465,7 +474,7 @@ before launching agents, list which ones will run, in what order, and wait for a
 
 | Trigger                                                            | Agent                   | Owns during execution                                                                  |
 |--------------------------------------------------------------------|-------------------------|----------------------------------------------------------------------------------------|
-| Functional/product scope, feature prioritization, Odoo-process → requirement mapping, state-machine/RBAC scoping, user stories — the WHAT & WHY before any code | odoo-product-owner | Defines functional scope, MVP vs nice-to-have, acceptance criteria, FE/backend boundary. No architecture, no code. Hands the functional requirement to microservices-architect. |
+| Functional/product scope, feature prioritization, Odoo-process → requirement mapping, state-machine/RBAC scoping, user stories — the WHAT & WHY before any code; also consultative Odoo questions ("how does Odoo's `stock`/`account` module work", "how would Odoo model this") | odoo-product-owner | Defines functional scope, MVP vs nice-to-have, acceptance criteria, service boundary. Also gives functional-only opinions on Odoo modules/processes (no handoff for pure-knowledge questions). No architecture, no code. Hands the functional requirement to microservices-architect. |
 | /plan, /ultrareview, cross-service design, federation, supergraph  | microservices-architect | Splits plan into tasks, assigns specialists, runs `/ultrareview`, decides re-work.     |
 | Use cases, resolvers, repositories, adapters, messaging, refactors | backend-expert          | Implements application/infrastructure/graphql layers + Jest tests. No Prisma schema.   |
 | Prisma schema, migrations, indexes, N+1, query optimization        | database-expert         | Owns schema, migrations, indexes, repo query shape. Hands typed interface to backend.  |
@@ -480,8 +489,10 @@ Fallback to `general-purpose` only when no specialist fits.
 ### Workflow (post-/plan approval)
 
 0. **odoo-product-owner** (when scope is unclear or the feature is new): defines functional scope,
-   prioritization, acceptance criteria, and the FE/backend boundary → hands the functional requirement
+   prioritization, acceptance criteria, and the service boundary → hands the functional requirement
    to **architect**. Skip for purely technical tasks (refactors, perf, infra) where the WHAT is settled.
+   Can also run standalone (outside this build workflow) to answer consultative Odoo functional questions —
+   no handoff needed for pure-knowledge queries.
 1. **architect** splits approved plan into per-agent tasks → posts dispatch list → waits for approval.
 2. Independent tasks run in parallel (one message, multiple Agent calls); sequential when an
    agent's output feeds the next (e.g. db schema → backend repo). Never run two agents that
@@ -496,7 +507,7 @@ from invoking the same skill with conflicting intent.
 
 | Agent                   | Primary skills                                              | Scope restriction                                |
 |-------------------------|-------------------------------------------------------------|--------------------------------------------------|
-| odoo-product-owner      | `odoo-functional-consultant`                               | Functional/product decisions only — no architecture, no code, no schema. Defines the WHAT/WHY, then escalates the HOW to architect/specialists. |
+| odoo-product-owner      | `odoo-functional-consultant`                               | Functional/product decisions + consultative Odoo functional advice only — no architecture, no code, no schema. Defines the WHAT/WHY (or gives a functional Odoo opinion), then escalates the HOW to architect/specialists. |
 | microservices-architect | `senior-architect`, `database-architect`, `senior-security`, `code-review` | DB: design decisions only, not schema/indexes. Security: threat modeling only, not pentest. |
 | backend-expert          | `senior-backend`, `verify`, `run`, `code-review`            | No auth/authz decisions — escalate to security-analyst. |
 | database-expert         | `database-architect` (owner), `senior-backend`              | `senior-backend`: query context only.            |
