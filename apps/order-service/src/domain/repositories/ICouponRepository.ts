@@ -28,6 +28,38 @@ export interface CouponUsageData {
   usedAt: Date;
 }
 
+export interface CreateCouponData {
+  code: string;
+  name: string;
+  description?: string;
+  discountType: string;
+  discountValue: number;
+  minimumAmount?: number;
+  maximumDiscount?: number;
+  usageLimit?: number;
+  validFrom: Date;
+  validUntil: Date;
+  isActive?: boolean;
+  isFirstTimeOnly?: boolean;
+  applicableCategories?: string[];
+  applicableProducts?: string[];
+}
+
+export interface UpdateCouponData {
+  name?: string;
+  description?: string;
+  discountValue?: number;
+  minimumAmount?: number | null;
+  maximumDiscount?: number | null;
+  usageLimit?: number | null;
+  validFrom?: Date;
+  validUntil?: Date;
+  isActive?: boolean;
+  isFirstTimeOnly?: boolean;
+  applicableCategories?: string[];
+  applicableProducts?: string[];
+}
+
 export interface ICouponRepository {
   /**
    * List all coupons (including inactive ones).
@@ -54,4 +86,19 @@ export interface ICouponRepository {
    * Callers must apply owner-or-management guard before calling.
    */
   findUsageByUserId(userId: string): Promise<CouponUsageData[]>;
+
+  /** Create a new coupon. Throws Prisma P2002 on duplicate code. */
+  create(data: CreateCouponData): Promise<CouponData>;
+
+  /** Update an existing coupon. Throws Prisma P2025 when not found. */
+  update(id: string, data: UpdateCouponData): Promise<CouponData>;
+
+  /** Delete a coupon. Returns true on success; throws Prisma P2025 when not found. */
+  delete(id: string): Promise<boolean>;
+
+  /**
+   * Returns active coupons valid at the given timestamp.
+   * PUBLIC — no auth required. Used by storefront coupon discovery.
+   */
+  findAllActive(asOf: Date): Promise<CouponData[]>;
 }

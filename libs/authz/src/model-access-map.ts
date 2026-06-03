@@ -74,6 +74,12 @@ export const MODEL_ACCESS_MAP: Record<string, Record<ModelOperation, string>> = 
     write: 'manage:system',
     unlink: 'manage:system',
   },
+  TaxRate: {
+    create: 'manage:system',
+    read: 'read:order',
+    write: 'manage:system',
+    unlink: 'manage:system',
+  },
   StoreSettings: {
     create: 'manage:system',
     read: 'manage:system',

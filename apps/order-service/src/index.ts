@@ -14,11 +14,18 @@ import { StreamRecordRuleSource, RecordRuleResolver, RecordRulesEventsConsumer, 
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaOrderRepository } from './infrastructure/repositories/PrismaOrderRepository';
+import { PrismaSequenceRepository } from './infrastructure/repositories/PrismaSequenceRepository';
+import { PrismaOrderAuditRepository } from './infrastructure/repositories/PrismaOrderAuditRepository';
 import { PrismaPaymentMethodRepository } from './infrastructure/repositories/PrismaPaymentMethodRepository';
 import { PrismaShoppingCartRepository } from './infrastructure/repositories/PrismaShoppingCartRepository';
 import { PrismaTransactionRepository } from './infrastructure/repositories/PrismaTransactionRepository';
 import { PrismaCouponRepository } from './infrastructure/repositories/PrismaCouponRepository';
 import { PrismaStoreSettingsRepository } from './infrastructure/repositories/PrismaStoreSettingsRepository';
+import { PrismaCarrierRepository } from './infrastructure/repositories/PrismaCarrierRepository';
+import { PrismaShippingZoneRepository } from './infrastructure/repositories/PrismaShippingZoneRepository';
+import { PrismaShippingRateRepository } from './infrastructure/repositories/PrismaShippingRateRepository';
+import { PrismaDeliverySlotRepository } from './infrastructure/repositories/PrismaDeliverySlotRepository';
+import { PrismaTaxRateRepository } from './infrastructure/repositories/PrismaTaxRateRepository';
 import { HttpProductValidationAdapter } from './infrastructure/adapters/HttpProductValidationAdapter';
 import { RedisEventPublisher } from './infrastructure/adapters/RedisEventPublisher';
 
@@ -117,11 +124,19 @@ async function start() {
   await rbacConsumer.start();
 
   const orderRepository = new PrismaOrderRepository(prisma, recordRuleResolver);
+  const sequenceRepository = new PrismaSequenceRepository(prisma);
+  const auditRepository = new PrismaOrderAuditRepository(prisma);
   const paymentMethodRepository = new PrismaPaymentMethodRepository(prisma, recordRuleResolver);
   const cartRepository = new PrismaShoppingCartRepository(prisma);
   const transactionRepository = new PrismaTransactionRepository(prisma);
   const couponRepository = new PrismaCouponRepository(prisma);
   const storeSettingsRepository = new PrismaStoreSettingsRepository(prisma);
+  // Config-admin repositories — mutations guarded by assertModelAccess at resolver layer
+  const carrierRepository = new PrismaCarrierRepository(prisma);
+  const shippingZoneRepository = new PrismaShippingZoneRepository(prisma);
+  const shippingRateRepository = new PrismaShippingRateRepository(prisma);
+  const deliverySlotRepository = new PrismaDeliverySlotRepository(prisma);
+  const taxRateRepository = new PrismaTaxRateRepository(prisma);
   const productValidation = new HttpProductValidationAdapter(PRODUCT_SERVICE_URL);
   const eventPublisher = new RedisEventPublisher(redisClient);
 
@@ -129,12 +144,18 @@ async function start() {
     orderRepository,
     productValidation,
     eventPublisher,
-    prisma,
     paymentMethodRepository,
     cartRepository,
     transactionRepository,
     couponRepository,
     storeSettingsRepository,
+    sequenceRepository,
+    auditRepository,
+    carrierRepository,
+    shippingZoneRepository,
+    shippingRateRepository,
+    deliverySlotRepository,
+    taxRateRepository,
   );
 
   const authPlugin = {

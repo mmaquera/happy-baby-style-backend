@@ -1,4 +1,4 @@
-import { IProductValidationPort, ProductInfo } from '../../domain/ports/IProductValidationPort';
+import { IProductValidationPort, ProductInfo, TaxAffectation } from '../../domain/ports/IProductValidationPort';
 import { LoggerFactory, ILogger } from '@hbs/logging';
 
 const PRODUCT_QUERY = `
@@ -9,12 +9,14 @@ const PRODUCT_QUERY = `
       isActive
       price
       stockQuantity
+      taxAffectation
       variants {
         id
         attributes
         stockQuantity
         price
         isActive
+        taxAffectation
       }
     }
   }
@@ -53,12 +55,23 @@ export class HttpProductValidationAdapter implements IProductValidationPort {
       const product = json.data?.product;
       if (!product) return null;
 
+      // Normalize taxAffectation: only accept known values; default null for
+      // product-service deployments that haven't been updated yet (retro-compat).
+      const validAffectations = new Set<string>(['gravado', 'exonerado', 'inafecto']);
+      const normalizeTaxAffectation = (raw: unknown): TaxAffectation | null => {
+        if (typeof raw === 'string' && validAffectations.has(raw)) {
+          return raw as TaxAffectation;
+        }
+        return null;
+      };
+
       return {
         id: product.id,
         name: product.name,
         isActive: product.isActive ?? true,
         price: Number(product.price) || 0,
         stockQuantity: Number(product.stockQuantity) || 0,
+        taxAffectation: normalizeTaxAffectation(product.taxAffectation),
         variants: (product.variants || []).map((v: any) => ({
           id: v.id,
           size: v.attributes?.size,
@@ -66,6 +79,7 @@ export class HttpProductValidationAdapter implements IProductValidationPort {
           stockQuantity: Number(v.stockQuantity) || 0,
           price: Number(v.price) || 0,
           isActive: v.isActive ?? true,
+          taxAffectation: normalizeTaxAffectation(v.taxAffectation),
         })),
       };
     } catch (error) {

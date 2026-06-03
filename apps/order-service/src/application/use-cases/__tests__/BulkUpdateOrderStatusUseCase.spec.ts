@@ -33,10 +33,11 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
     id: 'ord-1',
     userId: 'user-1',
-    orderNumber: 'ORD-001',
+    orderNumber: 'ORD-2026-000001',
     customerEmail: 'owner@test.com',
     customerName: 'Test User',
     status: 'confirmed',
+    paymentStatus: 'pending',
     subtotal: 100,
     taxAmount: 0,
     shippingAmount: 0,

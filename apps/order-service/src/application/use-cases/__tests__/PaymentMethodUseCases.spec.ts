@@ -177,7 +177,7 @@ describe('UpdatePaymentMethodUseCase', () => {
 // ---------------------------------------------------------------------------
 
 describe('DeletePaymentMethodUseCase', () => {
-  it('loads the PaymentMethod, asserts unlink access, then deletes', async () => {
+  it('loads the PaymentMethod, asserts unlink access, then deletes — returns ambiguous SuccessResponse (M-2)', async () => {
     const repo = makeRepo();
     const uc = new DeletePaymentMethodUseCase(repo);
 
@@ -186,19 +186,23 @@ describe('DeletePaymentMethodUseCase', () => {
     expect(repo.findById).toHaveBeenCalledWith('pm-1');
     expect(repo.assertOrderWriteAccess).toHaveBeenCalledWith('ord-1', 'unlink', makeUser());
     expect(repo.delete).toHaveBeenCalledWith('pm-1');
-    expect(result).toBe(true);
+    // M-2 anti-enumeration: always returns the same SuccessResponse.
+    expect(result).toEqual({ success: true, message: 'Operation completed' });
   });
 
-  it('throws NotFoundError when PaymentMethod does not exist', async () => {
+  it('returns ambiguous SuccessResponse when PaymentMethod does not exist (M-2: no existence confirmation)', async () => {
     const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
     const uc = new DeletePaymentMethodUseCase(repo);
 
-    await expect(uc.execute('pm-x', makeUser())).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute('pm-x', makeUser());
+
+    // M-2: never reveals whether record existed.
+    expect(result).toEqual({ success: true, message: 'Operation completed' });
     expect(repo.assertOrderWriteAccess).not.toHaveBeenCalled();
     expect(repo.delete).not.toHaveBeenCalled();
   });
 
-  it('throws NotFoundError when the parent Order denies unlink access (BOLA denial)', async () => {
+  it('rethrows NotFoundError from assertOrderWriteAccess (BOLA denial — caller is not owner)', async () => {
     const repo = makeRepo({
       assertOrderWriteAccess: jest.fn().mockRejectedValue(new NotFoundError('Order', 'ord-1')),
     });

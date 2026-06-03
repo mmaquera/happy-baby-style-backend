@@ -1,12 +1,18 @@
-import { PrismaClient } from '../prisma';
 import type { TokenPayload } from '@hbs/auth';
 
 import { IOrderRepository } from '../domain/repositories/IOrderRepository';
+import { IOrderAuditRepository } from '../domain/repositories/IOrderAuditRepository';
+import { ISequenceRepository } from '../domain/repositories/ISequenceRepository';
 import { IPaymentMethodRepository } from '../domain/repositories/IPaymentMethodRepository';
 import { IShoppingCartRepository } from '../domain/repositories/IShoppingCartRepository';
 import { ITransactionRepository } from '../domain/repositories/ITransactionRepository';
 import { ICouponRepository } from '../domain/repositories/ICouponRepository';
 import { IStoreSettingsRepository } from '../domain/repositories/IStoreSettingsRepository';
+import { ICarrierRepository } from '../domain/repositories/ICarrierRepository';
+import { IShippingZoneRepository } from '../domain/repositories/IShippingZoneRepository';
+import { IShippingRateRepository } from '../domain/repositories/IShippingRateRepository';
+import { IDeliverySlotRepository } from '../domain/repositories/IDeliverySlotRepository';
+import { ITaxRateRepository } from '../domain/repositories/ITaxRateRepository';
 import { IProductValidationPort } from '../domain/ports/IProductValidationPort';
 import { IEventPublisher } from '../domain/ports/IEventPublisher';
 
@@ -14,6 +20,7 @@ import { CreateOrderUseCase } from '../application/use-cases/CreateOrderUseCase'
 import { GetOrdersUseCase } from '../application/use-cases/GetOrdersUseCase';
 import { GetOrderByIdUseCase } from '../application/use-cases/GetOrderByIdUseCase';
 import { UpdateOrderUseCase } from '../application/use-cases/UpdateOrderUseCase';
+import { DeleteOrderUseCase } from '../application/use-cases/DeleteOrderUseCase';
 import { BulkUpdateOrderStatusUseCase } from '../application/use-cases/BulkUpdateOrderStatusUseCase';
 import { GetOrderStatsUseCase } from '../application/use-cases/GetOrderStatsUseCase';
 import { CreatePaymentMethodUseCase } from '../application/use-cases/CreatePaymentMethodUseCase';
@@ -42,18 +49,54 @@ import {
   GetUserCouponUsageUseCase,
 } from '../application/use-cases/GetCouponUseCase';
 import {
+  CreateCouponUseCase,
+  UpdateCouponUseCase,
+  DeleteCouponUseCase,
+  GetActiveCouponsUseCase,
+} from '../application/use-cases/CouponAdminUseCases';
+import {
   GetStoreSettingsUseCase,
   GetStoreSettingByKeyUseCase,
 } from '../application/use-cases/GetStoreSettingsUseCase';
+import {
+  GetCarriersUseCase,
+  GetCarrierByIdUseCase,
+  CreateCarrierUseCase,
+  UpdateCarrierUseCase,
+  DeleteCarrierUseCase,
+} from '../application/use-cases/CarrierAdminUseCases';
+import {
+  GetShippingZonesUseCase,
+  GetShippingZoneByIdUseCase,
+  CreateShippingZoneUseCase,
+  UpdateShippingZoneUseCase,
+  DeleteShippingZoneUseCase,
+} from '../application/use-cases/ShippingZoneAdminUseCases';
+import {
+  GetShippingRatesByZoneUseCase,
+  CreateShippingRateUseCase,
+  UpdateShippingRateUseCase,
+  DeleteShippingRateUseCase,
+} from '../application/use-cases/ShippingRateAdminUseCases';
+import {
+  GetDeliverySlotsUseCase,
+  CreateDeliverySlotUseCase,
+  UpdateDeliverySlotUseCase,
+  DeleteDeliverySlotUseCase,
+} from '../application/use-cases/DeliverySlotAdminUseCases';
+import {
+  GetTaxRatesUseCase,
+  GetTaxRateByIdUseCase,
+  CreateTaxRateUseCase,
+  UpdateTaxRateUseCase,
+  DeleteTaxRateUseCase,
+} from '../application/use-cases/TaxRateAdminUseCases';
 
 // ── Canonical guard — single source of truth for management group list ────────
-// Use assertOrderManagementAccess (throws GraphQLError UNAUTHENTICATED/FORBIDDEN) for
-// direct resolver guards (orders, orderStats, ordersByStatus). Use cases call the same
-// exported helpers from this module so both paths share one definition.
 import { assertOrderManagementAccess } from '../application/use-cases/guards/orderAuthGuards';
 
 import { assertModelAccess } from '@hbs/authz';
-import { NotFoundError, ForbiddenError, ValidationError } from '@hbs/shared-kernel';
+import { NotFoundError, ForbiddenError, ValidationError, DuplicateError } from '@hbs/shared-kernel';
 import { GraphQLError } from 'graphql';
 
 // ── Shared error mapper ───────────────────────────────────────────────────────
@@ -74,9 +117,20 @@ function mapDomainError(error: unknown): never {
       extensions: { code: 'BAD_USER_INPUT', http: { status: 400 } },
     });
   }
+  if (error instanceof DuplicateError) {
+    throw new GraphQLError(error.message, {
+      extensions: { code: 'CONFLICT', http: { status: 409 } },
+    });
+  }
   // GraphQLError (UNAUTHENTICATED / FORBIDDEN from use-case guards) passes through as-is.
   if (error instanceof GraphQLError) {
     throw error;
+  }
+  // Prisma P2025 on update/delete of nonexistent record → ambiguous 404.
+  if ((error as any)?.code === 'P2025') {
+    throw new GraphQLError('Record not found', {
+      extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+    });
   }
   throw error;
 }
@@ -90,9 +144,17 @@ function transformOrder(order: any) {
     updatedAt: order.updatedAt instanceof Date ? order.updatedAt.toISOString() : order.updatedAt,
     deliveredAt:
       order.deliveredAt instanceof Date ? order.deliveredAt.toISOString() : order.deliveredAt,
+    // IGV accumulators — SDL declares Decimal! (non-null); default 0 for historic orders
+    // where DB values are 0 (set by migration DEFAULT 0).
+    taxableAmount: order.taxableAmount ?? 0,
+    exemptAmount: order.exemptAmount ?? 0,
+    nonTaxableAmount: order.nonTaxableAmount ?? 0,
+    igvAmount: order.igvAmount ?? 0,
     items: (order.items || []).map((item: any) => ({
       ...item,
       createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+      // Fiscal snapshot — SDL declares taxAffectation: TaxAffectation! (non-null)
+      taxAffectation: item.taxAffectation ?? 'gravado',
     })),
   };
 }
@@ -159,6 +221,10 @@ function transformDeliverySlot(s: any) {
   return { ...s, createdAt: toIso(s.createdAt), updatedAt: toIso(s.updatedAt) };
 }
 
+function transformTaxRate(r: any) {
+  return { ...r, rate: Number(r.rate), createdAt: toIso(r.createdAt), updatedAt: toIso(r.updatedAt) };
+}
+
 function transformCartItem(item: any) {
   return {
     ...item,
@@ -179,22 +245,31 @@ export function createResolvers(
   orderRepository: IOrderRepository,
   productValidation: IProductValidationPort,
   eventPublisher: IEventPublisher,
-  prisma: PrismaClient,
   paymentMethodRepository: IPaymentMethodRepository,
   cartRepository: IShoppingCartRepository,
   transactionRepository: ITransactionRepository,
   couponRepository: ICouponRepository,
   storeSettingsRepository: IStoreSettingsRepository,
+  sequenceRepository: ISequenceRepository,
+  auditRepository: IOrderAuditRepository,
+  carrierRepository: ICarrierRepository,
+  shippingZoneRepository: IShippingZoneRepository,
+  shippingRateRepository: IShippingRateRepository,
+  deliverySlotRepository: IDeliverySlotRepository,
+  taxRateRepository: ITaxRateRepository,
 ) {
   // ── Order use cases ────────────────────────────────────────────────────────
   const createOrderUseCase = new CreateOrderUseCase(
     orderRepository,
     productValidation,
     eventPublisher,
+    sequenceRepository,
+    storeSettingsRepository,
   );
   const getOrdersUseCase = new GetOrdersUseCase(orderRepository);
   const getOrderByIdUseCase = new GetOrderByIdUseCase(orderRepository);
-  const updateOrderUseCase = new UpdateOrderUseCase(orderRepository);
+  const updateOrderUseCase = new UpdateOrderUseCase(orderRepository, auditRepository, eventPublisher);
+  const deleteOrderUseCase = new DeleteOrderUseCase(orderRepository);
   const bulkUpdateOrderStatusUseCase = new BulkUpdateOrderStatusUseCase(updateOrderUseCase);
   const getOrderStatsUseCase = new GetOrderStatsUseCase(orderRepository);
 
@@ -222,10 +297,47 @@ export function createResolvers(
   const getCouponByIdUseCase = new GetCouponByIdUseCase(couponRepository);
   const getCouponByCodeUseCase = new GetCouponByCodeUseCase(couponRepository);
   const getUserCouponUsageUseCase = new GetUserCouponUsageUseCase(couponRepository);
+  const createCouponUseCase = new CreateCouponUseCase(couponRepository);
+  const updateCouponUseCase = new UpdateCouponUseCase(couponRepository);
+  const deleteCouponUseCase = new DeleteCouponUseCase(couponRepository);
+  const getActiveCouponsUseCase = new GetActiveCouponsUseCase(couponRepository);
 
   // ── StoreSettings use cases ────────────────────────────────────────────────
   const getStoreSettingsUseCase = new GetStoreSettingsUseCase(storeSettingsRepository);
   const getStoreSettingByKeyUseCase = new GetStoreSettingByKeyUseCase(storeSettingsRepository);
+
+  // ── Carrier use cases ──────────────────────────────────────────────────────
+  const getCarriersUseCase = new GetCarriersUseCase(carrierRepository);
+  const getCarrierByIdUseCase = new GetCarrierByIdUseCase(carrierRepository);
+  const createCarrierUseCase = new CreateCarrierUseCase(carrierRepository);
+  const updateCarrierUseCase = new UpdateCarrierUseCase(carrierRepository);
+  const deleteCarrierUseCase = new DeleteCarrierUseCase(carrierRepository);
+
+  // ── ShippingZone use cases ─────────────────────────────────────────────────
+  const getShippingZonesUseCase = new GetShippingZonesUseCase(shippingZoneRepository);
+  const getShippingZoneByIdUseCase = new GetShippingZoneByIdUseCase(shippingZoneRepository);
+  const createShippingZoneUseCase = new CreateShippingZoneUseCase(shippingZoneRepository);
+  const updateShippingZoneUseCase = new UpdateShippingZoneUseCase(shippingZoneRepository);
+  const deleteShippingZoneUseCase = new DeleteShippingZoneUseCase(shippingZoneRepository);
+
+  // ── ShippingRate use cases ─────────────────────────────────────────────────
+  const getShippingRatesByZoneUseCase = new GetShippingRatesByZoneUseCase(shippingRateRepository);
+  const createShippingRateUseCase = new CreateShippingRateUseCase(shippingRateRepository);
+  const updateShippingRateUseCase = new UpdateShippingRateUseCase(shippingRateRepository);
+  const deleteShippingRateUseCase = new DeleteShippingRateUseCase(shippingRateRepository);
+
+  // ── DeliverySlot use cases ─────────────────────────────────────────────────
+  const getDeliverySlotsUseCase = new GetDeliverySlotsUseCase(deliverySlotRepository);
+  const createDeliverySlotUseCase = new CreateDeliverySlotUseCase(deliverySlotRepository);
+  const updateDeliverySlotUseCase = new UpdateDeliverySlotUseCase(deliverySlotRepository);
+  const deleteDeliverySlotUseCase = new DeleteDeliverySlotUseCase(deliverySlotRepository);
+
+  // ── TaxRate use cases ──────────────────────────────────────────────────────
+  const getTaxRatesUseCase = new GetTaxRatesUseCase(taxRateRepository);
+  const getTaxRateByIdUseCase = new GetTaxRateByIdUseCase(taxRateRepository);
+  const createTaxRateUseCase = new CreateTaxRateUseCase(taxRateRepository);
+  const updateTaxRateUseCase = new UpdateTaxRateUseCase(taxRateRepository);
+  const deleteTaxRateUseCase = new DeleteTaxRateUseCase(taxRateRepository);
 
   return {
     Query: {
@@ -347,13 +459,9 @@ export function createResolvers(
         }
       },
 
-      activeCoupons: async (_: any, __: any, _context: any) => {
+      activeCoupons: async () => {
         // PUBLIC — storefront requires coupon discovery without authentication.
-        const now = new Date();
-        const items = await prisma.coupon.findMany({
-          where: { isActive: true, validFrom: { lte: now }, validUntil: { gte: now } },
-          orderBy: { createdAt: 'desc' },
-        });
+        const items = await getActiveCouponsUseCase.execute();
         return items.map(transformCoupon);
       },
 
@@ -370,38 +478,32 @@ export function createResolvers(
       // PUBLIC — storefront needs these without login.
 
       carriers: async () => {
-        const items = await prisma.carrier.findMany({ orderBy: { name: 'asc' } });
+        const items = await getCarriersUseCase.execute();
         return items.map(transformCarrier);
       },
 
       carrier: async (_: any, { id }: { id: string }) => {
-        const c = await prisma.carrier.findUnique({ where: { id } });
+        const c = await getCarrierByIdUseCase.execute(id);
         return c ? transformCarrier(c) : null;
       },
 
       shippingZones: async () => {
-        const items = await prisma.shippingZone.findMany({ orderBy: { name: 'asc' } });
+        const items = await getShippingZonesUseCase.execute();
         return items.map(transformShippingZone);
       },
 
       shippingZone: async (_: any, { id }: { id: string }) => {
-        const z = await prisma.shippingZone.findUnique({ where: { id } });
+        const z = await getShippingZoneByIdUseCase.execute(id);
         return z ? transformShippingZone(z) : null;
       },
 
       shippingRates: async (_: any, { zoneId }: { zoneId: string }) => {
-        const items = await prisma.shippingRate.findMany({
-          where: { zoneId },
-          orderBy: { price: 'asc' },
-        });
+        const items = await getShippingRatesByZoneUseCase.execute(zoneId);
         return items.map(transformShippingRate);
       },
 
       deliverySlots: async () => {
-        const items = await prisma.deliverySlot.findMany({
-          where: { isActive: true },
-          orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-        });
+        const items = await getDeliverySlotsUseCase.execute();
         return items.map(transformDeliverySlot);
       },
 
@@ -454,8 +556,8 @@ export function createResolvers(
 
       taxRates: async () => {
         try {
-          const rates = await prisma.taxRate.findMany({ where: { isActive: true } });
-          return rates.map((r) => ({ ...r, rate: Number(r.rate) }));
+          const rates = await getTaxRatesUseCase.execute();
+          return rates.map(transformTaxRate);
         } catch {
           return [];
         }
@@ -463,8 +565,8 @@ export function createResolvers(
 
       taxRate: async (_: any, { id }: any) => {
         try {
-          const r = await prisma.taxRate.findUnique({ where: { id } });
-          return r ? { ...r, rate: Number(r.rate) } : null;
+          const r = await getTaxRateByIdUseCase.execute(id);
+          return r ? transformTaxRate(r) : null;
         } catch {
           return null;
         }
@@ -487,6 +589,8 @@ export function createResolvers(
           customerPhone: input.customerPhone,
           items: input.items,
           shippingAddress: input.shippingAddress,
+          // billingData is optional — when absent, all billing fields stored as null.
+          billingData: input.billingData ?? undefined,
         });
         return transformOrder(order);
       },
@@ -497,6 +601,7 @@ export function createResolvers(
           const order = await updateOrderUseCase.execute(
             id,
             {
+              // paymentStatus is NOT included — it is write-only via order.paid event (rule C-1).
               status: input.status,
               customerEmail: input.customerEmail,
               customerName: input.customerName,
@@ -531,7 +636,7 @@ export function createResolvers(
       deleteOrder: async (_: any, { id }: { id: string }, context: any) => {
         assertModelAccess(context.currentUser, 'Order', 'unlink');
         try {
-          return await orderRepository.delete(id, context.currentUser ?? null);
+          return await deleteOrderUseCase.execute(id, context.currentUser ?? null);
         } catch (error) {
           return mapDomainError(error);
         }
@@ -594,117 +699,314 @@ export function createResolvers(
       // ── Coupons ──────────────────────────────────────────────────────────
       createCoupon: async (_: any, { input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'Coupon', 'create');
-        const c = await prisma.coupon.create({
-          data: {
-            code: input.code,
-            name: input.name,
-            description: input.description,
-            discountType: input.discountType,
-            discountValue: input.discountValue,
-            minimumAmount: input.minimumAmount,
-            maximumDiscount: input.maximumDiscount,
-            usageLimit: input.usageLimit,
-            validFrom: new Date(input.validFrom),
-            validUntil: new Date(input.validUntil),
-            isActive: input.isActive ?? true,
-            isFirstTimeOnly: input.isFirstTimeOnly ?? false,
-            applicableCategories: input.applicableCategories || [],
-            applicableProducts: input.applicableProducts || [],
-          },
-        });
-        return transformCoupon(c);
+        try {
+          const c = await createCouponUseCase.execute(
+            {
+              code: input.code,
+              name: input.name,
+              description: input.description,
+              discountType: input.discountType,
+              discountValue: input.discountValue,
+              minimumAmount: input.minimumAmount,
+              maximumDiscount: input.maximumDiscount,
+              usageLimit: input.usageLimit,
+              validFrom: new Date(input.validFrom),
+              validUntil: new Date(input.validUntil),
+              isActive: input.isActive ?? true,
+              isFirstTimeOnly: input.isFirstTimeOnly ?? false,
+              applicableCategories: input.applicableCategories || [],
+              applicableProducts: input.applicableProducts || [],
+            },
+            context.currentUser!,
+          );
+          return transformCoupon(c);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       updateCoupon: async (_: any, { id, input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'Coupon', 'write');
-        const updateData: any = {};
-        if (input.name) updateData.name = input.name;
-        if (input.description !== undefined) updateData.description = input.description;
-        if (input.discountValue != null) updateData.discountValue = input.discountValue;
-        if (input.minimumAmount !== undefined) updateData.minimumAmount = input.minimumAmount;
-        if (input.maximumDiscount !== undefined) updateData.maximumDiscount = input.maximumDiscount;
-        if (input.usageLimit !== undefined) updateData.usageLimit = input.usageLimit;
-        if (input.validFrom) updateData.validFrom = new Date(input.validFrom);
-        if (input.validUntil) updateData.validUntil = new Date(input.validUntil);
-        if (input.isActive !== undefined) updateData.isActive = input.isActive;
-        if (input.isFirstTimeOnly !== undefined) updateData.isFirstTimeOnly = input.isFirstTimeOnly;
-        if (input.applicableCategories)
-          updateData.applicableCategories = input.applicableCategories;
-        if (input.applicableProducts) updateData.applicableProducts = input.applicableProducts;
-        const c = await prisma.coupon.update({ where: { id }, data: updateData });
-        return transformCoupon(c);
+        try {
+          // Build a typed UpdateCouponData DTO — no `as any` cast needed.
+          // Only include fields that are explicitly present in the input so that
+          // the repository's partial-update semantics (undefined = no change) work correctly.
+          const updateData: import('../domain/repositories/ICouponRepository').UpdateCouponData = {
+            ...(input.name !== undefined && { name: input.name }),
+            ...(input.description !== undefined && { description: input.description }),
+            ...(input.discountValue != null && { discountValue: input.discountValue }),
+            ...(input.minimumAmount !== undefined && { minimumAmount: input.minimumAmount }),
+            ...(input.maximumDiscount !== undefined && { maximumDiscount: input.maximumDiscount }),
+            ...(input.usageLimit !== undefined && { usageLimit: input.usageLimit }),
+            ...(input.validFrom && { validFrom: new Date(input.validFrom) }),
+            ...(input.validUntil && { validUntil: new Date(input.validUntil) }),
+            ...(input.isActive !== undefined && { isActive: input.isActive }),
+            ...(input.isFirstTimeOnly !== undefined && { isFirstTimeOnly: input.isFirstTimeOnly }),
+            ...(input.applicableCategories && { applicableCategories: input.applicableCategories }),
+            ...(input.applicableProducts && { applicableProducts: input.applicableProducts }),
+          };
+          const c = await updateCouponUseCase.execute(id, updateData, context.currentUser!);
+          return transformCoupon(c);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       deleteCoupon: async (_: any, { id }: { id: string }, context: any) => {
         assertModelAccess(context.currentUser, 'Coupon', 'unlink');
-        await prisma.coupon.delete({ where: { id } });
-        return true;
+        try {
+          return await deleteCouponUseCase.execute(id, context.currentUser!);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       // ── Carriers ─────────────────────────────────────────────────────────
       createCarrier: async (_: any, { input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'Carrier', 'create');
-        const c = await prisma.carrier.create({
-          data: {
-            name: input.name,
-            code: input.code,
-            trackingUrlTemplate: input.trackingUrlTemplate,
-            isActive: input.isActive ?? true,
-          },
-        });
-        return transformCarrier(c);
+        try {
+          const c = await createCarrierUseCase.execute(
+            {
+              name: input.name,
+              code: input.code,
+              trackingUrlTemplate: input.trackingUrlTemplate,
+              isActive: input.isActive ?? true,
+            },
+            context.currentUser!,
+          );
+          return transformCarrier(c);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      updateCarrier: async (
-        _: any,
-        { id, name, code, trackingUrlTemplate, isActive }: any,
-        context: any,
-      ) => {
+      updateCarrier: async (_: any, { id, input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'Carrier', 'write');
-        const updateData: any = {};
-        if (name !== undefined) updateData.name = name;
-        if (code !== undefined) updateData.code = code;
-        if (trackingUrlTemplate !== undefined) updateData.trackingUrlTemplate = trackingUrlTemplate;
-        if (isActive !== undefined) updateData.isActive = isActive;
-        const c = await prisma.carrier.update({ where: { id }, data: updateData });
-        return transformCarrier(c);
+        try {
+          const c = await updateCarrierUseCase.execute(
+            id,
+            {
+              name: input.name,
+              code: input.code,
+              trackingUrlTemplate: input.trackingUrlTemplate,
+              isActive: input.isActive,
+            },
+            context.currentUser!,
+          );
+          return transformCarrier(c);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       deleteCarrier: async (_: any, { id }: { id: string }, context: any) => {
         assertModelAccess(context.currentUser, 'Carrier', 'unlink');
-        await prisma.carrier.delete({ where: { id } });
-        return true;
+        try {
+          return await deleteCarrierUseCase.execute(id, context.currentUser!);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
-      // ── Shipping zones & rates ────────────────────────────────────────────
+      // ── Shipping zones ────────────────────────────────────────────────────
       createShippingZone: async (_: any, { input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'ShippingZone', 'create');
-        const z = await prisma.shippingZone.create({
-          data: {
-            name: input.name,
-            countries: input.countries,
-            states: input.states || [],
-            cities: input.cities || [],
-            postalCodes: input.postalCodes || [],
-            isActive: input.isActive ?? true,
-          },
-        });
-        return transformShippingZone(z);
+        try {
+          const z = await createShippingZoneUseCase.execute(
+            {
+              name: input.name,
+              countries: input.countries,
+              states: input.states || [],
+              cities: input.cities || [],
+              postalCodes: input.postalCodes || [],
+              isActive: input.isActive ?? true,
+            },
+            context.currentUser!,
+          );
+          return transformShippingZone(z);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
+      updateShippingZone: async (_: any, { id, input }: any, context: any) => {
+        assertModelAccess(context.currentUser, 'ShippingZone', 'write');
+        try {
+          const z = await updateShippingZoneUseCase.execute(
+            id,
+            {
+              name: input.name,
+              countries: input.countries,
+              states: input.states,
+              cities: input.cities,
+              postalCodes: input.postalCodes,
+              isActive: input.isActive,
+            },
+            context.currentUser!,
+          );
+          return transformShippingZone(z);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      deleteShippingZone: async (_: any, { id }: { id: string }, context: any) => {
+        assertModelAccess(context.currentUser, 'ShippingZone', 'unlink');
+        try {
+          return await deleteShippingZoneUseCase.execute(id, context.currentUser!);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      // ── Shipping rates ────────────────────────────────────────────────────
       createShippingRate: async (_: any, { input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'ShippingRate', 'create');
-        const r = await prisma.shippingRate.create({
-          data: {
-            zoneId: input.zoneId,
-            name: input.name,
-            minWeight: input.minWeight,
-            maxWeight: input.maxWeight,
-            price: input.price,
-            isActive: input.isActive ?? true,
-          },
-        });
-        return transformShippingRate(r);
+        try {
+          const r = await createShippingRateUseCase.execute(
+            {
+              zoneId: input.zoneId,
+              name: input.name,
+              minWeight: input.minWeight != null ? String(input.minWeight) : undefined,
+              maxWeight: input.maxWeight != null ? String(input.maxWeight) : undefined,
+              price: String(input.price),
+              isActive: input.isActive ?? true,
+            },
+            context.currentUser!,
+          );
+          return transformShippingRate(r);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      updateShippingRate: async (_: any, { id, input }: any, context: any) => {
+        assertModelAccess(context.currentUser, 'ShippingRate', 'write');
+        try {
+          const r = await updateShippingRateUseCase.execute(
+            id,
+            {
+              name: input.name,
+              minWeight: input.minWeight !== undefined ? (input.minWeight != null ? String(input.minWeight) : null) : undefined,
+              maxWeight: input.maxWeight !== undefined ? (input.maxWeight != null ? String(input.maxWeight) : null) : undefined,
+              price: input.price != null ? String(input.price) : undefined,
+              isActive: input.isActive,
+            },
+            context.currentUser!,
+          );
+          return transformShippingRate(r);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      deleteShippingRate: async (_: any, { id }: { id: string }, context: any) => {
+        assertModelAccess(context.currentUser, 'ShippingRate', 'unlink');
+        try {
+          return await deleteShippingRateUseCase.execute(id, context.currentUser!);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      // ── Delivery slots ─────────────────────────────────────────────────────
+      createDeliverySlot: async (_: any, { input }: any, context: any) => {
+        assertModelAccess(context.currentUser, 'DeliverySlot', 'create');
+        try {
+          const s = await createDeliverySlotUseCase.execute(
+            {
+              dayOfWeek: input.dayOfWeek,
+              startTime: input.startTime,
+              endTime: input.endTime,
+              maxOrders: input.maxOrders,
+              isActive: input.isActive ?? true,
+            },
+            context.currentUser!,
+          );
+          return transformDeliverySlot(s);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      updateDeliverySlot: async (_: any, { id, input }: any, context: any) => {
+        assertModelAccess(context.currentUser, 'DeliverySlot', 'write');
+        try {
+          const s = await updateDeliverySlotUseCase.execute(
+            id,
+            {
+              dayOfWeek: input.dayOfWeek,
+              startTime: input.startTime,
+              endTime: input.endTime,
+              maxOrders: input.maxOrders,
+              isActive: input.isActive,
+            },
+            context.currentUser!,
+          );
+          return transformDeliverySlot(s);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      deleteDeliverySlot: async (_: any, { id }: { id: string }, context: any) => {
+        assertModelAccess(context.currentUser, 'DeliverySlot', 'unlink');
+        try {
+          return await deleteDeliverySlotUseCase.execute(id, context.currentUser!);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      // ── Tax rates ─────────────────────────────────────────────────────────
+      createTaxRate: async (_: any, { input }: any, context: any) => {
+        assertModelAccess(context.currentUser, 'TaxRate', 'create');
+        try {
+          const r = await createTaxRateUseCase.execute(
+            {
+              name: input.name,
+              rate: String(input.rate),
+              country: input.country,
+              state: input.state,
+              city: input.city,
+              isActive: input.isActive ?? true,
+            },
+            context.currentUser!,
+          );
+          return transformTaxRate(r);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      updateTaxRate: async (_: any, { id, input }: any, context: any) => {
+        assertModelAccess(context.currentUser, 'TaxRate', 'write');
+        try {
+          const r = await updateTaxRateUseCase.execute(
+            id,
+            {
+              name: input.name,
+              rate: input.rate != null ? String(input.rate) : undefined,
+              country: input.country,
+              state: input.state,
+              city: input.city,
+              isActive: input.isActive,
+            },
+            context.currentUser!,
+          );
+          return transformTaxRate(r);
+        } catch (error) {
+          return mapDomainError(error);
+        }
+      },
+
+      deleteTaxRate: async (_: any, { id }: { id: string }, context: any) => {
+        assertModelAccess(context.currentUser, 'TaxRate', 'unlink');
+        try {
+          return await deleteTaxRateUseCase.execute(id, context.currentUser!);
+        } catch (error) {
+          return mapDomainError(error);
+        }
       },
 
       // ── Shopping cart mutations ──────────────────────────────────────────
@@ -751,6 +1053,45 @@ export function createResolvers(
         } catch (error) {
           return mapDomainError(error);
         }
+      },
+    },
+
+    User: {
+      /**
+       * Required by Apollo Federation for any type that extends a stub entity from
+       * another subgraph.  The gateway calls __resolveReference to materialize the
+       * User representation in order-service before it resolves extension fields like
+       * `orders`.  We simply echo the id back — order-service owns no User fields, only
+       * the `orders` extension.  No auth guard here: federation internal routing, not
+       * a client-facing resolver.
+       */
+      __resolveReference: ({ id }: { id: string }) => ({ id }),
+
+      /**
+       * Resolves User.orders when the gateway composes the User entity from order-service.
+       * The parent object carries the `id` field (the user's id).
+       * Authentication context is forwarded by the gateway; unauthenticated callers
+       * receive an empty list (no error, no data leakage).
+       */
+      orders: async (parent: { id: string }, args: { limit?: number; offset?: number }, context: any) => {
+        if (!context?.currentUser) return [];
+        // BOLA guard: owner sees only their own orders; management roles can see any user's orders.
+        // Non-owner non-management callers receive an empty list (no enumeration leak).
+        const isOwner = context.currentUser.userId === parent.id;
+        if (!isOwner) {
+          try {
+            assertOrderManagementAccess(context.currentUser);
+          } catch {
+            return [];
+          }
+        }
+        const limit = Math.min(Math.max(args.limit ?? 20, 1), 100);
+        const offset = Math.max(args.offset ?? 0, 0);
+        const orders = await orderRepository.findAll(
+          { userId: parent.id, limit, offset },
+          context.currentUser,
+        );
+        return orders.map(transformOrder);
       },
     },
 

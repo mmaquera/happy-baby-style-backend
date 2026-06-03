@@ -1,5 +1,10 @@
 import Redis from 'ioredis';
-import { IEventPublisher, OrderCreatedEvent } from '../../domain/ports/IEventPublisher';
+import {
+  IEventPublisher,
+  OrderCreatedEvent,
+  OrderConfirmedEvent,
+  OrderCancelledEvent,
+} from '../../domain/ports/IEventPublisher';
 import { LoggerFactory, ILogger } from '@hbs/logging';
 
 export class RedisEventPublisher implements IEventPublisher {
@@ -32,6 +37,56 @@ export class RedisEventPublisher implements IEventPublisher {
       orderId: event.orderId,
       orderNumber: event.orderNumber,
       itemCount: event.items.length,
+    });
+  }
+
+  async publishOrderConfirmed(event: OrderConfirmedEvent): Promise<void> {
+    const stream = 'stream:order-events';
+    const payload = JSON.stringify(event);
+
+    const entryId = await this.redis.xadd(
+      stream,
+      'MAXLEN',
+      '~',
+      '10000',
+      '*',
+      'type',
+      'order.confirmed',
+      'payload',
+      payload,
+    );
+
+    this.logger.info('Enqueued order.confirmed event', {
+      stream,
+      entryId,
+      eventId: event.eventId,
+      orderId: event.orderId,
+      orderNumber: event.orderNumber,
+    });
+  }
+
+  async publishOrderCancelled(event: OrderCancelledEvent): Promise<void> {
+    const stream = 'stream:order-events';
+    const payload = JSON.stringify(event);
+
+    const entryId = await this.redis.xadd(
+      stream,
+      'MAXLEN',
+      '~',
+      '10000',
+      '*',
+      'type',
+      'order.cancelled',
+      'payload',
+      payload,
+    );
+
+    this.logger.info('Enqueued order.cancelled event', {
+      stream,
+      entryId,
+      eventId: event.eventId,
+      orderId: event.orderId,
+      orderNumber: event.orderNumber,
     });
   }
 }

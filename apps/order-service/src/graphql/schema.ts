@@ -10,6 +10,18 @@ export const typeDefs = gql`
 
   # ── Enums ─────────────────────────────────────────────────────────────────
 
+  """
+  SUNAT Catálogo 07 (simplified) — tax affectation type.
+  gravado: IGV applies at 18% (standard).
+  exonerado: Exempt from IGV; invoice is still issued.
+  inafecto: Outside IGV scope; no IGV on invoice.
+  """
+  enum TaxAffectation {
+    gravado
+    exonerado
+    inafecto
+  }
+
   enum OrderStatus {
     pending
     confirmed
@@ -72,6 +84,23 @@ export const typeDefs = gql`
     items: [OrderItem!]!
     shippingAddress: ShippingAddress
     user: User
+    # ── Billing / SUNAT snapshot (nullable — provided by FE at checkout) ──────
+    billingDocumentType: String
+    billingDocumentNumber: String
+    billingLegalName: String
+    billingFirstName: String
+    billingLastName: String
+    billingAddressId: String
+    # ── IGV accumulators (Ronda 2) ────────────────────────────────────────────
+    # All amounts are Decimal (PEN, 2 dp). Historic orders have 0 for all fields.
+    # taxableAmount: sum of igvBase for 'gravado' lines (base imponible total).
+    # exemptAmount: sum of lineTotals for 'exonerado' lines.
+    # nonTaxableAmount: sum of lineTotals for 'inafecto' lines.
+    # igvAmount: total IGV charged on this order (= taxableAmount × igvRate).
+    taxableAmount: Decimal!
+    exemptAmount: Decimal!
+    nonTaxableAmount: Decimal!
+    igvAmount: Decimal!
   }
 
   type OrderItem @key(fields: "id") {
@@ -83,6 +112,13 @@ export const typeDefs = gql`
     createdAt: DateTime!
     order: Order
     product: Product
+    # ── Fiscal snapshot per line (Ronda 2) ────────────────────────────────────
+    # Immutable once written at order creation. Never updated.
+    taxAffectation: TaxAffectation!
+    """Base imponible for this line (excl. IGV). Equals lineTotal for exonerado/inafecto."""
+    igvBase: Decimal
+    """IGV amount for this line. 0 for exonerado/inafecto lines."""
+    igvAmount: Decimal
   }
 
   type ShippingAddress {
@@ -231,6 +267,13 @@ export const typeDefs = gql`
 
   type User @key(fields: "id") {
     id: ID!
+    """
+    Orders belonging to this user.
+    Resolved by order-service when the gateway composes the User entity.
+    Requires authentication — unauthenticated callers receive an empty list.
+    Pagination: limit 1..100, offset >= 0.
+    """
+    orders(limit: Int, offset: Int): [Order!]!
   }
 
   type Product @key(fields: "id") {
@@ -238,6 +281,21 @@ export const typeDefs = gql`
   }
 
   # ── Input types ────────────────────────────────────────────────────────────
+
+  """
+  Fiscal/billing data for SUNAT comprobante generation.
+  Supplied by the FE at checkout and frozen (immutable) once the order is confirmed.
+  documentType: 'dni' | 'ruc' | 'passport' | 'ce'
+  legalName is required when documentType is 'ruc' (razón social).
+  """
+  input BillingDataInput {
+    documentType: String!
+    documentNumber: String!
+    legalName: String
+    firstName: String
+    lastName: String
+    addressId: String
+  }
 
   input CreateOrderItemInput {
     productId: ID!
@@ -260,6 +318,11 @@ export const typeDefs = gql`
     customerPhone: String
     items: [CreateOrderItemInput!]!
     shippingAddress: CreateOrderAddressInput!
+    """
+    Optional SUNAT billing snapshot. When provided, frozen at creation and immutable
+    once the order reaches 'confirmed'. When absent, all billing fields are null.
+    """
+    billingData: BillingDataInput
   }
 
   input UpdateOrderInput {
@@ -322,6 +385,13 @@ export const typeDefs = gql`
     isActive: Boolean
   }
 
+  input UpdateCarrierInput {
+    name: String
+    code: String
+    trackingUrlTemplate: String
+    isActive: Boolean
+  }
+
   input CreateShippingZoneInput {
     name: String!
     countries: [String!]!
@@ -331,12 +401,63 @@ export const typeDefs = gql`
     isActive: Boolean
   }
 
+  input UpdateShippingZoneInput {
+    name: String
+    countries: [String!]
+    states: [String!]
+    cities: [String!]
+    postalCodes: [String!]
+    isActive: Boolean
+  }
+
   input CreateShippingRateInput {
     zoneId: ID!
     name: String!
     minWeight: Decimal
     maxWeight: Decimal
     price: Decimal!
+    isActive: Boolean
+  }
+
+  input UpdateShippingRateInput {
+    name: String
+    minWeight: Decimal
+    maxWeight: Decimal
+    price: Decimal
+    isActive: Boolean
+  }
+
+  input CreateDeliverySlotInput {
+    dayOfWeek: Int!
+    startTime: String!
+    endTime: String!
+    maxOrders: Int!
+    isActive: Boolean
+  }
+
+  input UpdateDeliverySlotInput {
+    dayOfWeek: Int
+    startTime: String
+    endTime: String
+    maxOrders: Int
+    isActive: Boolean
+  }
+
+  input CreateTaxRateInput {
+    name: String!
+    rate: Decimal!
+    country: String
+    state: String
+    city: String
+    isActive: Boolean
+  }
+
+  input UpdateTaxRateInput {
+    name: String
+    rate: Decimal
+    country: String
+    state: String
+    city: String
     isActive: Boolean
   }
 
@@ -453,31 +574,43 @@ export const typeDefs = gql`
     createOrder(input: CreateOrderInput!): Order!
     updateOrder(id: ID!, input: UpdateOrderInput!): Order!
     updateOrderStatus(id: ID!, status: OrderStatus!): Order!
-    deleteOrder(id: ID!): Boolean!
+    deleteOrder(id: ID!): SuccessResponse!
     bulkUpdateOrderStatus(orders: [ID!]!, status: OrderStatus!): [Order!]!
 
     # Payment methods
     createPaymentMethod(input: CreatePaymentMethodInput!): PaymentMethod!
     updatePaymentMethod(id: ID!, input: UpdatePaymentMethodInput!): PaymentMethod!
-    deletePaymentMethod(id: ID!): Boolean!
+    deletePaymentMethod(id: ID!): SuccessResponse!
 
     # Coupons
     createCoupon(input: CreateCouponInput!): Coupon!
     updateCoupon(id: ID!, input: UpdateCouponInput!): Coupon!
-    deleteCoupon(id: ID!): Boolean!
+    deleteCoupon(id: ID!): SuccessResponse!
 
-    # Shipping
+    # Carriers
     createCarrier(input: CreateCarrierInput!): Carrier!
-    updateCarrier(
-      id: ID!
-      name: String
-      code: String
-      trackingUrlTemplate: String
-      isActive: Boolean
-    ): Carrier!
-    deleteCarrier(id: ID!): Boolean!
+    updateCarrier(id: ID!, input: UpdateCarrierInput!): Carrier!
+    deleteCarrier(id: ID!): SuccessResponse!
+
+    # Shipping zones
     createShippingZone(input: CreateShippingZoneInput!): ShippingZone!
+    updateShippingZone(id: ID!, input: UpdateShippingZoneInput!): ShippingZone!
+    deleteShippingZone(id: ID!): SuccessResponse!
+
+    # Shipping rates
     createShippingRate(input: CreateShippingRateInput!): ShippingRate!
+    updateShippingRate(id: ID!, input: UpdateShippingRateInput!): ShippingRate!
+    deleteShippingRate(id: ID!): SuccessResponse!
+
+    # Delivery slots
+    createDeliverySlot(input: CreateDeliverySlotInput!): DeliverySlot!
+    updateDeliverySlot(id: ID!, input: UpdateDeliverySlotInput!): DeliverySlot!
+    deleteDeliverySlot(id: ID!): SuccessResponse!
+
+    # Tax rates
+    createTaxRate(input: CreateTaxRateInput!): TaxRate!
+    updateTaxRate(id: ID!, input: UpdateTaxRateInput!): TaxRate!
+    deleteTaxRate(id: ID!): SuccessResponse!
 
     # Shopping cart — userId is always derived from the authenticated JWT, never from input.
     addToCart(productId: ID!, quantity: Int!): ShoppingCartItem!

@@ -8,6 +8,15 @@ import {
 } from '../entities/Order';
 
 export interface IOrderRepository {
+  /**
+   * Persist a new order.
+   *
+   * @param orderData - Order fields. `orderData.folio` (if provided) is used as the
+   *   `orderNumber`; when absent the repository implementation generates one as a
+   *   fallback (legacy behaviour — prefer always passing the folio from
+   *   GenerateOrderFolioUseCase via CreateOrderUseCase).
+   * @param total     - Pre-computed total amount in the order's currency.
+   */
   create(orderData: CreateOrderRequest, total: number): Promise<Order>;
   /**
    * Find a single order by id, applying record-level access rules for currentUser.

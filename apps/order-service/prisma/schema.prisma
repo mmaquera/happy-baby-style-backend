@@ -22,6 +22,14 @@ model Order {
   shippingAmount    Decimal     @default(0) @map("shipping_amount") @db.Decimal(10, 2)
   discountAmount    Decimal     @default(0) @map("discount_amount") @db.Decimal(10, 2)
   totalAmount       Decimal     @map("total_amount") @db.Decimal(10, 2)
+  // ─── Acumuladores IGV / afectación SUNAT (Ronda 1 / Tarea 1b) ───────────────
+  // Valores acumulados sobre todas las líneas (order_items).
+  // DEFAULT 0: órdenes históricas quedan con cero — correcta representación
+  // de datos pre-migración (no nulos, no ambiguos).
+  taxableAmount     Decimal     @default(0) @map("taxable_amount") @db.Decimal(12, 2)
+  exemptAmount      Decimal     @default(0) @map("exempt_amount") @db.Decimal(12, 2)
+  nonTaxableAmount  Decimal     @default(0) @map("non_taxable_amount") @db.Decimal(12, 2)
+  igvAmount         Decimal     @default(0) @map("igv_amount") @db.Decimal(12, 2)
   currency          String      @default("PEN")
   shippingAddressId String?     @map("shipping_address_id")
   shippingStreet    String?     @map("shipping_street")
@@ -29,29 +37,49 @@ model Order {
   shippingState     String?     @map("shipping_state")
   shippingZipCode   String?     @map("shipping_zip_code")
   shippingCountry   String?     @default("PE") @map("shipping_country")
-  notes             String?
+  // ─── Snapshot fiscal SUNAT (FE-0 Fase A) ────────────────────────────────────
+  // Copiados desde user-service en el momento de checkout; nunca FK cross-service.
+  // billingDocumentType: texto plano 'ruc'|'dni'|'ce' — no enum Postgres (snapshot).
+  // billingAddressId: ref débil a user_addresses, sin FK (cross-service boundary).
+  billingDocumentType   String? @map("billing_document_type") @db.VarChar(10)
+  billingDocumentNumber String? @map("billing_document_number") @db.VarChar(20)
+  billingLegalName      String? @map("billing_legal_name") @db.VarChar(200)
+  billingFirstName      String? @map("billing_first_name") @db.VarChar(100)
+  billingLastName       String? @map("billing_last_name") @db.VarChar(100)
+  billingAddressId      String? @map("billing_address_id") @db.Uuid
+  notes                 String?
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
   deliveredAt       DateTime?   @map("delivered_at")
+
+  paymentStatus  PaymentStatus   @default(pending) @map("payment_status")
 
   items          OrderItem[]
   paymentMethods PaymentMethod[]
   tracking       OrderTracking[]
   transactions   Transaction[]
   couponUsage    CouponUsage[]
+  statusHistory  OrderStatusHistory[]
 
   @@index([userId])
   @@map("orders")
 }
 
 model OrderItem {
-  id         String   @id @default(uuid())
-  orderId    String   @map("order_id")
-  productId  String   @map("product_id")
-  quantity   Int
-  unitPrice  Decimal  @map("unit_price") @db.Decimal(10, 2)
-  totalPrice Decimal  @map("total_price") @db.Decimal(10, 2)
-  createdAt  DateTime @default(now()) @map("created_at")
+  id             String          @id @default(uuid())
+  orderId        String          @map("order_id")
+  productId      String          @map("product_id")
+  quantity       Int
+  unitPrice      Decimal         @map("unit_price") @db.Decimal(10, 2)
+  totalPrice     Decimal         @map("total_price") @db.Decimal(10, 2)
+  // ─── Snapshot tributario inmutable de la línea (Ronda 1 / Tarea 1b) ─────────
+  // Snapshot inmutable: se escribe una vez en create, jamás se actualiza.
+  // DEFAULT gravado: los items históricos quedan como gravados, el caso mayoritario
+  // en e-commerce peruano. Backend puede sobreescribir en Ronda 2 según producto.
+  taxAffectation TaxAffectation  @default(gravado) @map("tax_affectation")
+  igvBase        Decimal         @default(0) @map("igv_base") @db.Decimal(12, 2)
+  igvAmount      Decimal         @default(0) @map("igv_amount") @db.Decimal(12, 2)
+  createdAt      DateTime        @default(now()) @map("created_at")
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -221,6 +249,73 @@ model CouponUsage {
   @@map("coupon_usage")
 }
 
+// ─── Audit: order status transitions ────────────────────────────────────────
+// Inserted in the same DB transaction as every status UPDATE on orders.
+// fromStatus / toStatus use String (not OrderStatus enum) intentionally:
+//   - Allows auditing both the commercial status axis (OrderStatus) and the
+//     payment status axis (PaymentStatus) without a schema change each time
+//     a new axis is introduced.
+//   - The application layer is responsible for passing the enum value code
+//     (e.g. "pending", "shipped") as a plain string.
+model OrderStatusHistory {
+  id              String   @id @default(uuid())
+  orderId         String   @map("order_id")
+  fromStatus      String   @map("from_status")
+  toStatus        String   @map("to_status")
+  // Nullable: system/consumer transitions (stock decrements, payment webhooks)
+  // do not have an authenticated user context.
+  changedByUserId String?  @map("changed_by_user_id")
+  changedAt       DateTime @default(now()) @map("changed_at")
+  notes           String?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Primary lookup: all history for a given order, ordered by time
+  @@index([orderId, changedAt])
+  @@map("order_status_history")
+}
+
+// ─── Folio generator (gap-tolerant, atomic) ─────────────────────────────────
+// One row per year; the UPDATE…RETURNING pattern guarantees no gaps under
+// concurrent load without Postgres advisory locks.
+//
+// Atomic folio generation (backend-expert implements PrismaSequenceRepository):
+//
+//   INSERT INTO order_sequences (year, last_value, created_at, updated_at)
+//   VALUES ($year, 1, now(), now())
+//   ON CONFLICT (year)
+//   DO UPDATE SET last_value = order_sequences.last_value + 1,
+//                 updated_at = now()
+//   RETURNING last_value;
+//
+// The caller formats the folio as:  ORD-{year}-{last_value zero-padded to 6}
+// Example: ORD-2026-000001
+//
+// Note: BigInt is used for last_value to future-proof beyond INT4 range (~2B)
+// at the cost of requiring BigInt handling in TypeScript (use String or Number
+// conversion at the application boundary as appropriate).
+model OrderSequence {
+  id        String   @id @default(uuid())
+  year      Int      @unique
+  lastValue BigInt   @default(0) @map("last_value")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("order_sequences")
+}
+
+// ─── Tipo de afectación IGV — SUNAT Catálogo 07 (simplificado) ─────────────────
+// Definido localmente: cada servicio define sus propios enums, no se comparten
+// a través de servicios (federation boundary). invoicing-service tendrá su copia.
+// gravado     → operación afecta IGV 18% (caso mayoritario)
+// exonerado   → tasa 0%, comprobante emitido, base imponible cero
+// inafecto    → fuera del ámbito del IGV, sin comprobante IGV
+enum TaxAffectation {
+  gravado
+  exonerado
+  inafecto
+}
+
 enum OrderStatus {
   pending
   confirmed
@@ -229,6 +324,16 @@ enum OrderStatus {
   delivered
   cancelled
   refunded
+}
+
+// ─── Payment axis (orthogonal to commercial OrderStatus) ────────────────────
+// Tracks the lifecycle of the monetary transaction independently of the
+// fulfilment lifecycle. payment-service will drive transitions via events.
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+  failed
 }
 
 enum PaymentMethodType {
