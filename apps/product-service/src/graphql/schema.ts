@@ -7,6 +7,18 @@ export const typeDefs = gql`
   scalar DateTime
   scalar JSON
 
+  """
+  Tipo de afectación IGV SUNAT (Catálogo 07).
+  gravado   = operación gravada con IGV (18%).
+  exonerado = operación exonerada de IGV (bienes/servicios de la lista legal).
+  inafecto  = operación no afecta a IGV (fuera del ámbito de aplicación).
+  """
+  enum TaxAffectation {
+    gravado
+    exonerado
+    inafecto
+  }
+
   # Product is owned by product-service
   type Product @key(fields: "id") {
     id: ID!
@@ -23,6 +35,7 @@ export const typeDefs = gql`
     tags: [String!]!
     rating: Float
     reviewCount: Int!
+    taxAffectation: TaxAffectation!
     createdAt: DateTime!
     updatedAt: DateTime!
 
@@ -57,6 +70,12 @@ export const typeDefs = gql`
     stockQuantity: Int!
     attributes: JSON!
     isActive: Boolean!
+    """
+    Afectación IGV efectiva de la variante.
+    null significa "hereda del producto padre" — el valor efectivo es variant.taxAffectation ?? product.taxAffectation.
+    Cuando se transforma en contexto del producto (via Product.variants) la herencia ya está resuelta.
+    """
+    taxAffectation: TaxAffectation
     createdAt: DateTime!
     updatedAt: DateTime!
     isInStock: Boolean!
@@ -79,6 +98,8 @@ export const typeDefs = gql`
     isActive: Boolean
     stockQuantity: Int
     tags: [String!]
+    """Afectación IGV SUNAT. Por defecto: gravado."""
+    taxAffectation: TaxAffectation
   }
 
   input UpdateProductInput {
@@ -93,6 +114,8 @@ export const typeDefs = gql`
     isActive: Boolean
     stockQuantity: Int
     tags: [String!]
+    """Afectación IGV SUNAT. Si no se pasa, conserva el valor actual."""
+    taxAffectation: TaxAffectation
   }
 
   input CreateProductVariantInput {
@@ -103,6 +126,8 @@ export const typeDefs = gql`
     stockQuantity: Int!
     attributes: JSON
     isActive: Boolean
+    """Afectación IGV SUNAT. Si no se pasa (null), la variante hereda del producto padre."""
+    taxAffectation: TaxAffectation
   }
 
   input UpdateProductVariantInput {
@@ -112,6 +137,8 @@ export const typeDefs = gql`
     stockQuantity: Int
     attributes: JSON
     isActive: Boolean
+    """Afectación IGV SUNAT. Si no se pasa (null), la variante hereda del producto padre."""
+    taxAffectation: TaxAffectation
   }
 
   input ProductFilterInput {
@@ -309,6 +336,12 @@ export const typeDefs = gql`
 
   # ── Review types ─────────────────────────────────────────────────────────────
 
+  enum ReviewStatus {
+    pending
+    approved
+    rejected
+  }
+
   type ProductReview {
     id: ID!
     productId: ID!
@@ -316,9 +349,12 @@ export const typeDefs = gql`
     rating: Int!
     title: String
     comment: String
+    """@deprecated Use status instead. Retained for backward compat during rolling deploy."""
     isApproved: Boolean!
     isVerified: Boolean!
     helpfulCount: Int!
+    """State machine: pending → approved | rejected."""
+    status: ReviewStatus!
     createdAt: DateTime!
     updatedAt: DateTime!
     product: Product!
@@ -366,7 +402,30 @@ export const typeDefs = gql`
     rating: Int
     title: String
     comment: String
-    isApproved: Boolean
+  }
+
+  input ApproveReviewInput {
+    id: ID!
+  }
+
+  type ApproveReviewResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: ProductReview
+  }
+
+  input RejectReviewInput {
+    id: ID!
+  }
+
+  type RejectReviewResponse {
+    success: Boolean!
+    message: String!
+    code: String!
+    timestamp: String!
+    data: ProductReview
   }
 
   input CreateReviewVoteInput {
@@ -421,7 +480,10 @@ export const typeDefs = gql`
     createProductReview(input: CreateProductReviewInput!): ProductReview!
     updateProductReview(id: ID!, input: UpdateProductReviewInput!): ProductReview!
     deleteProductReview(id: ID!): SuccessResponse!
+    """Transition review to approved status. Requires reviews:moderate permission."""
     approveReview(id: ID!): ProductReview!
+    """Transition review to rejected status. Requires reviews:moderate permission."""
+    rejectReview(id: ID!): ProductReview!
     createReviewVote(input: CreateReviewVoteInput!): ReviewVote!
     # userId is not accepted as an argument — ownership is derived from the JWT.
     deleteReviewVote(reviewId: ID!): SuccessResponse!

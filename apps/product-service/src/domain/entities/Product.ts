@@ -1,5 +1,14 @@
 import crypto from 'crypto';
 
+/**
+ * Tipo de afectación IGV SUNAT (Catálogo 07).
+ * Definido en dominio para mantener la entity pura — sin imports de Prisma.
+ * El repositorio mapea este tipo al enum generado por el cliente Prisma.
+ */
+export type TaxAffectation = 'gravado' | 'exonerado' | 'inafecto';
+
+export const TAX_AFFECTATION_DEFAULT: TaxAffectation = 'gravado';
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -15,6 +24,7 @@ export interface Product {
   tags?: string[];
   rating: number;
   reviewCount: number;
+  taxAffectation: TaxAffectation;
   createdAt: Date;
   updatedAt: Date;
   variants?: ProductVariant[];
@@ -29,6 +39,12 @@ export interface ProductVariant {
   stockQuantity: number;
   attributes: Record<string, any>;
   isActive: boolean;
+  /**
+   * Nullable: null / undefined means "inherit from parent Product".
+   * Effective affectation = variant.taxAffectation ?? product.taxAffectation.
+   * Resolution is the caller's responsibility (backend use-case / resolver).
+   */
+  taxAffectation?: TaxAffectation;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +65,7 @@ export class ProductEntity implements Product {
     public readonly tags: string[] | undefined,
     public readonly rating: number,
     public readonly reviewCount: number,
+    public readonly taxAffectation: TaxAffectation,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly variants?: ProductVariant[],
@@ -73,6 +90,7 @@ export class ProductEntity implements Product {
       data.tags,
       0,
       0,
+      data.taxAffectation ?? TAX_AFFECTATION_DEFAULT,
       now,
       now,
     );
@@ -94,6 +112,7 @@ export class ProductEntity implements Product {
       data.tags ?? this.tags,
       data.rating ?? this.rating,
       data.reviewCount ?? this.reviewCount,
+      data.taxAffectation ?? this.taxAffectation,
       this.createdAt,
       new Date(),
       data.variants ?? this.variants,
@@ -135,6 +154,7 @@ export class ProductVariantEntity implements ProductVariant {
     public readonly isActive: boolean,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly taxAffectation?: TaxAffectation,
   ) {}
 
   static create(
@@ -152,6 +172,7 @@ export class ProductVariantEntity implements ProductVariant {
       data.isActive,
       now,
       now,
+      data.taxAffectation,
     );
   }
 

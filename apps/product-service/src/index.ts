@@ -14,6 +14,9 @@ import { StreamRecordRuleSource, RecordRuleResolver, RecordRulesEventsConsumer, 
 import { typeDefs } from './graphql/schema';
 import { createResolvers } from './graphql/resolvers';
 import { PrismaProductRepository } from './infrastructure/repositories/PrismaProductRepository';
+import { PrismaProductReviewRepository } from './infrastructure/repositories/PrismaProductReviewRepository';
+import { PrismaInventoryTransactionRepository } from './infrastructure/repositories/PrismaInventoryTransactionRepository';
+import { PrismaStockAlertRepository } from './infrastructure/repositories/PrismaStockAlertRepository';
 import { ApplyOrderStockUseCase } from './application/use-cases/ApplyOrderStockUseCase';
 import { OrderEventsConsumer } from './infrastructure/messaging/OrderEventsConsumer';
 
@@ -85,7 +88,16 @@ async function start() {
   // Inject recordRuleResolver into the product repository to enforce record-level
   // write rules (update/delete/variant mutations) for owned Product entities.
   const productRepository = new PrismaProductRepository(prisma, recordRuleResolver);
-  const resolvers = createResolvers(productRepository, prisma);
+  const reviewRepository = new PrismaProductReviewRepository(prisma);
+  const inventoryTransactionRepository = new PrismaInventoryTransactionRepository(prisma);
+  const stockAlertRepository = new PrismaStockAlertRepository(prisma);
+  const resolvers = createResolvers(
+    productRepository,
+    prisma,
+    reviewRepository,
+    inventoryTransactionRepository,
+    stockAlertRepository,
+  );
 
   const schema = buildSubgraphSchema([{ typeDefs, resolvers: resolvers as any }]);
 

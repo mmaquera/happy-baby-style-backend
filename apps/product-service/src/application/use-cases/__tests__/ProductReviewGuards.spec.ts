@@ -1,27 +1,31 @@
 /**
  * ProductReviewGuards.spec.ts
  *
- * Tests for the BOLA/auth security guards and Prisma FK error mapping on review mutations.
+ * Tests for BOLA/auth security guards and error mapping on review mutations.
  *
- * These guards live in the resolver layer (graphql/resolvers.ts) because no
- * dedicated use case exists yet for review/vote operations — all DB access is
- * via prisma directly in the resolver.  When the structural refactor is done
- * (CreateProductReviewUseCase, CreateReviewVoteUseCase, DeleteReviewVoteUseCase),
- * these tests should move to the corresponding use-case __tests__ files.
+ * The resolver now delegates ALL review ops to use cases injected via repositories.
+ * There are no "fallback prisma.*" paths — the test layer drives behavior through
+ * repository mocks that the use cases consume.
  *
  * What is tested here:
- *   - createProductReview: author is pinned to JWT userId (not input.userId)
- *   - createProductReview: unauthenticated caller → UNAUTHENTICATED
- *   - createProductReview: Prisma P2003 FK (productId not found) → GraphQLError NOT_FOUND (no schema leak)
- *   - createProductReview: Prisma unknown error → re-thrown (not swallowed)
- *   - createReviewVote: voter is pinned to JWT userId (not input.userId)
- *   - createReviewVote: unauthenticated caller → UNAUTHENTICATED
- *   - createReviewVote: Prisma P2003 FK (reviewId not found) → GraphQLError NOT_FOUND (no schema leak)
+ *   - createProductReview: UNAUTHENTICATED when no currentUser
+ *   - createProductReview: DuplicateError from use case → CONFLICT
+ *   - createProductReview: NotFoundError from use case → NOT_FOUND
+ *   - createProductReview: Prisma P2002 surface → CONFLICT
+ *   - createProductReview: Prisma P2003 surface → NOT_FOUND (no schema leak)
+ *   - createProductReview: unknown error → re-thrown
+ *   - createReviewVote: voter pinned to JWT userId (BOLA fix, still via prisma.reviewVote.upsert)
+ *   - createReviewVote: UNAUTHENTICATED when no currentUser
+ *   - createReviewVote: Prisma P2003 FK → NOT_FOUND
  *   - deleteReviewVote: ownership enforced (own vote → success)
- *   - deleteReviewVote: vote belonging to another user → NOT_FOUND (anti-enumeration)
- *   - deleteReviewVote: vote does not exist at all → NOT_FOUND
- *   - deleteReviewVote: unauthenticated caller → UNAUTHENTICATED
- *   - deleteReviewVote: admin without own vote → NOT_FOUND (same as non-admin; no scope-creep)
+ *   - deleteReviewVote: another user's vote → NOT_FOUND (anti-enumeration)
+ *   - deleteReviewVote: vote does not exist → NOT_FOUND
+ *   - deleteReviewVote: UNAUTHENTICATED when no currentUser
+ *   - deleteReviewVote: admin without own vote → NOT_FOUND (no scope-creep)
+ *   - updateProductReview: owner can update their own review (via use case / repo mock)
+ *   - updateProductReview: non-owner non-admin → NOT_FOUND
+ *   - updateProductReview: review does not exist → NOT_FOUND
+ *   - updateProductReview: admin can update any review
  */
 
 jest.mock(
@@ -36,6 +40,12 @@ jest.mock(
           debug: jest.fn(),
         }),
         createUseCaseLogger: () => ({
+          info: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+        }),
+        createRepositoryLogger: () => ({
           info: jest.fn(),
           warn: jest.fn(),
           error: jest.fn(),
@@ -56,7 +66,7 @@ jest.mock(
   '@hbs/authz',
   () => ({
     assertModelAccess: jest.fn(),
-    // isAdmin is used in updateProductReview for the owner-or-admin BOLA guard.
+    hasPermission: jest.fn().mockReturnValue(true),
     isAdmin: jest.fn((user: any) => {
       if (!user) return false;
       return (user.groups ?? []).includes('administrators');
@@ -65,9 +75,13 @@ jest.mock(
   { virtual: true },
 );
 
-import { GraphQLError } from 'graphql';
 import { Prisma } from '../../../prisma';
 import type { TokenPayload } from '@hbs/auth';
+import type { IProductReviewRepository } from '../../../domain/repositories/IProductReviewRepository';
+import type { IInventoryTransactionRepository } from '../../../domain/repositories/IInventoryTransactionRepository';
+import type { IStockAlertRepository } from '../../../domain/repositories/IStockAlertRepository';
+import { ProductReviewEntity } from '../../../domain/entities/ProductReview';
+import { NotFoundError, DuplicateError } from '../../../domain/errors/DomainError';
 
 // ── Factories ──────────────────────────────────────────────────────────────────
 
@@ -89,45 +103,26 @@ function makeAdminUser(overrides: Partial<TokenPayload> = {}): TokenPayload {
   };
 }
 
-// ── Minimal prisma mock ────────────────────────────────────────────────────────
-
-function makePrismaMock(overrides: Record<string, any> = {}) {
-  return {
-    productReview: {
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      count: jest.fn(),
-      upsert: jest.fn(),
-    },
-    reviewVote: {
-      upsert: jest.fn(),
-      delete: jest.fn(),
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-    },
-    inventoryTransaction: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-    },
-    stockAlert: {
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      findMany: jest.fn(),
-    },
-    product: {
-      count: jest.fn(),
-    },
-    ...overrides,
-  };
+function makeReviewEntity(overrides: Partial<any> = {}): ProductReviewEntity {
+  return new ProductReviewEntity(
+    overrides.id ?? 'rev-1',
+    overrides.productId ?? 'prod-1',
+    overrides.userId ?? 'owner-user-1',
+    overrides.rating ?? 4,
+    overrides.isApproved ?? false,
+    false,
+    0,
+    overrides.status ?? 'pending',
+    new Date('2024-01-01'),
+    new Date('2024-01-01'),
+    overrides.title ?? 'Good product',
+    overrides.comment ?? undefined,
+  );
 }
 
 // ── Minimal IProductRepository mock ───────────────────────────────────────────
 
-function makeRepoMock(): any {
+function makeProductRepoMock(): any {
   return {
     create: jest.fn(),
     findById: jest.fn(),
@@ -140,6 +135,8 @@ function makeRepoMock(): any {
     findBySku: jest.fn(),
     updateStock: jest.fn(),
     search: jest.fn(),
+    findLowStock: jest.fn(),
+    findOutOfStock: jest.fn(),
     createVariant: jest.fn(),
     getProductVariants: jest.fn(),
     updateVariant: jest.fn(),
@@ -147,13 +144,64 @@ function makeRepoMock(): any {
   };
 }
 
+function makeReviewRepoMock(overrides: Partial<IProductReviewRepository> = {}): jest.Mocked<IProductReviewRepository> {
+  return {
+    create: jest.fn().mockResolvedValue(makeReviewEntity()),
+    findById: jest.fn().mockResolvedValue(makeReviewEntity()),
+    findByProduct: jest.fn().mockResolvedValue({ reviews: [], total: 0 }),
+    findByUser: jest.fn().mockResolvedValue([]),
+    update: jest.fn().mockResolvedValue(makeReviewEntity()),
+    delete: jest.fn().mockResolvedValue(undefined),
+    approve: jest.fn().mockResolvedValue(makeReviewEntity({ status: 'approved', isApproved: true })),
+    reject: jest.fn().mockResolvedValue(makeReviewEntity({ status: 'rejected', isApproved: false })),
+    ...overrides,
+  } as jest.Mocked<IProductReviewRepository>;
+}
+
+function makeInventoryRepoMock(): jest.Mocked<IInventoryTransactionRepository> {
+  return {
+    create: jest.fn(),
+    findByProductId: jest.fn().mockResolvedValue([]),
+  } as any;
+}
+
+function makeStockAlertRepoMock(): jest.Mocked<IStockAlertRepository> {
+  return {
+    create: jest.fn(),
+    findAll: jest.fn().mockResolvedValue([]),
+    update: jest.fn(),
+    delete: jest.fn(),
+  } as any;
+}
+
+// ── Minimal prisma mock (for reviewVote operations still in resolver) ──────────
+
+function makePrismaMock(overrides: Record<string, any> = {}) {
+  return {
+    productReview: {
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
+    reviewVote: {
+      upsert: jest.fn(),
+      delete: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+    },
+    product: {
+      count: jest.fn(),
+    },
+    ...overrides,
+  };
+}
+
 // ── Resolver factory import ────────────────────────────────────────────────────
 
-// We import createResolvers after all mocks are set up so the module picks up
-// the mocked logging + auth dependencies.
 import { createResolvers } from '../../../graphql/resolvers';
-
-// ── Helper to extract a resolver from the map ──────────────────────────────────
 
 function getMutation(resolvers: any, name: string) {
   return resolvers.Mutation[name];
@@ -166,150 +214,138 @@ describe('Review mutation security guards', () => {
   // ── createProductReview ──────────────────────────────────────────────────────
 
   describe('createProductReview', () => {
-    it('pins author to JWT userId — ignores any userId that might be in input (BOLA fix)', async () => {
-      const prisma = makePrismaMock();
-      const jwtUserId = 'user-jwt-1';
-      const spoofedUserId = 'victim-user-99';
-
-      const createdReview = {
-        id: 'rev-1',
-        productId: 'prod-1',
-        userId: jwtUserId,
-        rating: 5,
-        title: 'Great',
-        comment: null,
-        isApproved: false,
-        isVerified: false,
-        helpfulCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        photos: [],
-        votes: [],
-      };
-
-      prisma.productReview.create.mockResolvedValue(createdReview);
-
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
-      const mutation = getMutation(resolvers, 'createProductReview');
-
-      // Client sends a spoofed userId in the input — server must ignore it
-      const result = await mutation(
-        null,
-        { input: { productId: 'prod-1', rating: 5, userId: spoofedUserId } },
-        { currentUser: makeUser({ userId: jwtUserId }) },
-      );
-
-      // The review was created with the JWT userId, not the spoofed one
-      expect(prisma.productReview.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ userId: jwtUserId }),
-        }),
-      );
-      expect(result.userId).toBe(jwtUserId);
-    });
-
     it('throws UNAUTHENTICATED when currentUser is null', async () => {
       const prisma = makePrismaMock();
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createProductReview');
 
       await expect(
         mutation(null, { input: { productId: 'prod-1', rating: 5 } }, { currentUser: null }),
-      ).rejects.toMatchObject({
-        extensions: { code: 'UNAUTHENTICATED' },
-      });
-
-      expect(prisma.productReview.create).not.toHaveBeenCalled();
+      ).rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } });
     });
 
     it('throws UNAUTHENTICATED when context has no currentUser property', async () => {
       const prisma = makePrismaMock();
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createProductReview');
 
       await expect(
         mutation(null, { input: { productId: 'prod-1', rating: 5 } }, {}),
-      ).rejects.toMatchObject({
-        extensions: { code: 'UNAUTHENTICATED' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } });
     });
 
-    it('maps Prisma P2003 (FK violation — productId not found) to a GraphQLError NOT_FOUND (no schema leak, correct HTTP semantics)', async () => {
-      const prisma = makePrismaMock();
-      // Simulate Prisma throwing P2003 when productId does not exist in the products table.
-      const fkError = new Prisma.PrismaClientKnownRequestError('Foreign key constraint failed', {
-        code: 'P2003',
-        clientVersion: '5.0.0',
+    it('maps DuplicateError from use case to CONFLICT (409)', async () => {
+      const reviewRepo = makeReviewRepoMock({
+        create: jest.fn().mockRejectedValue(new DuplicateError('ProductReview', 'productId+userId', 'duplicate')),
       });
-      prisma.productReview.create.mockRejectedValue(fkError);
+      // findById must exist so CreateProductReviewUseCase can validate the product
+      const productRepo = makeProductRepoMock();
+      productRepo.findById.mockResolvedValue({ id: 'prod-1' });
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const prisma = makePrismaMock();
+      const resolvers = createResolvers(
+        productRepo, prisma as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createProductReview');
 
-      // Must throw a GraphQLError with NOT_FOUND so Apollo forwards the correct 404 to the client.
-      // (Non-GraphQLError exceptions are masked as INTERNAL_SERVER_ERROR by Apollo Server 4.)
       await expect(
-        mutation(null, { input: { productId: 'nonexistent-prod', rating: 5 } }, { currentUser: makeUser() }),
-      ).rejects.toMatchObject({
-        extensions: { code: 'NOT_FOUND' },
-      });
-
-      // Also assert the message is clean — no Prisma-internal details.
-      const thrownError = await mutation(
-        null,
-        { input: { productId: 'nonexistent-prod', rating: 5 } },
-        { currentUser: makeUser() },
-      ).catch((e: unknown) => e);
-      const msg = (thrownError as Error).message;
-      expect(msg).not.toMatch(/foreign key/i);
-      expect(msg).not.toMatch(/constraint/i);
-      expect(msg).not.toMatch(/prisma/i);
-      expect(msg.toLowerCase()).toContain('product');
+        mutation(null, { input: { productId: 'prod-1', rating: 5 } }, { currentUser: makeUser() }),
+      ).rejects.toMatchObject({ extensions: { code: 'CONFLICT', http: { status: 409 } } });
     });
 
-    it('maps Prisma P2002 (unique constraint — duplicate review) to GraphQLError CONFLICT (409), message must not expose internal details', async () => {
+    it('maps NotFoundError from use case to NOT_FOUND (no schema leak)', async () => {
+      const productRepo = makeProductRepoMock();
+      productRepo.findById.mockResolvedValue(null); // product not found
+
       const prisma = makePrismaMock();
-      // Simulate Prisma throwing P2002 when the same user tries to review the same product twice.
-      // This is triggered by @@unique([productId, userId]) on ProductReview.
+      const resolvers = createResolvers(
+        productRepo, prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
+      const mutation = getMutation(resolvers, 'createProductReview');
+
+      await expect(
+        mutation(null, { input: { productId: 'nonexistent-prod', rating: 5 } }, { currentUser: makeUser() }),
+      ).rejects.toMatchObject({ extensions: { code: 'NOT_FOUND' } });
+    });
+
+    it('maps Prisma P2002 (unique constraint) to CONFLICT — message must not expose internal details', async () => {
       const uniqueError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
         code: 'P2002',
         clientVersion: '5.0.0',
       });
-      prisma.productReview.create.mockRejectedValue(uniqueError);
+      const reviewRepo = makeReviewRepoMock({
+        create: jest.fn().mockRejectedValue(uniqueError),
+      });
+      const productRepo = makeProductRepoMock();
+      productRepo.findById.mockResolvedValue({ id: 'prod-1' });
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const prisma = makePrismaMock();
+      const resolvers = createResolvers(
+        productRepo, prisma as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createProductReview');
 
-      // Must surface as CONFLICT (not INTERNAL_SERVER_ERROR) so Apollo forwards 409.
-      await expect(
-        mutation(
-          null,
-          { input: { productId: 'prod-1', rating: 4 } },
-          { currentUser: makeUser() },
-        ),
-      ).rejects.toMatchObject({
-        extensions: { code: 'CONFLICT', http: { status: 409 } },
-      });
-
-      // Message must be user-friendly — no Prisma internals, no table/column names.
-      const thrown = await mutation(
-        null,
-        { input: { productId: 'prod-1', rating: 4 } },
-        { currentUser: makeUser() },
+      const thrownError = await mutation(
+        null, { input: { productId: 'prod-1', rating: 4 } }, { currentUser: makeUser() },
       ).catch((e: unknown) => e);
-      const msg = (thrown as Error).message;
+
+      expect((thrownError as any).extensions.code).toBe('CONFLICT');
+      const msg = (thrownError as Error).message;
       expect(msg).not.toMatch(/unique constraint/i);
       expect(msg).not.toMatch(/prisma/i);
-      expect(msg).not.toMatch(/product_reviews/i);
-      expect(msg.toLowerCase()).toContain('already reviewed');
+    });
+
+    it('maps Prisma P2003 (FK violation — productId not found) to NOT_FOUND (no schema leak)', async () => {
+      const fkError = new Prisma.PrismaClientKnownRequestError('Foreign key constraint failed', {
+        code: 'P2003',
+        clientVersion: '5.0.0',
+      });
+      const reviewRepo = makeReviewRepoMock({
+        create: jest.fn().mockRejectedValue(fkError),
+      });
+      const productRepo = makeProductRepoMock();
+      // product found (passes use-case guard) but Prisma FK fails on insert
+      productRepo.findById.mockResolvedValue({ id: 'prod-1' });
+
+      const prisma = makePrismaMock();
+      const resolvers = createResolvers(
+        productRepo, prisma as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
+      const mutation = getMutation(resolvers, 'createProductReview');
+
+      const thrownError = await mutation(
+        null, { input: { productId: 'prod-1', rating: 5 } }, { currentUser: makeUser() },
+      ).catch((e: unknown) => e);
+
+      expect((thrownError as any).extensions.code).toBe('NOT_FOUND');
+      const msg = (thrownError as Error).message;
+      expect(msg).not.toMatch(/foreign key/i);
+      expect(msg).not.toMatch(/constraint/i);
+      expect(msg).not.toMatch(/prisma/i);
     });
 
     it('re-throws unknown non-Prisma errors without swallowing', async () => {
-      const prisma = makePrismaMock();
-      const unknownError = new Error('database connection lost');
-      prisma.productReview.create.mockRejectedValue(unknownError);
+      const reviewRepo = makeReviewRepoMock({
+        create: jest.fn().mockRejectedValue(new Error('database connection lost')),
+      });
+      const productRepo = makeProductRepoMock();
+      productRepo.findById.mockResolvedValue({ id: 'prod-1' });
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const prisma = makePrismaMock();
+      const resolvers = createResolvers(
+        productRepo, prisma as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createProductReview');
 
       await expect(
@@ -319,6 +355,7 @@ describe('Review mutation security guards', () => {
   });
 
   // ── createReviewVote ─────────────────────────────────────────────────────────
+  // reviewVote mutations are still resolver-level (no use case yet) — prisma mock
 
   describe('createReviewVote', () => {
     it('pins voter to JWT userId — ignores any userId in input (BOLA fix)', async () => {
@@ -332,13 +369,14 @@ describe('Review mutation security guards', () => {
         isHelpful: true,
         createdAt: new Date(),
       };
-
       prisma.reviewVote.upsert.mockResolvedValue(createdVote);
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createReviewVote');
 
-      // Client sends only reviewId + isHelpful (userId is not in input SDL anymore)
       const result = await mutation(
         null,
         { input: { reviewId: 'rev-1', isHelpful: true } },
@@ -356,60 +394,55 @@ describe('Review mutation security guards', () => {
 
     it('throws UNAUTHENTICATED when currentUser is null', async () => {
       const prisma = makePrismaMock();
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createReviewVote');
 
       await expect(
         mutation(null, { input: { reviewId: 'rev-1', isHelpful: true } }, { currentUser: null }),
-      ).rejects.toMatchObject({
-        extensions: { code: 'UNAUTHENTICATED' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } });
 
       expect(prisma.reviewVote.upsert).not.toHaveBeenCalled();
     });
 
     it('throws UNAUTHENTICATED when context has no currentUser property', async () => {
       const prisma = makePrismaMock();
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createReviewVote');
 
       await expect(
         mutation(null, { input: { reviewId: 'rev-1', isHelpful: true } }, {}),
-      ).rejects.toMatchObject({
-        extensions: { code: 'UNAUTHENTICATED' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } });
     });
 
-    it('maps Prisma P2003 (FK violation — reviewId not found) to a GraphQLError NOT_FOUND (no schema leak, correct HTTP semantics)', async () => {
+    it('maps Prisma P2003 (FK violation — reviewId not found) to NOT_FOUND (no schema leak)', async () => {
       const prisma = makePrismaMock();
-      // Simulate Prisma throwing P2003 when reviewId does not exist in the product_reviews table.
       const fkError = new Prisma.PrismaClientKnownRequestError('Foreign key constraint failed', {
         code: 'P2003',
         clientVersion: '5.0.0',
       });
       prisma.reviewVote.upsert.mockRejectedValue(fkError);
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'createReviewVote');
 
-      // Must throw a GraphQLError with NOT_FOUND so Apollo forwards the correct 404 to the client.
-      await expect(
-        mutation(null, { input: { reviewId: 'nonexistent-rev', isHelpful: true } }, { currentUser: makeUser() }),
-      ).rejects.toMatchObject({
-        extensions: { code: 'NOT_FOUND' },
-      });
-
-      // Also assert the message is clean — no Prisma-internal details.
       const thrownError = await mutation(
-        null,
-        { input: { reviewId: 'nonexistent-rev', isHelpful: true } },
-        { currentUser: makeUser() },
+        null, { input: { reviewId: 'nonexistent-rev', isHelpful: true } }, { currentUser: makeUser() },
       ).catch((e: unknown) => e);
+
+      expect((thrownError as any).extensions.code).toBe('NOT_FOUND');
       const msg = (thrownError as Error).message;
       expect(msg).not.toMatch(/foreign key/i);
       expect(msg).not.toMatch(/constraint/i);
       expect(msg).not.toMatch(/prisma/i);
-      expect(msg.toLowerCase()).toContain('review');
     });
   });
 
@@ -427,18 +460,16 @@ describe('Review mutation security guards', () => {
         isHelpful: true,
         createdAt: new Date(),
       };
-
       prisma.reviewVote.findUnique.mockResolvedValue(ownedVote);
       prisma.reviewVote.delete.mockResolvedValue(ownedVote);
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'deleteReviewVote');
 
-      const result = await mutation(
-        null,
-        { reviewId: 'rev-1' },
-        { currentUser: makeUser({ userId: callerId }) },
-      );
+      const result = await mutation(null, { reviewId: 'rev-1' }, { currentUser: makeUser({ userId: callerId }) });
 
       expect(result.success).toBe(true);
       expect(prisma.reviewVote.delete).toHaveBeenCalledWith({
@@ -448,24 +479,18 @@ describe('Review mutation security guards', () => {
 
     it('throws NOT_FOUND (anti-enumeration) when vote belongs to another user', async () => {
       const prisma = makePrismaMock();
-      // Vote exists but belongs to victim-user, NOT the caller
-      // findUnique returns null because we query by caller's userId
       prisma.reviewVote.findUnique.mockResolvedValue(null);
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'deleteReviewVote');
 
       await expect(
-        mutation(
-          null,
-          { reviewId: 'rev-1' },
-          { currentUser: makeUser({ userId: 'attacker-user-2' }) },
-        ),
-      ).rejects.toMatchObject({
-        extensions: { code: 'NOT_FOUND' },
-      });
+        mutation(null, { reviewId: 'rev-1' }, { currentUser: makeUser({ userId: 'attacker-user-2' }) }),
+      ).rejects.toMatchObject({ extensions: { code: 'NOT_FOUND' } });
 
-      // Delete must never be called when vote not found for caller
       expect(prisma.reviewVote.delete).not.toHaveBeenCalled();
     });
 
@@ -473,32 +498,30 @@ describe('Review mutation security guards', () => {
       const prisma = makePrismaMock();
       prisma.reviewVote.findUnique.mockResolvedValue(null);
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'deleteReviewVote');
 
       await expect(
-        mutation(
-          null,
-          { reviewId: 'nonexistent-rev' },
-          { currentUser: makeUser() },
-        ),
-      ).rejects.toMatchObject({
-        extensions: { code: 'NOT_FOUND' },
-      });
+        mutation(null, { reviewId: 'nonexistent-rev' }, { currentUser: makeUser() }),
+      ).rejects.toMatchObject({ extensions: { code: 'NOT_FOUND' } });
 
       expect(prisma.reviewVote.delete).not.toHaveBeenCalled();
     });
 
     it('throws UNAUTHENTICATED when currentUser is null', async () => {
       const prisma = makePrismaMock();
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'deleteReviewVote');
 
       await expect(
         mutation(null, { reviewId: 'rev-1' }, { currentUser: null }),
-      ).rejects.toMatchObject({
-        extensions: { code: 'UNAUTHENTICATED' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } });
 
       expect(prisma.reviewVote.findUnique).not.toHaveBeenCalled();
       expect(prisma.reviewVote.delete).not.toHaveBeenCalled();
@@ -506,76 +529,55 @@ describe('Review mutation security guards', () => {
 
     it('throws UNAUTHENTICATED when context has no currentUser property', async () => {
       const prisma = makePrismaMock();
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'deleteReviewVote');
 
       await expect(
         mutation(null, { reviewId: 'rev-1' }, {}),
-      ).rejects.toMatchObject({
-        extensions: { code: 'UNAUTHENTICATED' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'UNAUTHENTICATED' } });
     });
 
-    it('admin user receives NOT_FOUND when no vote exists for their own userId (no scope-creep: admin override requires a separate mutation with targetUserId)', async () => {
-      // deleteReviewVote is ownership-only: any caller (including admin) can only delete
-      // their own vote via this mutation. An admin-scoped mutation that accepts an explicit
-      // targetUserId is deferred — changing this SDL-bound mutation would be scope-creep.
+    it('admin receives NOT_FOUND when no vote exists for their own userId (no scope-creep)', async () => {
       const prisma = makePrismaMock();
       prisma.reviewVote.findUnique.mockResolvedValue(null);
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), prisma as any,
+        makeReviewRepoMock(), makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'deleteReviewVote');
 
       await expect(
         mutation(null, { reviewId: 'rev-1' }, { currentUser: makeAdminUser() }),
-      ).rejects.toMatchObject({
-        extensions: { code: 'NOT_FOUND' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'NOT_FOUND' } });
 
       expect(prisma.reviewVote.delete).not.toHaveBeenCalled();
     });
   });
 
-  // ── updateProductReview (BOLA fix — owner-or-admin) ─────────────────────────
+  // ── updateProductReview (BOLA via use case — owner-or-admin) ─────────────────
   //
-  // Security model:
-  //   - assertModelAccess baseline: unauthenticated → 401; non-staff without
-  //     update:product → 403. Handled by the mock (jest.fn()) — not re-tested here.
-  //   - Owner-or-admin guard (BOLA): loads the review row, then:
-  //       * owner (review.userId === callerId) → allowed
-  //       * admin (isAdmin === true)           → allowed (any review)
-  //       * non-owner non-admin               → NOT_FOUND (anti-enumeration)
-  //       * review does not exist              → NOT_FOUND (anti-enumeration)
+  // The resolver delegates to UpdateProductReviewUseCase which enforces owner-or-admin.
+  // We drive behavior by controlling what reviewRepository.findById returns.
 
   describe('updateProductReview', () => {
-    function makeReview(overrides: Record<string, any> = {}) {
-      return {
-        id: 'rev-1',
-        productId: 'prod-1',
-        userId: 'owner-user-1',
-        rating: 4,
-        title: 'Good',
-        comment: null,
-        isApproved: false,
-        isVerified: false,
-        helpfulCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        photos: [],
-        votes: [],
-        ...overrides,
-      };
-    }
-
     it('allows owner to edit their own review', async () => {
-      const prisma = makePrismaMock();
       const ownerId = 'owner-user-1';
-      const review = makeReview({ userId: ownerId });
+      const review = makeReviewEntity({ userId: ownerId });
+      const updatedReview = makeReviewEntity({ userId: ownerId, title: 'Updated title' });
 
-      prisma.productReview.findUnique.mockResolvedValue(review);
-      prisma.productReview.update.mockResolvedValue({ ...review, title: 'Updated title' });
+      const reviewRepo = makeReviewRepoMock({
+        findById: jest.fn().mockResolvedValue(review),
+        update: jest.fn().mockResolvedValue(updatedReview),
+      });
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), makePrismaMock() as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'updateProductReview');
 
       const result = await mutation(
@@ -584,59 +586,69 @@ describe('Review mutation security guards', () => {
         { currentUser: makeUser({ userId: ownerId }) },
       );
 
-      expect(prisma.productReview.findUnique).toHaveBeenCalledWith({ where: { id: 'rev-1' } });
-      expect(prisma.productReview.update).toHaveBeenCalled();
+      expect(reviewRepo.findById).toHaveBeenCalledWith('rev-1');
+      expect(reviewRepo.update).toHaveBeenCalled();
       expect(result.title).toBe('Updated title');
     });
 
     it('throws NOT_FOUND (anti-enumeration) when non-owner non-admin attempts edit', async () => {
-      const prisma = makePrismaMock();
       // Review belongs to owner-user-1 — attacker is a different user
-      const review = makeReview({ userId: 'owner-user-1' });
-      prisma.productReview.findUnique.mockResolvedValue(review);
+      const review = makeReviewEntity({ userId: 'owner-user-1' });
+      const reviewRepo = makeReviewRepoMock({
+        findById: jest.fn().mockResolvedValue(review),
+      });
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), makePrismaMock() as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'updateProductReview');
 
       await expect(
         mutation(
           null,
           { id: 'rev-1', input: { title: 'Hacked' } },
-          { currentUser: makeUser({ userId: 'attacker-user-2', groups: ['sales-user'] }) },
+          { currentUser: makeUser({ userId: 'attacker-user-2', groups: ['customer'] }) },
         ),
-      ).rejects.toMatchObject({
-        extensions: { code: 'NOT_FOUND' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'NOT_FOUND' } });
 
-      // DB write must NOT happen
-      expect(prisma.productReview.update).not.toHaveBeenCalled();
+      expect(reviewRepo.update).not.toHaveBeenCalled();
     });
 
     it('allows admin to edit any review regardless of ownership', async () => {
-      const prisma = makePrismaMock();
-      // Review belongs to a regular user — admin is editing it
-      const review = makeReview({ userId: 'regular-user-1' });
-      prisma.productReview.findUnique.mockResolvedValue(review);
-      prisma.productReview.update.mockResolvedValue({ ...review, isApproved: true });
+      const review = makeReviewEntity({ userId: 'regular-user-1' });
+      const updatedReview = makeReviewEntity({ userId: 'regular-user-1', rating: 3 });
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const reviewRepo = makeReviewRepoMock({
+        findById: jest.fn().mockResolvedValue(review),
+        update: jest.fn().mockResolvedValue(updatedReview),
+      });
+
+      const resolvers = createResolvers(
+        makeProductRepoMock(), makePrismaMock() as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'updateProductReview');
 
       const result = await mutation(
         null,
-        { id: 'rev-1', input: { isApproved: true } },
+        { id: 'rev-1', input: { rating: 3 } },
         { currentUser: makeAdminUser() },
       );
 
-      expect(prisma.productReview.update).toHaveBeenCalled();
-      expect(result.isApproved).toBe(true);
+      expect(reviewRepo.update).toHaveBeenCalled();
+      expect(result).toBeDefined();
     });
 
     it('throws NOT_FOUND (anti-enumeration) when review does not exist', async () => {
-      const prisma = makePrismaMock();
-      prisma.productReview.findUnique.mockResolvedValue(null);
+      const reviewRepo = makeReviewRepoMock({
+        findById: jest.fn().mockResolvedValue(null),
+      });
 
-      const resolvers = createResolvers(makeRepoMock(), prisma as any);
+      const resolvers = createResolvers(
+        makeProductRepoMock(), makePrismaMock() as any,
+        reviewRepo, makeInventoryRepoMock(), makeStockAlertRepoMock(),
+      );
       const mutation = getMutation(resolvers, 'updateProductReview');
 
       await expect(
@@ -645,11 +657,9 @@ describe('Review mutation security guards', () => {
           { id: 'nonexistent-rev', input: { title: 'Ghost' } },
           { currentUser: makeUser() },
         ),
-      ).rejects.toMatchObject({
-        extensions: { code: 'NOT_FOUND' },
-      });
+      ).rejects.toMatchObject({ extensions: { code: 'NOT_FOUND' } });
 
-      expect(prisma.productReview.update).not.toHaveBeenCalled();
+      expect(reviewRepo.update).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,35 +1,42 @@
 import { GraphQLScalarType, GraphQLError, Kind } from 'graphql';
 import { PrismaClient, Prisma } from '../prisma';
 import { IProductRepository } from '../domain/repositories/IProductRepository';
+import { IProductReviewRepository } from '../domain/repositories/IProductReviewRepository';
+import { IInventoryTransactionRepository } from '../domain/repositories/IInventoryTransactionRepository';
+import { IStockAlertRepository } from '../domain/repositories/IStockAlertRepository';
 import { GetProductsUseCase } from '../application/use-cases/GetProductsUseCase';
 import { GetProductByIdUseCase } from '../application/use-cases/GetProductByIdUseCase';
 import { CreateProductUseCase } from '../application/use-cases/CreateProductUseCase';
 import { UpdateProductUseCase } from '../application/use-cases/UpdateProductUseCase';
 import { DeleteProductUseCase } from '../application/use-cases/DeleteProductUseCase';
+import { CreateProductReviewUseCase } from '../application/use-cases/CreateProductReviewUseCase';
+import { UpdateProductReviewUseCase } from '../application/use-cases/UpdateProductReviewUseCase';
+import { DeleteProductReviewUseCase } from '../application/use-cases/DeleteProductReviewUseCase';
+import { ApproveReviewUseCase } from '../application/use-cases/ApproveReviewUseCase';
+import { RejectReviewUseCase } from '../application/use-cases/RejectReviewUseCase';
+import { CreateInventoryTransactionUseCase } from '../application/use-cases/CreateInventoryTransactionUseCase';
+import { GetInventoryTransactionsUseCase } from '../application/use-cases/GetInventoryTransactionsUseCase';
+import { CreateStockAlertUseCase } from '../application/use-cases/CreateStockAlertUseCase';
+import { UpdateStockAlertUseCase } from '../application/use-cases/UpdateStockAlertUseCase';
+import { DeleteStockAlertUseCase } from '../application/use-cases/DeleteStockAlertUseCase';
+import { GetStockAlertsUseCase } from '../application/use-cases/GetStockAlertsUseCase';
 import { transformProduct, transformVariant } from './transformers/productTransformer';
 import { DomainError, ResponseFactory, RESPONSE_CODES } from '@hbs/shared-kernel';
 import { requirePermission, Permission } from '@hbs/auth';
-import { assertModelAccess, isAdmin } from '@hbs/authz';
+import { assertModelAccess } from '@hbs/authz';
 import { LoggerFactory } from '@hbs/logging';
 
 /**
  * Maps a PrismaClientKnownRequestError to a GraphQLError with a clean user-facing message,
  * preventing internal schema/table/column names from leaking to GraphQL clients.
  *
- * Throws GraphQLError (not DomainError) so that Apollo Server 4 forwards the correct HTTP
- * status and extension code to the client — non-GraphQLError exceptions are masked as
- * "Internal server error" by Apollo Server 4 unless a formatError hook is present.
- *
- * P2002 — unique constraint violation: the record already exists (e.g. duplicate review).
- * P2003 — foreign key constraint violation: the referenced record does not exist.
+ * P2002 — unique constraint violation (e.g. duplicate review).
+ * P2003 — foreign key constraint violation (referenced record does not exist).
  * P2025 — record to update/delete not found.
- *
- * Any other Prisma error is re-thrown as-is so it surfaces as an unexpected internal error.
  */
 function mapPrismaReviewError(error: unknown, context: 'review' | 'vote'): never {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === 'P2002') {
-      // Unique constraint violation: for reviews this means the user already reviewed this product.
       const message =
         context === 'review'
           ? 'You have already reviewed this product'
@@ -39,22 +46,37 @@ function mapPrismaReviewError(error: unknown, context: 'review' | 'vote'): never
       });
     }
     if (error.code === 'P2003') {
-      // FK violation: productId (for review) or reviewId (for vote) does not exist.
       const label = context === 'review' ? 'Product' : 'Review';
       throw new GraphQLError(`${label} not found`, {
         extensions: { code: 'NOT_FOUND', http: { status: 404 } },
       });
     }
     if (error.code === 'P2025') {
-      // Record not found during update/delete.
       const label = context === 'review' ? 'Review' : 'Vote';
       throw new GraphQLError(`${label} not found`, {
         extensions: { code: 'NOT_FOUND', http: { status: 404 } },
       });
     }
   }
-  // Unknown Prisma or non-Prisma error — let the caller handle it as an internal error.
   throw error;
+}
+
+/** Maps a ProductReviewEntity (or plain object with photos/votes) to resolver DTO shape. */
+function mapReviewDto(r: any) {
+  return {
+    ...r,
+    product: { __typename: 'Product', id: r.productId },
+    user: { __typename: 'UserProfile', id: r.userId },
+    photos: (r.photos ?? []).map((p: any) => ({
+      ...p,
+      review: { __typename: 'ProductReview', id: p.reviewId ?? r.id },
+    })),
+    votes: (r.votes ?? []).map((v: any) => ({
+      ...v,
+      review: { __typename: 'ProductReview', id: v.reviewId ?? r.id },
+      user: { __typename: 'UserProfile', id: v.userId },
+    })),
+  };
 }
 
 const DateTimeScalar = new GraphQLScalarType({
@@ -80,13 +102,38 @@ const JsonScalar = new GraphQLScalarType({
   },
 });
 
-export function createResolvers(productRepository: IProductRepository, prisma: PrismaClient) {
+export function createResolvers(
+  productRepository: IProductRepository,
+  prisma: PrismaClient,
+  reviewRepository: IProductReviewRepository,
+  inventoryTransactionRepository: IInventoryTransactionRepository,
+  stockAlertRepository: IStockAlertRepository,
+) {
   const logger = LoggerFactory.getInstance().createServiceLogger('ProductResolvers');
+
+  // ── Product use cases ───────────────────────────────────────────────────────
   const getProductsUseCase = new GetProductsUseCase(productRepository);
   const getProductByIdUseCase = new GetProductByIdUseCase(productRepository);
   const createProductUseCase = new CreateProductUseCase(productRepository);
   const updateProductUseCase = new UpdateProductUseCase(productRepository);
   const deleteProductUseCase = new DeleteProductUseCase(productRepository);
+
+  // ── Review use cases ────────────────────────────────────────────────────────
+  const createProductReviewUseCase = new CreateProductReviewUseCase(reviewRepository, productRepository);
+  const updateProductReviewUseCase = new UpdateProductReviewUseCase(reviewRepository);
+  const deleteProductReviewUseCase = new DeleteProductReviewUseCase(reviewRepository);
+  const approveReviewUseCase = new ApproveReviewUseCase(reviewRepository);
+  const rejectReviewUseCase = new RejectReviewUseCase(reviewRepository);
+
+  // ── Inventory use cases ─────────────────────────────────────────────────────
+  const createInventoryTransactionUseCase = new CreateInventoryTransactionUseCase(inventoryTransactionRepository);
+  const getInventoryTransactionsUseCase = new GetInventoryTransactionsUseCase(inventoryTransactionRepository);
+
+  // ── Stock alert use cases ───────────────────────────────────────────────────
+  const createStockAlertUseCase = new CreateStockAlertUseCase(stockAlertRepository);
+  const updateStockAlertUseCase = new UpdateStockAlertUseCase(stockAlertRepository);
+  const deleteStockAlertUseCase = new DeleteStockAlertUseCase(stockAlertRepository);
+  const getStockAlertsUseCase = new GetStockAlertsUseCase(stockAlertRepository);
 
   return {
     DateTime: DateTimeScalar,
@@ -209,12 +256,12 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       productVariants: async (_: any, { productId }: { productId: string }) => {
         const variants = await productRepository.getProductVariants(productId);
-        return variants.map(transformVariant);
+        return variants.map((v) => transformVariant(v));
       },
 
       productVariant: async (_: any, { id }: { id: string }) => {
-        const variants = await productRepository.getProductVariants(id);
-        return variants.length > 0 ? transformVariant(variants[0]) : null;
+        const variant = await productRepository.findVariantById(id);
+        return variant ? transformVariant(variant) : null;
       },
 
       productStats: async (_: any, __: any, context: any) => {
@@ -232,38 +279,32 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         );
       },
 
+      // Task 5: DB-level filter — no full scan
       lowStockProducts: async (_: any, __: any, context: any) => {
         requirePermission(context.currentUser, Permission.VIEW_ANALYTICS);
-        const result = await getProductsUseCase.execute({
-          filters: { isActive: true },
-          pagination: { limit: 10000, offset: 0 },
-        });
-        return result.products
-          .filter((p) => p.stockQuantity > 0 && p.stockQuantity <= 10)
-          .map(transformProduct);
+        const products = await productRepository.findLowStock();
+        return products.map(transformProduct);
       },
 
       outOfStockProducts: async (_: any, __: any, context: any) => {
         requirePermission(context.currentUser, Permission.VIEW_ANALYTICS);
-        const result = await getProductsUseCase.execute({
-          filters: { isActive: true },
-          pagination: { limit: 10000, offset: 0 },
-        });
-        return result.products.filter((p) => p.stockQuantity === 0).map(transformProduct);
+        const products = await productRepository.findOutOfStock();
+        return products.map(transformProduct);
       },
+
+      // ── Inventory transactions ─────────────────────────────────────────────
 
       inventoryTransactions: async (_: any, { productId }: { productId: string }, context: any) => {
         assertModelAccess(context.currentUser, 'InventoryTransaction', 'read');
-        const txs = await prisma.inventoryTransaction.findMany({
-          where: { productId },
-          orderBy: { createdAt: 'desc' },
-        });
+        const txs = await getInventoryTransactionsUseCase.execute(productId);
         return txs.map((tx) => ({ ...tx, createdAt: tx.createdAt.toISOString() }));
       },
 
+      // ── Stock alerts ───────────────────────────────────────────────────────
+
       stockAlerts: async (_: any, __: any, context: any) => {
         requirePermission(context.currentUser, Permission.VIEW_ANALYTICS);
-        const alerts = await prisma.stockAlert.findMany({ orderBy: { createdAt: 'desc' } });
+        const alerts = await getStockAlertsUseCase.execute();
         return alerts.map((a) => ({
           ...a,
           createdAt: a.createdAt.toISOString(),
@@ -271,30 +312,19 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         }));
       },
 
-      // ── Review queries ───────────────────────────────────────────────────
+      // ── Review queries ─────────────────────────────────────────────────────
 
       productReviews: async (_: any, { productId, pagination }: any) => {
+        const limit = pagination?.limit ?? 10;
+        const offset = pagination?.offset ?? 0;
         try {
-          const limit = pagination?.limit ?? 10;
-          const offset = pagination?.offset ?? 0;
-          const [reviews, total] = await Promise.all([
-            prisma.productReview.findMany({
-              where: { productId, isApproved: true },
-              include: { photos: true, votes: true },
-              orderBy: { createdAt: 'desc' },
-              take: limit,
-              skip: offset,
-            }),
-            prisma.productReview.count({ where: { productId, isApproved: true } }),
-          ]);
+          const { reviews, total } = await reviewRepository.findByProduct(productId, {
+            status: 'approved',
+            limit,
+            offset,
+          });
           return {
-            reviews: reviews.map((r) => ({
-              ...r,
-              product: { __typename: 'Product', id: r.productId },
-              user: { __typename: 'UserProfile', id: r.userId },
-              photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
-              votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
-            })),
+            reviews: reviews.map(mapReviewDto),
             total,
             hasMore: offset + limit < total,
           };
@@ -305,18 +335,8 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       userReviews: async (_: any, { userId }: any) => {
         try {
-          const reviews = await prisma.productReview.findMany({
-            where: { userId },
-            include: { photos: true, votes: true },
-            orderBy: { createdAt: 'desc' },
-          });
-          return reviews.map((r) => ({
-            ...r,
-            product: { __typename: 'Product', id: r.productId },
-            user: { __typename: 'UserProfile', id: r.userId },
-            photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
-            votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
-          }));
+          const reviews = await reviewRepository.findByUser(userId);
+          return reviews.map(mapReviewDto);
         } catch {
           return [];
         }
@@ -324,15 +344,9 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
 
       review: async (_: any, { id }: any) => {
         try {
-          const r = await prisma.productReview.findUnique({ where: { id }, include: { photos: true, votes: true } });
+          const r = await reviewRepository.findById(id);
           if (!r) return null;
-          return {
-            ...r,
-            product: { __typename: 'Product', id: r.productId },
-            user: { __typename: 'UserProfile', id: r.userId },
-            photos: r.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
-            votes: r.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
-          };
+          return mapReviewDto(r);
         } catch {
           return null;
         }
@@ -368,6 +382,7 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
             isActive: input.isActive,
             stockQuantity: input.stockQuantity,
             tags: input.tags,
+            taxAffectation: input.taxAffectation,
           });
           const transformed = transformProduct(product);
           return ResponseFactory.createSuccessResponse(
@@ -453,197 +468,189 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         return updated.map(transformProduct);
       },
 
-      // ── Inventory transactions ───────────────────────────────────────────
+      // ── Inventory transactions ─────────────────────────────────────────────
+
       createInventoryTransaction: async (_: any, { input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'InventoryTransaction', 'create');
-        const tx = await prisma.inventoryTransaction.create({
-          data: {
-            productId: input.productId,
-            type: input.type,
-            quantity: input.quantity,
-            reference: input.reference,
-            notes: input.notes,
-          },
+        const tx = await createInventoryTransactionUseCase.execute({
+          productId: input.productId,
+          type: input.type,
+          quantity: input.quantity,
+          reference: input.reference,
+          notes: input.notes,
         });
         return { ...tx, createdAt: tx.createdAt.toISOString() };
       },
 
-      // ── Stock alerts ─────────────────────────────────────────────────────
+      // ── Stock alerts ───────────────────────────────────────────────────────
+
       createStockAlert: async (_: any, { input }: any, context: any) => {
         assertModelAccess(context.currentUser, 'StockAlert', 'create');
-        const alert = await prisma.stockAlert.create({
-          data: {
-            productId: input.productId,
-            type: input.type,
-            threshold: input.threshold,
-            currentStock: input.currentStock,
-            isActive: input.isActive ?? true,
-          },
+        const alert = await createStockAlertUseCase.execute({
+          productId: input.productId,
+          type: input.type,
+          threshold: input.threshold,
+          currentStock: input.currentStock,
+          isActive: input.isActive,
         });
-        return {
-          ...alert,
-          createdAt: alert.createdAt.toISOString(),
-          updatedAt: alert.updatedAt.toISOString(),
-        };
+        return { ...alert, createdAt: alert.createdAt.toISOString(), updatedAt: alert.updatedAt.toISOString() };
       },
 
       updateStockAlert: async (_: any, { id, isActive }: any, context: any) => {
         assertModelAccess(context.currentUser, 'StockAlert', 'write');
-        const alert = await prisma.stockAlert.update({
-          where: { id },
-          data: { isActive },
-        });
-        return {
-          ...alert,
-          createdAt: alert.createdAt.toISOString(),
-          updatedAt: alert.updatedAt.toISOString(),
-        };
+        const alert = await updateStockAlertUseCase.execute(id, isActive);
+        return { ...alert, createdAt: alert.createdAt.toISOString(), updatedAt: alert.updatedAt.toISOString() };
       },
 
       deleteStockAlert: async (_: any, { id }: { id: string }, context: any) => {
         assertModelAccess(context.currentUser, 'StockAlert', 'unlink');
-        await prisma.stockAlert.delete({ where: { id } });
+        await deleteStockAlertUseCase.execute(id);
         return { success: true, message: 'Stock alert deleted successfully' };
       },
 
-      // ── Review mutations ─────────────────────────────────────────────────
+      // ── Review mutations ───────────────────────────────────────────────────
 
       createProductReview: async (_: any, { input }: any, context: any) => {
-        // Second-level auth guard: authPlugin in index.ts blocks unauthenticated mutations at the
-        // Apollo layer, but we enforce here as defence-in-depth and for explicit error semantics.
         if (!context.currentUser) {
-          throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
-        }
-        // SECURITY FIX (BOLA): author is ALWAYS the authenticated user from the JWT.
-        // We never accept userId from the client input — that would allow identity spoofing.
-        // TODO (structural refactor — requires index.ts): extract into CreateProductReviewUseCase
-        // that receives currentUser and productId, enforcing domain rules (duplicate review guard,
-        // verified purchase check) in the application layer. Blocked by index.ts wiring constraint.
-        const authorId = context.currentUser.userId;
-        try {
-          const review = await prisma.productReview.create({
-            data: {
-              productId: input.productId,
-              userId: authorId,
-              rating: input.rating,
-              title: input.title,
-              comment: input.comment,
-            },
-            include: { photos: true, votes: true },
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
           });
-          logger.info('createProductReview', { reviewId: review.id, productId: review.productId, authorId });
-          return {
-            ...review,
-            product: { __typename: 'Product', id: review.productId },
-            user: { __typename: 'UserProfile', id: review.userId },
-            photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
-            votes: review.votes.map((v) => ({ ...v, review: { __typename: 'ProductReview', id: v.reviewId }, user: { __typename: 'UserProfile', id: v.userId } })),
-          };
-        } catch (error) {
+        }
+
+        try {
+          const review = await createProductReviewUseCase.execute({
+            productId: input.productId,
+            rating: input.rating,
+            title: input.title,
+            comment: input.comment,
+            currentUser: context.currentUser,
+          });
+          return mapReviewDto(review);
+        } catch (error: any) {
+          // Map typed domain errors to GraphQLError for correct HTTP semantics
+          if (error?.name === 'DuplicateError' || error?.code === 'P2002') {
+            throw new GraphQLError('You have already reviewed this product', {
+              extensions: { code: 'CONFLICT', http: { status: 409 } },
+            });
+          }
+          if (error?.name === 'NotFoundError') {
+            throw new GraphQLError('Product not found', {
+              extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+            });
+          }
           mapPrismaReviewError(error, 'review');
         }
       },
 
       updateProductReview: async (_: any, { id, input }: any, context: any) => {
-        // Baseline gate 1 — authentication + permission check.
-        // assertModelAccess handles: (a) unauthenticated → 401, (b) admin bypass,
-        // (c) requires update:product permission for non-admin staff (inventory-user,
-        // sales-user). Kept as-is so the existing permission baseline is preserved.
-        //
-        // DESIGN NOTE — moderator role (customer-service editing any review without
-        // full admin): would require a dedicated `reviews:moderate` permission code
-        // added to MODEL_ACCESS_MAP so staff can moderate without the broader
-        // `update:product` privilege. That permission design is deferred; do NOT use
-        // `update:product` as a proxy for moderation scope.
         assertModelAccess(context.currentUser, 'ProductReview', 'write');
 
-        // Baseline gate 2 — owner-or-admin check (BOLA fix).
-        // Load the row BEFORE the update. Using findUnique (not update) so we can
-        // inspect ownership without a write side-effect on a record we may deny.
-        // Anti-enumeration: a non-owner receives NOT_FOUND regardless of whether the
-        // review exists or belongs to someone else — this prevents ID probing.
-        const existing = await prisma.productReview.findUnique({ where: { id } });
-
-        const callerId = context.currentUser!.userId;
-        const callerIsAdmin = isAdmin(context.currentUser);
-
-        if (!existing || (!callerIsAdmin && existing.userId !== callerId)) {
-          // Ambiguous 404 — do not reveal ownership information to the caller.
-          logger.info('updateProductReview: denied (BOLA guard)', {
-            reviewId: id,
-            callerId,
-            callerIsAdmin,
-            reviewExists: !!existing,
-          });
-          throw new GraphQLError('Review not found', {
-            extensions: { code: 'NOT_FOUND', http: { status: 404 } },
-          });
-        }
-
-        const review = await prisma.productReview.update({
-          where: { id },
-          data: {
+        try {
+          const review = await updateProductReviewUseCase.execute({
+            id,
             rating: input.rating,
             title: input.title,
             comment: input.comment,
-            isApproved: input.isApproved,
-          },
-          include: { photos: true, votes: true },
-        });
-
-        logger.info('updateProductReview', {
-          reviewId: review.id,
-          callerId,
-          callerIsAdmin,
-        });
-
-        return {
-          ...review,
-          product: { __typename: 'Product', id: review.productId },
-          user: { __typename: 'UserProfile', id: review.userId },
-          photos: review.photos.map((p) => ({
-            ...p,
-            review: { __typename: 'ProductReview', id: p.reviewId },
-          })),
-          votes: review.votes.map((v) => ({
-            ...v,
-            review: { __typename: 'ProductReview', id: v.reviewId },
-            user: { __typename: 'UserProfile', id: v.userId },
-          })),
-        };
+            currentUser: context.currentUser!,
+          });
+          return mapReviewDto(review);
+        } catch (error: any) {
+          if (error?.name === 'NotFoundError') {
+            throw new GraphQLError('Review not found', {
+              extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+            });
+          }
+          if (error?.name === 'ValidationError') {
+            throw new GraphQLError(error.message, {
+              extensions: { code: 'BAD_USER_INPUT', http: { status: 400 } },
+            });
+          }
+          throw error;
+        }
       },
 
       deleteProductReview: async (_: any, { id }: any, context: any) => {
         assertModelAccess(context.currentUser, 'ProductReview', 'unlink');
-        await prisma.productReview.delete({ where: { id } });
-        return { success: true, message: 'Review deleted' };
+
+        try {
+          await deleteProductReviewUseCase.execute(id, context.currentUser!);
+          return { success: true, message: 'Review deleted' };
+        } catch (error: any) {
+          if (error?.name === 'NotFoundError') {
+            throw new GraphQLError('Review not found', {
+              extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+            });
+          }
+          throw error;
+        }
       },
 
       approveReview: async (_: any, { id }: any, context: any) => {
-        assertModelAccess(context.currentUser, 'ProductReview', 'write');
-        const review = await prisma.productReview.update({
-          where: { id },
-          data: { isApproved: true },
-          include: { photos: true, votes: true },
-        });
-        return {
-          ...review,
-          product: { __typename: 'Product', id: review.productId },
-          user: { __typename: 'UserProfile', id: review.userId },
-          photos: review.photos.map((p) => ({ ...p, review: { __typename: 'ProductReview', id: p.reviewId } })),
-          votes: [],
-        };
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+
+        try {
+          const review = await approveReviewUseCase.execute(id, context.currentUser);
+          return mapReviewDto(review);
+        } catch (error: any) {
+          if (error?.name === 'NotFoundError') {
+            throw new GraphQLError('Review not found', {
+              extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+            });
+          }
+          if (error?.name === 'ForbiddenError') {
+            throw new GraphQLError(error.message, {
+              extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+            });
+          }
+          if (error?.name === 'BusinessLogicError') {
+            throw new GraphQLError(error.message, {
+              extensions: { code: 'UNPROCESSABLE', http: { status: 422 } },
+            });
+          }
+          throw error;
+        }
+      },
+
+      rejectReview: async (_: any, { id }: any, context: any) => {
+        if (!context.currentUser) {
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
+        }
+
+        try {
+          const review = await rejectReviewUseCase.execute(id, context.currentUser);
+          return mapReviewDto(review);
+        } catch (error: any) {
+          if (error?.name === 'NotFoundError') {
+            throw new GraphQLError('Review not found', {
+              extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+            });
+          }
+          if (error?.name === 'ForbiddenError') {
+            throw new GraphQLError(error.message, {
+              extensions: { code: 'FORBIDDEN', http: { status: 403 } },
+            });
+          }
+          if (error?.name === 'BusinessLogicError') {
+            throw new GraphQLError(error.message, {
+              extensions: { code: 'UNPROCESSABLE', http: { status: 422 } },
+            });
+          }
+          throw error;
+        }
       },
 
       createReviewVote: async (_: any, { input }: any, context: any) => {
-        // Second-level auth guard: authPlugin in index.ts blocks unauthenticated mutations at the
-        // Apollo layer, but we enforce here as defence-in-depth and for explicit error semantics.
         if (!context.currentUser) {
-          throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
         }
-        // SECURITY FIX (BOLA): voter is ALWAYS the authenticated user from the JWT.
-        // We never accept userId from the client — that would allow vote stuffing or spoofed votes.
-        // TODO (structural refactor — requires index.ts): extract into CreateReviewVoteUseCase.
         const voterId = context.currentUser.userId;
         try {
           const vote = await prisma.reviewVote.upsert({
@@ -663,22 +670,11 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
       },
 
       deleteReviewVote: async (_: any, { reviewId }: any, context: any) => {
-        // Second-level auth guard: authPlugin in index.ts blocks unauthenticated mutations at the
-        // Apollo layer, but we enforce here as defence-in-depth and for explicit error semantics.
         if (!context.currentUser) {
-          throw new GraphQLError('Authentication required', { extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } } });
+          throw new GraphQLError('Authentication required', {
+            extensions: { code: 'UNAUTHENTICATED', http: { status: 401 } },
+          });
         }
-        // Ownership enforcement: a caller may only delete their own vote.
-        // The caller's identity is derived exclusively from the JWT — never from client input.
-        //
-        // Anti-enumeration: always NotFound — never "you don't own this" — so an attacker
-        // cannot probe which reviewIds have votes that belong to other users.
-        //
-        // Admin override (delete a vote by arbitrary userId) requires a separate
-        // admin-scoped mutation that accepts an explicit targetUserId argument; it cannot
-        // be added to this mutation without an SDL change. Deferred intentionally.
-        //
-        // TODO (structural refactor — requires index.ts): extract into DeleteReviewVoteUseCase.
         const callerId = context.currentUser.userId;
 
         const existingVote = await prisma.reviewVote.findUnique({
@@ -686,8 +682,9 @@ export function createResolvers(productRepository: IProductRepository, prisma: P
         });
 
         if (!existingVote) {
-          // Anti-enumeration: always NotFound — never "you don't own this"
-          throw new GraphQLError('Vote not found', { extensions: { code: 'NOT_FOUND', http: { status: 404 } } });
+          throw new GraphQLError('Vote not found', {
+            extensions: { code: 'NOT_FOUND', http: { status: 404 } },
+          });
         }
 
         await prisma.reviewVote.delete({ where: { reviewId_userId: { reviewId, userId: callerId } } });

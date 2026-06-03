@@ -36,8 +36,21 @@ export interface IProductRepository {
   updateStock(id: string, stockQuantity: number): Promise<void>;
   search(query: string): Promise<ProductEntity[]>;
 
+  /**
+   * Returns products with stockQuantity > 0 AND <= threshold, filtered in DB (no full scan).
+   * Default threshold = 10 matches the legacy in-memory filter.
+   */
+  findLowStock(threshold?: number): Promise<ProductEntity[]>;
+
+  /**
+   * Returns active products with stockQuantity = 0, filtered in DB (no full scan).
+   */
+  findOutOfStock(): Promise<ProductEntity[]>;
+
   createVariant(variant: any, currentUser: TokenPayload | null): Promise<ProductVariantEntity>;
   getProductVariants(productId: string): Promise<ProductVariantEntity[]>;
+  /** Looks up a single variant by its own id (not the parent productId). */
+  findVariantById(id: string): Promise<ProductVariantEntity | null>;
   updateVariant(id: string, variantData: Partial<any>, currentUser: TokenPayload | null): Promise<ProductVariantEntity>;
   deleteVariant(id: string, currentUser: TokenPayload | null): Promise<void>;
 }

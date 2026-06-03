@@ -1,5 +1,5 @@
 import type { TokenPayload } from '@hbs/auth';
-import { ProductEntity } from '../../domain/entities/Product';
+import { ProductEntity, TaxAffectation } from '../../domain/entities/Product';
 import { IProductRepository } from '../../domain/repositories/IProductRepository';
 import { ValidationError, NotFoundError } from '../../domain/errors/DomainError';
 import { LoggerFactory } from '@hbs/logging';
@@ -19,6 +19,7 @@ export interface UpdateProductRequest {
   tags?: string[];
   rating?: number;
   reviewCount?: number;
+  taxAffectation?: TaxAffectation;
   currentUser?: TokenPayload | null;
 }
 
@@ -78,6 +79,9 @@ export class UpdateProductUseCase {
       tags: request.tags,
       rating: request.rating,
       reviewCount: request.reviewCount,
+      // null is treated as "no update" — taxAffectation on Product is NOT NULL and
+      // cannot be cleared once set. Only a valid TaxAffectation value triggers an update.
+      ...(request.taxAffectation != null && { taxAffectation: request.taxAffectation }),
     };
 
     this.logger.info('Updating product', { productId: request.id });

@@ -40,6 +40,7 @@ export class PrismaProductRepository implements IProductRepository {
         images: product.images,
         attributes: product.attributes,
         tags: product.tags,
+        taxAffectation: product.taxAffectation,
       },
       include: { variants: true },
     });
@@ -143,6 +144,7 @@ export class PrismaProductRepository implements IProductRepository {
     if (product.tags) data.tags = product.tags;
     if (product.rating !== undefined) data.rating = product.rating;
     if (product.reviewCount !== undefined) data.reviewCount = product.reviewCount;
+    if (product.taxAffectation !== undefined) data.taxAffectation = product.taxAffectation;
 
     const updated = await this.prisma.product.update({
       where: { id },
@@ -234,6 +236,30 @@ export class PrismaProductRepository implements IProductRepository {
     return products.map((p) => this.mapToEntity(p));
   }
 
+  async findLowStock(threshold: number = 10): Promise<ProductEntity[]> {
+    const products = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        stockQuantity: { gt: 0, lte: threshold },
+      },
+      include: { variants: true },
+      orderBy: { stockQuantity: 'asc' },
+    });
+    return products.map((p) => this.mapToEntity(p));
+  }
+
+  async findOutOfStock(): Promise<ProductEntity[]> {
+    const products = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        stockQuantity: 0,
+      },
+      include: { variants: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return products.map((p) => this.mapToEntity(p));
+  }
+
   async createVariant(variantData: any, currentUser: TokenPayload | null): Promise<ProductVariantEntity> {
     // Enforce create-access on the parent Product before adding a variant.
     await assertWriteAccess({
@@ -257,6 +283,8 @@ export class PrismaProductRepository implements IProductRepository {
         productId: variantData.productId,
         attributes: variantData.attributes || {},
         isActive: variantData.isActive ?? true,
+        // null = inherit from parent product (effective affectation resolved by backend)
+        taxAffectation: variantData.taxAffectation ?? null,
       },
     });
     return this.mapToVariantEntity(created);
@@ -268,6 +296,11 @@ export class PrismaProductRepository implements IProductRepository {
       orderBy: { createdAt: 'asc' },
     });
     return variants.map((v) => this.mapToVariantEntity(v));
+  }
+
+  async findVariantById(id: string): Promise<ProductVariantEntity | null> {
+    const variant = await this.prisma.productVariant.findUnique({ where: { id } });
+    return variant ? this.mapToVariantEntity(variant) : null;
   }
 
   async updateVariant(
@@ -298,6 +331,8 @@ export class PrismaProductRepository implements IProductRepository {
     if (variantData.stockQuantity !== undefined) data.stockQuantity = variantData.stockQuantity;
     if (variantData.attributes) data.attributes = variantData.attributes;
     if (variantData.isActive !== undefined) data.isActive = variantData.isActive;
+    // Allow explicit set (including null to reset to "inherit") and explicit override.
+    if ('taxAffectation' in variantData) data.taxAffectation = variantData.taxAffectation ?? null;
 
     const updated = await this.prisma.productVariant.update({ where: { id }, data });
     return this.mapToVariantEntity(updated);
@@ -339,6 +374,7 @@ export class PrismaProductRepository implements IProductRepository {
       product.tags || [],
       product.rating ? Number(product.rating) : 0,
       product.reviewCount || 0,
+      product.taxAffectation ?? 'gravado',
       product.createdAt,
       product.updatedAt,
       product.variants ? product.variants.map((v: any) => this.mapToVariantEntity(v)) : [],
@@ -357,6 +393,7 @@ export class PrismaProductRepository implements IProductRepository {
       variant.isActive,
       variant.createdAt,
       variant.updatedAt,
+      variant.taxAffectation ?? undefined,
     );
   }
 }

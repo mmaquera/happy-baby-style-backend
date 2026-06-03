@@ -39,6 +39,7 @@ function makeProduct(overrides: Partial<any> = {}): ProductEntity {
     overrides.tags ?? [],
     overrides.rating ?? 0,
     overrides.reviewCount ?? 0,
+    overrides.taxAffectation ?? 'gravado',
     overrides.createdAt ?? new Date('2024-01-01'),
     overrides.updatedAt ?? new Date('2024-01-01'),
     overrides.variants ?? [],
@@ -67,8 +68,11 @@ function makeRepo(overrides: Partial<IProductRepository> = {}): jest.Mocked<IPro
     findBySku: jest.fn(),
     updateStock: jest.fn(),
     search: jest.fn(),
+    findLowStock: jest.fn(),
+    findOutOfStock: jest.fn(),
     createVariant: jest.fn(),
     getProductVariants: jest.fn(),
+    findVariantById: jest.fn(),
     updateVariant: jest.fn(),
     deleteVariant: jest.fn(),
     ...overrides,
@@ -100,6 +104,83 @@ describe('UpdateProductUseCase', () => {
 
       expect(result.name).toBe('Updated Name');
       expect(repo.update).toHaveBeenCalledWith('prod-1', expect.objectContaining({ name: 'Updated Name' }), currentUser);
+    });
+
+    it('updates taxAffectation to exonerado', async () => {
+      const existing = makeProduct({ taxAffectation: 'gravado' });
+      const updated = makeProduct({ taxAffectation: 'exonerado' });
+      const repo = makeRepo({
+        findById: jest.fn().mockResolvedValue(existing),
+        findBySku: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue(updated),
+      });
+      const useCase = new UpdateProductUseCase(repo);
+      const currentUser = makeUser();
+
+      const result = await useCase.execute({ id: 'prod-1', taxAffectation: 'exonerado', currentUser });
+
+      expect(result.taxAffectation).toBe('exonerado');
+      expect(repo.update).toHaveBeenCalledWith(
+        'prod-1',
+        expect.objectContaining({ taxAffectation: 'exonerado' }),
+        currentUser,
+      );
+    });
+
+    it('updates taxAffectation to inafecto', async () => {
+      const existing = makeProduct({ taxAffectation: 'gravado' });
+      const updated = makeProduct({ taxAffectation: 'inafecto' });
+      const repo = makeRepo({
+        findById: jest.fn().mockResolvedValue(existing),
+        findBySku: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue(updated),
+      });
+      const useCase = new UpdateProductUseCase(repo);
+
+      const result = await useCase.execute({ id: 'prod-1', taxAffectation: 'inafecto' });
+
+      expect(result.taxAffectation).toBe('inafecto');
+    });
+
+    it('preserves existing taxAffectation when not provided in update', async () => {
+      const existing = makeProduct({ taxAffectation: 'exonerado' });
+      const repo = makeRepo({
+        findById: jest.fn().mockResolvedValue(existing),
+        findBySku: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue(existing),
+      });
+      const useCase = new UpdateProductUseCase(repo);
+
+      await useCase.execute({ id: 'prod-1', name: 'New Name' });
+
+      expect(repo.update).toHaveBeenCalledWith(
+        'prod-1',
+        expect.not.objectContaining({ taxAffectation: expect.anything() }),
+        null,
+      );
+    });
+
+    it('does NOT pass taxAffectation=null to repo (null treated as "no update" to prevent NOT NULL crash)', async () => {
+      // Regression test for bug: SDL UpdateProductInput.taxAffectation is nullable,
+      // so a client can send null. Previously null passed through the !== undefined guard
+      // and reached the NOT NULL DB column → opaque Prisma crash instead of typed DomainError.
+      // Fix: use != null so both null and undefined are treated as "skip".
+      const existing = makeProduct({ taxAffectation: 'exonerado' });
+      const repo = makeRepo({
+        findById: jest.fn().mockResolvedValue(existing),
+        findBySku: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue(existing),
+      });
+      const useCase = new UpdateProductUseCase(repo);
+
+      // Explicitly pass null — client sends { taxAffectation: null } to clear the field.
+      await useCase.execute({ id: 'prod-1', taxAffectation: null as any });
+
+      expect(repo.update).toHaveBeenCalledWith(
+        'prod-1',
+        expect.not.objectContaining({ taxAffectation: expect.anything() }),
+        null,
+      );
     });
 
     it('passes currentUser=null when not provided (fail-open, no resolver wired)', async () => {

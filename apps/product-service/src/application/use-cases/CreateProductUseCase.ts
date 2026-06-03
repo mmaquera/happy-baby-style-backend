@@ -1,4 +1,4 @@
-import { ProductEntity } from '../../domain/entities/Product';
+import { ProductEntity, TaxAffectation } from '../../domain/entities/Product';
 import { IProductRepository } from '../../domain/repositories/IProductRepository';
 import {
   ValidationError,
@@ -19,6 +19,7 @@ export interface CreateProductRequest {
   stockQuantity?: number;
   tags?: string[];
   isActive?: boolean;
+  taxAffectation?: TaxAffectation;
 }
 
 export class CreateProductUseCase {
@@ -44,6 +45,7 @@ export class CreateProductUseCase {
       isActive: request.isActive ?? true,
       stockQuantity: request.stockQuantity || 0,
       tags: request.tags,
+      taxAffectation: request.taxAffectation ?? 'gravado',
     });
 
     try {

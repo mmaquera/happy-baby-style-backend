@@ -9,22 +9,23 @@ datasource db {
 }
 
 model Product {
-  id            String   @id @default(uuid())
-  categoryId    String   @map("category_id")
-  name          String
-  description   String?
-  price         Decimal  @db.Decimal(10, 2)
-  salePrice     Decimal? @map("sale_price") @db.Decimal(10, 2)
-  sku           String   @unique
-  images        String[] @default([])
-  attributes    Json     @default("{}")
-  isActive      Boolean  @default(true) @map("is_active")
-  stockQuantity Int      @default(0) @map("stock_quantity")
-  tags          String[] @default([])
-  rating        Decimal? @db.Decimal(2, 1)
-  reviewCount   Int      @default(0) @map("review_count")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id              String          @id @default(uuid())
+  categoryId      String          @map("category_id")
+  name            String
+  description     String?
+  price           Decimal         @db.Decimal(10, 2)
+  salePrice       Decimal?        @map("sale_price") @db.Decimal(10, 2)
+  sku             String          @unique
+  images          String[]        @default([])
+  attributes      Json            @default("{}")
+  isActive        Boolean         @default(true) @map("is_active")
+  stockQuantity   Int             @default(0) @map("stock_quantity")
+  tags            String[]        @default([])
+  rating          Decimal?        @db.Decimal(2, 1)
+  reviewCount     Int             @default(0) @map("review_count")
+  taxAffectation  TaxAffectation  @default(gravado) @map("tax_affectation")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   variants              ProductVariant[]
   inventoryTransactions InventoryTransaction[]
@@ -36,16 +37,19 @@ model Product {
 }
 
 model ProductVariant {
-  id            String   @id @default(uuid())
-  productId     String   @map("product_id")
-  name          String
-  price         Decimal  @db.Decimal(10, 2)
-  sku           String   @unique
-  stockQuantity Int      @default(0) @map("stock_quantity")
-  attributes    Json     @default("{}")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id             String          @id @default(uuid())
+  productId      String          @map("product_id")
+  name           String
+  price          Decimal         @db.Decimal(10, 2)
+  sku            String          @unique
+  stockQuantity  Int             @default(0) @map("stock_quantity")
+  attributes     Json            @default("{}")
+  isActive       Boolean         @default(true) @map("is_active")
+  // Nullable: null means "inherit taxAffectation from parent Product".
+  // Effective affectation = variant.taxAffectation ?? product.taxAffectation (resolved by backend).
+  taxAffectation TaxAffectation? @map("tax_affectation")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -114,9 +118,14 @@ model ProductReview {
   rating       Int
   title        String?
   comment      String?
+  // @deprecated: superseded by `status` (ReviewStatus state machine). Kept for backward
+  // compatibility during rolling deploy. Do NOT use in new code — read `status` instead.
   isApproved   Boolean       @default(false) @map("is_approved")
   isVerified   Boolean       @default(false) @map("is_verified")
   helpfulCount Int           @default(0) @map("helpful_count")
+  // State machine: pending → approved | rejected.
+  // Moderation use case transitions the status and emits domain event.
+  status       ReviewStatus  @default(pending)
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
@@ -125,8 +134,28 @@ model ProductReview {
   votes   ReviewVote[]
 
   @@unique([productId, userId], map: "product_reviews_product_id_user_id_key")
+  // Composite index covers the hot query: "approved reviews for product X"
+  // (WHERE product_id = ? AND status = 'approved').
+  // Leading column product_id also covers plain product_id lookups.
+  // The prior @@index([productId]) from the @@unique constraint is intentionally
+  // NOT duplicated here — this composite replaces its role and adds status filtering.
+  @@index([productId, status])
   @@index([userId])
   @@map("product_reviews")
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+// Tipo de afectación IGV SUNAT (Catálogo 07).
+// Usado por invoicing-service para determinar el tratamiento fiscal de cada línea.
+enum TaxAffectation {
+  gravado    @map("gravado")
+  exonerado  @map("exonerado")
+  inafecto   @map("inafecto")
 }
 
 model ReviewPhoto {

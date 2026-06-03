@@ -1,4 +1,4 @@
-import { ProductEntity, ProductVariantEntity } from '../../domain/entities/Product';
+import { ProductEntity, ProductVariant, ProductVariantEntity, TaxAffectation } from '../../domain/entities/Product';
 
 function buildImageUrl(imagePath: string): string {
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
@@ -23,6 +23,7 @@ export function transformProduct(product: ProductEntity) {
     tags: product.tags || [],
     rating: product.rating,
     reviewCount: product.reviewCount,
+    taxAffectation: product.taxAffectation,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
     currentPrice: product.getCurrentPrice(),
@@ -30,11 +31,29 @@ export function transformProduct(product: ProductEntity) {
     discountPercentage: product.getDiscountPercentage(),
     totalStock: product.getTotalStock(),
     isInStock: product.isInStock(),
-    variants: product.variants?.map(transformVariant) || [],
+    // Pass product's taxAffectation so each variant can resolve inheritance when its own is null.
+    variants: product.variants?.map((v) => transformVariant(v, product.taxAffectation)) || [],
   };
 }
 
-export function transformVariant(variant: ProductVariantEntity) {
+/**
+ * Transforms a ProductVariant (or ProductVariantEntity) to its GraphQL DTO shape.
+ *
+ * @param variant - The variant entity or interface to transform.
+ * @param parentTaxAffectation - Optional taxAffectation of the parent Product.
+ *   When provided, resolves the inheritance rule:
+ *   effective = variant.taxAffectation ?? parentTaxAffectation.
+ *   When absent (standalone query, no product context), the raw nullable value is returned —
+ *   callers that need the effective value must resolve it themselves.
+ *
+ * NOTE: Do NOT pass this function directly as an Array.map() callback when the second
+ * argument is optional — the callback index (number) would be passed as parentTaxAffectation.
+ * Use an explicit lambda instead: variants.map((v) => transformVariant(v)).
+ */
+export function transformVariant(
+  variant: ProductVariant | ProductVariantEntity,
+  parentTaxAffectation?: TaxAffectation,
+) {
   return {
     id: variant.id,
     productId: variant.productId,
@@ -44,8 +63,13 @@ export function transformVariant(variant: ProductVariantEntity) {
     stockQuantity: variant.stockQuantity,
     attributes: variant.attributes,
     isActive: variant.isActive,
+    // Effective affectation: variant-level overrides parent; null means "inherit from parent".
+    taxAffectation: variant.taxAffectation ?? parentTaxAffectation ?? null,
     createdAt: variant.createdAt.toISOString(),
     updatedAt: variant.updatedAt.toISOString(),
-    isInStock: variant.isInStock(),
+    // Use method if available (ProductVariantEntity); fall back to property check (ProductVariant interface).
+    isInStock: typeof (variant as ProductVariantEntity).isInStock === 'function'
+      ? (variant as ProductVariantEntity).isInStock()
+      : variant.stockQuantity > 0,
   };
 }
