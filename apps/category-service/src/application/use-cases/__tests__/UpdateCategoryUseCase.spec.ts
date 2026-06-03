@@ -38,7 +38,6 @@ const makeCategory = (overrides: Partial<CategoryEntity> = {}): CategoryEntity =
 const makeUser = (overrides: Partial<TokenPayload> = {}): TokenPayload => ({
   userId: 'user-1',
   email: 'admin@test.com',
-  role: 'ADMIN' as any,
   groups: ['administrators'],
   permissions: ['categories:write'],
   ...overrides,

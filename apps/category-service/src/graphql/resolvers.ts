@@ -46,6 +46,31 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
         const category = await categoryRepository.findById(ref.id);
         return category ? transformCategory(category) : null;
       },
+
+      /**
+       * Lazy field resolver — only invoked when the client requests `parent`.
+       * Fetches the parent category by the parentCategoryId carried on the DTO.
+       * Returns null for root categories.
+       *
+       * N+1 note: for typical catalogue trees (depth ≤ 4, low category count)
+       * this is acceptable without DataLoader. If the category tree grows or
+       * parent is requested inside a list, introduce a DataLoader keyed by category id.
+       */
+      parent: async (category: { parentCategoryId?: string | null }) => {
+        if (!category.parentCategoryId) return null;
+        const parent = await categoryRepository.findById(category.parentCategoryId);
+        return parent ? transformCategory(parent) : null;
+      },
+
+      /**
+       * Lazy field resolver — only invoked when the client requests `children`.
+       * Fetches direct children of the current category.
+       * Returns [] for leaf categories.
+       */
+      children: async (category: { id: string }) => {
+        const children = await categoryRepository.findChildren(category.id);
+        return children.map(transformCategory);
+      },
     },
 
     Query: {
@@ -153,6 +178,7 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
             imageUrl: input.image,
             isActive: input.isActive !== undefined ? input.isActive : true,
             sortOrder: input.sortOrder || 0,
+            parentCategoryId: input.parentCategoryId ?? null,
           });
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
@@ -184,7 +210,13 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
         const requestId = context?.req?.headers?.['x-request-id'] || `req-${Date.now()}`;
 
         try {
-          const result = await updateCategoryUseCase.execute({
+          // Build the request without parentCategoryId by default.
+          // Only add the key when the client explicitly included it in the input — this
+          // lets UpdateCategoryUseCase distinguish "not touching parent" (key absent)
+          // from "set parent to null / root" (key present with null value).
+          // Using `key in object` on a JS object literal always returns true even for
+          // undefined values, so we conditionally spread the key instead.
+          const updateRequest: Parameters<typeof updateCategoryUseCase.execute>[0] = {
             id,
             name: input.name,
             description: input.description,
@@ -193,7 +225,11 @@ export function createResolvers(categoryRepository: ICategoryRepository) {
             isActive: input.isActive,
             sortOrder: input.sortOrder,
             currentUser: context.currentUser ?? null,
-          });
+          };
+          if ('parentCategoryId' in input) {
+            updateRequest.parentCategoryId = input.parentCategoryId ?? null;
+          }
+          const result = await updateCategoryUseCase.execute(updateRequest);
           const duration = Date.now() - startTime;
           return ResponseFactory.createSuccessResponse(
             {

@@ -18,6 +18,21 @@ export interface GraphQLCategory {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Flat parent ID exposed so clients can reference the parent without
+   * triggering the lazy `parent` field resolver. Maps to `CategoryEntity.parentId`.
+   */
+  parentCategoryId?: string | null;
+  /**
+   * Lazy field — resolved by the Category.parent field resolver only when requested.
+   * Never eagerly populated by transformCategory; the resolver fetches it on demand.
+   */
+  parent?: GraphQLCategory | null;
+  /**
+   * Lazy field — resolved by the Category.children field resolver only when requested.
+   * Never eagerly populated by transformCategory; the resolver fetches them on demand.
+   */
+  children?: GraphQLCategory[];
 }
 
 export function transformCategory(category: CategoryEntity): GraphQLCategory {
@@ -31,6 +46,10 @@ export function transformCategory(category: CategoryEntity): GraphQLCategory {
     sortOrder: category.sortOrder,
     createdAt: category.createdAt.toISOString(),
     updatedAt: category.updatedAt.toISOString(),
+    parentCategoryId: category.parentId ?? null,
+    // parent and children are intentionally omitted here.
+    // They are resolved lazily via Category field resolvers only when
+    // the client explicitly requests them. This prevents N+1 on list queries.
   };
 }
 

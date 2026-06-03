@@ -16,6 +16,9 @@ export const typeDefs = gql`
     sortOrder: Int!
     createdAt: DateTime!
     updatedAt: DateTime!
+    parentCategoryId: ID
+    parent: Category
+    children: [Category!]!
   }
 
   type ResponseMetadata @shareable {
@@ -74,6 +77,7 @@ export const typeDefs = gql`
     image: String
     isActive: Boolean
     sortOrder: Int
+    parentCategoryId: ID
   }
 
   input UpdateCategoryInput {
@@ -83,6 +87,7 @@ export const typeDefs = gql`
     image: String
     isActive: Boolean
     sortOrder: Int
+    parentCategoryId: ID
   }
 
   type CreateCategoryResponse {

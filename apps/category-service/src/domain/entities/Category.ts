@@ -8,6 +8,8 @@ export interface Category {
   imageUrl?: string;
   isActive: boolean;
   sortOrder: number;
+  /** null means this is a root category (no parent). */
+  parentId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +25,8 @@ export class CategoryEntity implements Category {
     public readonly sortOrder: number,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    /** null or undefined means root category. */
+    public readonly parentId: string | null | undefined = null,
   ) {}
 
   static create(data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): CategoryEntity {
@@ -37,6 +41,7 @@ export class CategoryEntity implements Category {
       data.sortOrder,
       now,
       now,
+      data.parentId ?? null,
     );
   }
 
@@ -51,6 +56,7 @@ export class CategoryEntity implements Category {
       data.sortOrder ?? this.sortOrder,
       this.createdAt,
       new Date(),
+      'parentId' in data ? (data.parentId ?? null) : this.parentId,
     );
   }
 
@@ -73,6 +79,10 @@ export class CategoryEntity implements Category {
     );
   }
 
+  isRoot(): boolean {
+    return this.parentId == null;
+  }
+
   toJSON(): Category {
     return {
       id: this.id,
@@ -82,6 +92,7 @@ export class CategoryEntity implements Category {
       imageUrl: this.imageUrl,
       isActive: this.isActive,
       sortOrder: this.sortOrder,
+      parentId: this.parentId ?? null,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };

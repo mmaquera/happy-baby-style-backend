@@ -19,5 +19,13 @@ model Category {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  // Adjacency-list self-relation for parent/child hierarchy.
+  // onDelete: SetNull — deleting a parent orphans its children (they become roots),
+  // never cascade-deletes the whole subtree silently.
+  parentId String?   @map("parent_id")
+  parent   Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+
+  @@index([parentId])
   @@map("categories")
 }

@@ -12,6 +12,12 @@ export interface UpdateCategoryRequest {
   imageUrl?: string;
   isActive?: boolean;
   sortOrder?: number;
+  /**
+   * Optional new parent. Pass null to promote to root; omit to leave unchanged.
+   * Full cycle detection is performed: the new parent must not be the category
+   * itself or any of its descendants.
+   */
+  parentCategoryId?: string | null;
   /** Authenticated user forwarded to the repository so write-mode record rules are enforced. */
   currentUser?: TokenPayload | null;
 }
@@ -85,6 +91,45 @@ export class UpdateCategoryUseCase {
       if (request.sortOrder !== undefined && request.sortOrder !== existingCategory.sortOrder) {
         updateData.sortOrder = request.sortOrder;
         changes.push('sortOrder');
+      }
+
+      // parentCategoryId: only evaluate when explicitly provided in the request
+      if ('parentCategoryId' in request) {
+        const newParentId = request.parentCategoryId ?? null;
+        const currentParentId = existingCategory.parentId ?? null;
+
+        if (newParentId !== currentParentId) {
+          if (newParentId !== null) {
+            // Guard 1: a category cannot be its own parent
+            if (newParentId === request.id) {
+              throw new ValidationError(
+                'Category cannot be its own parent',
+                'parentCategoryId',
+              );
+            }
+
+            // Guard 2: parent must exist
+            const parent = await this.categoryRepository.findById(newParentId);
+            if (!parent) {
+              throw new NotFoundError('Category (parent)', newParentId);
+            }
+
+            // Guard 3: cycle detection — walk the ancestors of the proposed parent.
+            // If `request.id` appears in that chain, attaching newParentId as parent
+            // would create a cycle (newParentId is a descendant of the current node).
+            const ancestors = await this.categoryRepository.findAncestors(newParentId);
+            const ancestorIds = new Set([newParentId, ...ancestors.map((a) => a.id)]);
+            if (ancestorIds.has(request.id)) {
+              throw new ValidationError(
+                'Setting parent would create a circular hierarchy',
+                'parentCategoryId',
+              );
+            }
+          }
+
+          updateData.parentId = newParentId;
+          changes.push('parentCategoryId');
+        }
       }
 
       if (changes.length === 0) {

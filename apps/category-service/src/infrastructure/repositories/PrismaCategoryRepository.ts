@@ -52,6 +52,7 @@ export class PrismaCategoryRepository implements ICategoryRepository {
           image: category.imageUrl,
           isActive: category.isActive,
           sortOrder: category.sortOrder,
+          parentId: category.parentId ?? null,
         },
       });
       return this.mapToEntity(created);
@@ -164,6 +165,8 @@ export class PrismaCategoryRepository implements ICategoryRepository {
           image: categoryData.imageUrl,
           isActive: categoryData.isActive,
           sortOrder: categoryData.sortOrder,
+          // Only set parentId when explicitly provided in the patch (including null to detach)
+          ...('parentId' in categoryData ? { parentId: categoryData.parentId ?? null } : {}),
         },
       });
       return this.mapToEntity(updated);
@@ -245,6 +248,149 @@ export class PrismaCategoryRepository implements ICategoryRepository {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Hierarchy methods — implemented in Ola 2
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns direct children of a parent (depth = 1).
+   * Backed by the index on categories.parent_id.
+   */
+  async findChildren(parentId: string): Promise<CategoryEntity[]> {
+    try {
+      const categories = await this.prisma.category.findMany({
+        where: { parentId },
+        orderBy: { sortOrder: 'asc' },
+      });
+      return categories.map((c) => this.mapToEntity(c));
+    } catch (error) {
+      this.logger.error(
+        'Failed to find children for category',
+        error instanceof Error ? error : new Error(String(error)),
+        { parentId },
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Returns all root categories (parentId IS NULL).
+   */
+  async findRoots(): Promise<CategoryEntity[]> {
+    try {
+      const categories = await this.prisma.category.findMany({
+        where: { parentId: null },
+        orderBy: { sortOrder: 'asc' },
+      });
+      return categories.map((c) => this.mapToEntity(c));
+    } catch (error) {
+      this.logger.error(
+        'Failed to find root categories',
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Alias for findChildren — kept for interface symmetry.
+   */
+  async findByParentId(parentId: string): Promise<CategoryEntity[]> {
+    return this.findChildren(parentId);
+  }
+
+  /**
+   * Returns the ancestor chain for a given category, ordered [root, …, directParent].
+   *
+   * Implementation choice — recursive CTE via prisma.$queryRaw:
+   *   O(depth) in a single round-trip. This is strictly better than N sequential
+   *   findById() calls even for shallow trees (depth 2–4), because it avoids N
+   *   separate round-trips and keeps the breadcrumb query atomic.
+   *
+   * The CTE walks upward from the immediate parent of `id` until it reaches a
+   * root node (parent_id IS NULL), accumulating depth so we can ORDER BY depth
+   * descending to produce [root → directParent] order.
+   *
+   * Returns [] if `id` is already a root (parentId IS NULL).
+   */
+  async findAncestors(id: string): Promise<CategoryEntity[]> {
+    try {
+      // Raw SQL required — Prisma's query builder does not support recursive CTEs.
+      //
+      // Column naming rules for $queryRaw:
+      //   - SELECT must use actual DB column names (snake_case, per Prisma @map directives).
+      //   - AS aliases are used to expose camelCase names so the shared mapToEntity helper
+      //     can process both Prisma-ORM results and raw-SQL results uniformly.
+      //   - Quoted identifiers in WHERE/JOIN must also use snake_case DB column names.
+      //
+      // The CTE walks upward from the immediate parent of `id`, accumulates depth so
+      // we can ORDER BY depth DESC to produce [root → directParent] ordering.
+      const rows = await this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          name: string;
+          description: string | null;
+          slug: string;
+          image: string | null;
+          isActive: boolean;
+          sortOrder: number;
+          createdAt: Date;
+          updatedAt: Date;
+          parentId: string | null;
+          depth: number;
+        }>
+      >`
+        WITH RECURSIVE ancestors AS (
+          -- Anchor: start from the immediate parent of the requested category.
+          -- Uses snake_case DB column names; AS aliases expose camelCase for mapToEntity.
+          SELECT
+            c.id,
+            c.name,
+            c.description,
+            c.slug,
+            c.image,
+            c.is_active    AS "isActive",
+            c.sort_order   AS "sortOrder",
+            c.created_at   AS "createdAt",
+            c.updated_at   AS "updatedAt",
+            c.parent_id    AS "parentId",
+            1              AS depth
+          FROM categories c
+          WHERE c.id = (SELECT parent_id FROM categories WHERE id = ${id})
+            AND (SELECT parent_id FROM categories WHERE id = ${id}) IS NOT NULL
+
+          UNION ALL
+
+          -- Recursive step: walk up the tree one level at a time.
+          SELECT
+            c.id,
+            c.name,
+            c.description,
+            c.slug,
+            c.image,
+            c.is_active    AS "isActive",
+            c.sort_order   AS "sortOrder",
+            c.created_at   AS "createdAt",
+            c.updated_at   AS "updatedAt",
+            c.parent_id    AS "parentId",
+            a.depth + 1
+          FROM categories c
+          JOIN ancestors a ON c.id = a."parentId"
+        )
+        SELECT * FROM ancestors ORDER BY depth DESC
+      `;
+
+      return rows.map((row) => this.mapToEntity(row));
+    } catch (error) {
+      this.logger.error(
+        'Failed to find ancestors for category',
+        error instanceof Error ? error : new Error(String(error)),
+        { categoryId: id },
+      );
+      throw error;
+    }
+  }
+
   private mapToEntity(category: any): CategoryEntity {
     return new CategoryEntity(
       category.id,
@@ -256,6 +402,7 @@ export class PrismaCategoryRepository implements ICategoryRepository {
       category.sortOrder,
       category.createdAt,
       category.updatedAt,
+      category.parentId ?? null,
     );
   }
 }

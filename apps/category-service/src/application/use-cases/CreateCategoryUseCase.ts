@@ -8,6 +8,7 @@ import {
   BusinessLogicError,
   DatabaseError,
   ValidationError,
+  NotFoundError,
 } from '../../domain/errors/DomainError';
 import { ILogger, LoggerFactory } from '@hbs/logging';
 
@@ -18,6 +19,8 @@ export interface CreateCategoryRequest {
   imageUrl?: string;
   isActive?: boolean;
   sortOrder?: number;
+  /** ID of the parent category. null / undefined means root. */
+  parentCategoryId?: string | null;
 }
 
 export class CreateCategoryUseCase {
@@ -51,6 +54,21 @@ export class CreateCategoryUseCase {
         throw new DuplicateError('Category', 'slug', slug);
       }
 
+      // Validate parent exists when provided
+      const parentCategoryId = request.parentCategoryId ?? null;
+      if (parentCategoryId !== null) {
+        const parent = await this.categoryRepository.findById(parentCategoryId);
+        if (!parent) {
+          this.logger.warn('Category creation failed: parent not found', {
+            parentCategoryId,
+            traceId,
+          });
+          throw new NotFoundError('Category (parent)', parentCategoryId);
+        }
+        // A new category cannot be its own parent — structural sanity check.
+        // (Full cycle detection is only possible on update since the new entity has no id yet.)
+      }
+
       const category = CategoryEntity.create({
         name: request.name.trim(),
         description: request.description?.trim(),
@@ -58,6 +76,7 @@ export class CreateCategoryUseCase {
         imageUrl: request.imageUrl,
         isActive: request.isActive ?? true,
         sortOrder: request.sortOrder || 0,
+        parentId: parentCategoryId,
       });
 
       const result = await this.categoryRepository.create(category);
@@ -71,7 +90,8 @@ export class CreateCategoryUseCase {
       if (
         error instanceof ValidationError ||
         error instanceof DuplicateError ||
-        error instanceof BusinessLogicError
+        error instanceof BusinessLogicError ||
+        error instanceof NotFoundError
       ) {
         this.logger.warn('Category creation failed: business logic error', {
           name: request.name,
