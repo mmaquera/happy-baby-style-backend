@@ -1,0 +1,43 @@
+meta {
+  name: Update Order [MGMT]
+  type: graphql
+  seq: 28
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateOrder($id: ID!, $input: UpdateOrderInput!) {
+    updateOrder(id: $id, input: $input) {
+      id
+      orderNumber
+      customerEmail
+      customerName
+      status
+      notes
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{ORDER_ID}}",
+    "input": {
+      "customerName": "María García Rodríguez",
+      "customerPhone": "+57 300 999 0000"
+    }
+  }
+}
+
+docs {
+  Update order fields (name, email, phone, status, notes). Requires owner or management access (sales-manager, administrators). Permission: orders:write. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateOrder
+}

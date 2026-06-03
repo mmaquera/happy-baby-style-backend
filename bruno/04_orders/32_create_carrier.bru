@@ -1,0 +1,44 @@
+meta {
+  name: Create Carrier [ADMIN]
+  type: graphql
+  seq: 32
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateCarrier($input: CreateCarrierInput!) {
+    createCarrier(input: $input) {
+      id
+      name
+      code
+      trackingUrlTemplate
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "Servientrega",
+      "code": "SVTG",
+      "trackingUrlTemplate": "https://servientrega.com/track?guide={{trackingNumber}}",
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Create a new shipping carrier. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createCarrier
+}

@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -20,8 +22,14 @@ body:graphql {
       countries
       states
       cities
+      postalCodes
       isActive
       createdAt
+      updatedAt
     }
   }
+}
+
+docs {
+  List all shipping zones. Requires management access (administrators, sales-manager). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.shippingZones
 }

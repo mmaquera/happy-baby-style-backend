@@ -1,0 +1,46 @@
+meta {
+  name: Create Tax Rate [ADMIN]
+  type: graphql
+  seq: 44
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateTaxRate($input: CreateTaxRateInput!) {
+    createTaxRate(input: $input) {
+      id
+      name
+      rate
+      country
+      state
+      city
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "IVA Colombia",
+      "rate": 19,
+      "country": "CO",
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Create a tax rate applicable by country/state/city scope. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createTaxRate
+}

@@ -1,0 +1,37 @@
+meta {
+  name: Delete Carrier No manage:system (ForbiddenError - Error Canary)
+  type: graphql
+  seq: 56
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteCarrierNoManageSystem($id: ID!) {
+    deleteCarrier(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_CARRIER_ID"
+  }
+}
+
+docs {
+  Regression canary: deleteCarrier called with an ACCESS_TOKEN that lacks the manage:system permission (e.g. a sales-user or customer token).
+  Expected: GraphQL error with code FORBIDDEN — the mutation must be rejected.
+  Guard under test: requirePermission(ctx, 'manage:system') or requireGroup(ctx, 'administrators') in the deleteCarrier resolver.
+  Schema: apps/order-service/src/graphql/schema.ts:Mutation.deleteCarrier
+}

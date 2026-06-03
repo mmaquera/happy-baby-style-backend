@@ -1,0 +1,40 @@
+meta {
+  name: Get User by ID (Other User - Error Canary)
+  type: graphql
+  seq: 52
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserOtherIdCustomerToken($id: ID!) {
+    user(id: $id) {
+      id
+      email
+      isActive
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "00000000-0000-0000-0000-000000000003"
+  }
+}
+
+docs {
+  Regression canary: user(id) queried with a customer-group token where the requested id belongs to a different user.
+  ACCESS_TOKEN must belong to a regular customer whose userId is NOT "00000000-0000-0000-0000-000000000003".
+  Expected: null (not a GraphQL error) — resolver returns null to prevent user enumeration (CWE-203 anti-pattern guard).
+  The resolver silently returns null for non-owner, non-management callers instead of throwing ForbiddenError.
+  Guard under test: owner-or-management null-return in Query.user resolver.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.user
+}

@@ -1,0 +1,41 @@
+meta {
+  name: Get Shipping Zone by ID
+  type: graphql
+  seq: 49
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetShippingZone($id: ID!) {
+    shippingZone(id: $id) {
+      id
+      name
+      countries
+      states
+      cities
+      postalCodes
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_ZONE_ID"
+  }
+}
+
+docs {
+  Fetch a single shipping zone by UUID. Requires management access (administrators, sales-manager). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.shippingZone
+}

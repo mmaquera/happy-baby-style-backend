@@ -1,0 +1,46 @@
+meta {
+  name: Update Category Cycle Parent (ValidationError - Error Canary)
+  type: graphql
+  seq: 10
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateCategoryCycleParent($id: ID!, $input: UpdateCategoryInput!) {
+    updateCategory(id: $id, input: $input) {
+      success
+      code
+      message
+      data {
+        id
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{CATEGORY_ID}}",
+    "input": {
+      "parentCategoryId": "{{CATEGORY_ID}}"
+    }
+  }
+}
+
+docs {
+  Regression canary: updateCategory where parentCategoryId is set to the category's own id (direct cycle).
+  To exercise a descendant-cycle: replace the vars so that CATEGORY_ID is an ancestor and input.parentCategoryId is one of its own descendants.
+  ACCESS_TOKEN must belong to the administrators group (mutation is admin-only).
+  Expected: GraphQL error — ValidationError (code: VALIDATION_ERROR or 400), cycle detection must reject the update.
+  Guard under test: use-case ancestry check before update — apps/category-service/src/application/use-cases/UpdateCategoryUseCase.ts.
+  Schema: apps/category-service/src/graphql/schema.ts:UpdateCategoryInput.parentCategoryId
+}

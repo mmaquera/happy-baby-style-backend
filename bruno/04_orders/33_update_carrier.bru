@@ -1,0 +1,42 @@
+meta {
+  name: Update Carrier [ADMIN]
+  type: graphql
+  seq: 33
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateCarrier($id: ID!, $input: UpdateCarrierInput!) {
+    updateCarrier(id: $id, input: $input) {
+      id
+      name
+      code
+      trackingUrlTemplate
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_CARRIER_ID",
+    "input": {
+      "name": "Servientrega Express",
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Update an existing carrier using UpdateCarrierInput (all fields optional). Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateCarrier
+}

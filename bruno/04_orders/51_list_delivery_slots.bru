@@ -1,0 +1,34 @@
+meta {
+  name: List Delivery Slots
+  type: graphql
+  seq: 51
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListDeliverySlots {
+    deliverySlots {
+      id
+      dayOfWeek
+      startTime
+      endTime
+      maxOrders
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+docs {
+  List all delivery time slots. Requires management access (administrators, sales-manager). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.deliverySlots
+}

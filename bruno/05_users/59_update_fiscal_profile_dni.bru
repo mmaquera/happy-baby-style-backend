@@ -1,0 +1,50 @@
+meta {
+  name: Update Fiscal Profile (DNI)
+  type: graphql
+  seq: 59
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateFiscalProfile($input: UpdateFiscalProfileInput!) {
+    updateFiscalProfile(input: $input) {
+      success
+      code
+      message
+      timestamp
+      data {
+        id
+        userId
+        documentType
+        documentNumber
+        legalName
+        verifiedAt
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "userId": "{{USER_ID}}",
+      "documentType": "dni",
+      "documentNumber": "47835621"
+    }
+  }
+}
+
+docs {
+  Actualiza el perfil fiscal con DNI (8 dígitos). legalName opcional para persona natural. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateFiscalProfile
+}

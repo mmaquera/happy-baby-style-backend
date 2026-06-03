@@ -1,0 +1,43 @@
+meta {
+  name: User Orders Other UserId (Customer Token - Error Canary)
+  type: graphql
+  seq: 53
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserOrdersOtherUser($userId: ID!) {
+    user(id: $userId) {
+      id
+      orders(limit: 10, offset: 0) {
+        id
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "00000000-0000-0000-0000-000000000004"
+  }
+}
+
+docs {
+  Regression canary: federated User.orders queried where userId belongs to a different user, token is customer-group only.
+  ACCESS_TOKEN must belong to a customer whose userId is NOT "00000000-0000-0000-0000-000000000004".
+  Expected two-layer guard:
+    1. Query.user returns null (user-service BOLA guard) — orders field is never reached.
+    2. If somehow user resolves, User.orders in order-service enforces assertOwnerOrOrderManagement and returns [] or throws FORBIDDEN.
+  Net result: data.user = null and no orders are leaked.
+  Guard under test: Query.user owner-or-management guard + order-service User.orders BOLA guard.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.user + apps/order-service/src/graphql/schema.ts:type.User.orders
+}

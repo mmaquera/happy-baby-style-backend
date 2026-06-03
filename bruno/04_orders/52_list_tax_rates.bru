@@ -1,0 +1,35 @@
+meta {
+  name: List Tax Rates [ADMIN]
+  type: graphql
+  seq: 52
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListTaxRates {
+    taxRates {
+      id
+      name
+      rate
+      country
+      state
+      city
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+docs {
+  List all tax rates. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Query.taxRates
+}

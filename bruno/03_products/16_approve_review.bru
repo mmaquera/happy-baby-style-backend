@@ -21,7 +21,7 @@ body:graphql {
       productId
       userId
       rating
-      isApproved
+      status
       updatedAt
     }
   }
@@ -34,5 +34,5 @@ body:graphql:vars {
 }
 
 docs {
-  Mark a product review as approved (visible on the storefront). Requires management access (inventory-user, administrators). Permission: create:product or administrators group. Schema: apps/product-service/src/graphql/schema.ts:Mutation.approveReview
+  Transition a review to approved status (state machine: pending → approved). Requires reviews:moderate permission. Use ACCESS_TOKEN minted for a user in the customer-service or administrators group. Schema: apps/product-service/src/graphql/schema.ts:Mutation.approveReview
 }

@@ -1,0 +1,44 @@
+meta {
+  name: Search Users [ADMIN]
+  type: graphql
+  seq: 54
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query SearchUsers($query: String!) {
+    searchUsers(query: $query) {
+      id
+      email
+      isActive
+      emailVerified
+      createdAt
+      profile {
+        firstName
+        lastName
+        fullName
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "query": "jane"
+  }
+}
+
+docs {
+  Full-text search across users. Guard: requireUserManagementAccess — administrators or customer-service group required.
+  Added auth guard in Ola 3. ACCESS_TOKEN must belong to administrators or customer-service group.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.searchUsers
+}

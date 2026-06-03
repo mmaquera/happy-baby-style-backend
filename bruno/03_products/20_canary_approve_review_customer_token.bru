@@ -1,0 +1,37 @@
+meta {
+  name: Approve Review Customer Token (ForbiddenError - Error Canary)
+  type: graphql
+  seq: 20
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation ApproveReviewCanary($id: ID!) {
+    approveReview(id: $id) {
+      id
+      status
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_REVIEW_ID"
+  }
+}
+
+docs {
+  Regression canary: approveReview using an ACCESS_TOKEN for a user in the customer group (which does NOT have the reviews:moderate permission).
+  Expected: GraphQL error — ForbiddenError (code: FORBIDDEN). The mutation must be rejected.
+  Guard under test: requirePermission(ctx, 'reviews:moderate') in the approveReview resolver — apps/product-service/src/graphql/resolvers.ts.
+  Schema: apps/product-service/src/graphql/schema.ts:Mutation.approveReview
+}

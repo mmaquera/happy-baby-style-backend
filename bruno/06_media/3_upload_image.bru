@@ -15,11 +15,15 @@ auth:bearer {
 }
 
 body:multipart-form {
-  operations: {"query":"mutation UploadImage($file: Upload!, $entityType: String!, $entityId: String!) { uploadImage(file: $file, entityType: $entityType, entityId: $entityId) { success message code data { url filename imageId } } }","variables":{"file":null,"entityType":"product","entityId":"{{PRODUCT_ID}}"}}
+  operations: {"query":"mutation UploadImage($file: Upload!, $entityType: ImageEntityType!, $entityId: String!) { uploadImage(file: $file, entityType: $entityType, entityId: $entityId) { success message code data { url filename imageId } } }","variables":{"file":null,"entityType":"product","entityId":"{{PRODUCT_ID}}"}}
   map: {"0":["variables.file"]}
   0: @file(<path/to/product-image.jpg>)
 }
 
 docs {
-  Upload an image using the GraphQL multipart request spec (https://github.com/jaydenseric/graphql-multipart-request-spec). The 'sanitize' arg was removed from SDL — do NOT include it. Requires management access or owner (for entityType=user). Files are served with Content-Disposition: attachment. Schema: apps/media-service/src/graphql/schema.ts:Mutation.uploadImage
+  Upload an image using the GraphQL multipart request spec (https://github.com/jaydenseric/graphql-multipart-request-spec).
+  entityType must be one of the ImageEntityType enum values: product | user | category (passed as a plain string in the JSON variables object; GraphQL coerces to enum server-side).
+  The 'sanitize' arg was removed from SDL — do NOT include it.
+  Requires management access or owner (for entityType=user).
+  Schema: apps/media-service/src/graphql/schema.ts:Mutation.uploadImage, enum ImageEntityType
 }

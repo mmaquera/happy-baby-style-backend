@@ -1,0 +1,43 @@
+meta {
+  name: Update Delivery Slot [ADMIN]
+  type: graphql
+  seq: 42
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateDeliverySlot($id: ID!, $input: UpdateDeliverySlotInput!) {
+    updateDeliverySlot(id: $id, input: $input) {
+      id
+      dayOfWeek
+      startTime
+      endTime
+      maxOrders
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_SLOT_ID",
+    "input": {
+      "maxOrders": 50,
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Update an existing delivery slot. All fields in UpdateDeliverySlotInput are optional. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateDeliverySlot
+}

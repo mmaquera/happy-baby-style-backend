@@ -1,0 +1,44 @@
+meta {
+  name: Get User Activity Summary
+  type: graphql
+  seq: 48
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserActivitySummary($userId: ID!) {
+    userActivitySummary(userId: $userId) {
+      recentOrders {
+        id
+      }
+      favoriteProducts {
+        id
+      }
+      totalFavorites
+      joinDate
+      lastActivity
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Returns activity summary for a user. Guard: assertOwnerOrAdmin — owner or admin only.
+  UserActivitySummary shape (Ola 3): recentOrders, favoriteProducts, totalFavorites, joinDate, lastActivity.
+  Fields REMOVED in Ola 3: cartItemsCount, totalSpent — do not add them back.
+  Schema: apps/user-service/src/graphql/schema.ts:type.UserActivitySummary
+}

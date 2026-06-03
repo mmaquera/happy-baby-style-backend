@@ -1,0 +1,67 @@
+meta {
+  name: Create Product Exonerado [ADMIN]
+  type: graphql
+  seq: 22
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateProductExonerado($input: CreateProductInput!) {
+    createProduct(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          name
+          price
+          sku
+          stockQuantity
+          isActive
+          currentPrice
+          taxAffectation
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "categoryId": "{{CATEGORY_ID}}",
+      "name": "Leche Materna en Polvo Premium",
+      "description": "Complemento alimenticio exonerado de IGV según lista SUNAT (Catálogo 07).",
+      "price": 8900,
+      "sku": "LEC-MAT-POL-001",
+      "images": ["https://example.com/images/leche-materna-01.jpg"],
+      "isActive": true,
+      "stockQuantity": 100,
+      "tags": ["alimentación", "bebé", "exonerado"],
+      "taxAffectation": "exonerado"
+    }
+  }
+}
+
+script:post-response {
+  const id = res.body?.data?.createProduct?.data?.id;
+  if (id) {
+    bru.setEnvVar("PRODUCT_ID_EXONERADO", id);
+  }
+}
+
+docs {
+  Creates a product with taxAffectation = exonerado (exempt from IGV per SUNAT Catálogo 07). At order creation the server will calculate exemptAmount for this product's lines and igvAmount = 0. Requires products:write permission (inventory-user, administrators). Schema: apps/product-service/src/graphql/schema.ts:Mutation.createProduct
+}

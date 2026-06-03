@@ -1,0 +1,60 @@
+meta {
+  name: Get Category With Children Tree
+  type: graphql
+  seq: 8
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  query GetCategoryWithChildren($id: ID!) {
+    category(id: $id) {
+      success
+      code
+      message
+      data {
+        id
+        name
+        description
+        slug
+        image
+        isActive
+        sortOrder
+        parentCategoryId
+        parent {
+          id
+          name
+          slug
+        }
+        children {
+          id
+          name
+          slug
+          isActive
+          sortOrder
+          parentCategoryId
+          children {
+            id
+            name
+            slug
+            isActive
+          }
+        }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{CATEGORY_ID}}"
+  }
+}
+
+docs {
+  Fetch a root category with its full children tree (two levels deep). Uses the parent/children fields introduced in Ola 3. Public — no auth required. Schema: apps/category-service/src/graphql/schema.ts:Category.parent, Category.children
+}

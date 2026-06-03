@@ -1,15 +1,17 @@
 meta {
-  name: User Order History
+  name: User Order History [DEPRECATED]
   type: graphql
   seq: 11
 }
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -35,4 +37,10 @@ body:graphql:vars {
     "userId": "{{USER_ID}}",
     "pagination": { "limit": 10, "offset": 0 }
   }
+}
+
+docs {
+  DEPRECATED — schema marks this @deprecated(reason: "Use User.orders field instead — resolved by order-service via federation.").
+  Kept for backward-compatibility testing only. Use 49_user_orders_federated.bru for the live path.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.userOrderHistory
 }

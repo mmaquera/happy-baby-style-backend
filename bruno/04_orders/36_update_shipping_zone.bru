@@ -1,0 +1,44 @@
+meta {
+  name: Update Shipping Zone [ADMIN]
+  type: graphql
+  seq: 36
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateShippingZone($id: ID!, $input: UpdateShippingZoneInput!) {
+    updateShippingZone(id: $id, input: $input) {
+      id
+      name
+      countries
+      states
+      cities
+      postalCodes
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_ZONE_ID",
+    "input": {
+      "cities": ["Bogotá", "Soacha", "Chía", "Zipaquirá"],
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Update an existing shipping zone. All fields in UpdateShippingZoneInput are optional. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateShippingZone
+}

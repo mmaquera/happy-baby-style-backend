@@ -1,0 +1,44 @@
+meta {
+  name: Create Coupon Customer Token (ForbiddenError - Error Canary)
+  type: graphql
+  seq: 55
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateCouponCustomerCanary($input: CreateCouponInput!) {
+    createCoupon(input: $input) {
+      id
+      code
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "code": "CANARY_FORBIDDEN",
+      "name": "Canary Coupon",
+      "discountType": "percentage",
+      "discountValue": 5,
+      "validFrom": "2026-01-01T00:00:00Z",
+      "validUntil": "2026-12-31T23:59:59Z"
+    }
+  }
+}
+
+docs {
+  Regression canary: createCoupon called with ACCESS_TOKEN belonging to a user in the customer group only (NOT administrators or sales-manager).
+  Expected: GraphQL error with code FORBIDDEN — insufficient permissions to call this mutation.
+  Guard under test: requirePermission(ctx, 'manage:system') or requireAnyGroup(ctx, ['administrators', 'sales-manager']) in the createCoupon resolver.
+  Schema: apps/order-service/src/graphql/schema.ts:Mutation.createCoupon
+}

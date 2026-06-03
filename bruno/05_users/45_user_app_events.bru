@@ -1,0 +1,45 @@
+meta {
+  name: Get User App Events
+  type: graphql
+  seq: 45
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserAppEvents($userId: ID!) {
+    userAppEvents(userId: $userId) {
+      id
+      userId
+      sessionId
+      eventType
+      eventData
+      productId
+      categoryId
+      deviceInfo
+      location
+      userAgent
+      ipAddress
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Returns app events for a specific user. Guard: assertOwnerOrAdmin — owner or administrators/customer-service only.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.userAppEvents
+}

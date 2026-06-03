@@ -1,0 +1,63 @@
+meta {
+  name: Create Subcategory [ADMIN]
+  type: graphql
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateSubcategory($input: CreateCategoryInput!) {
+    createCategory(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+        createdAt
+        entity {
+          id
+          name
+          slug
+          isActive
+          sortOrder
+          parentCategoryId
+          parent {
+            id
+            name
+            slug
+          }
+          children {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "Mameluco Bebé",
+      "description": "Mamelucos y pijamas para bebés",
+      "slug": "mameluco-bebe",
+      "isActive": true,
+      "sortOrder": 1,
+      "parentCategoryId": "{{CATEGORY_ID}}"
+    }
+  }
+}
+
+docs {
+  Create a subcategory under an existing parent. parentCategoryId must reference a valid Category id — server throws NotFoundError if the parent does not exist. Requires administrators group (manage:system permission). Schema: apps/category-service/src/graphql/schema.ts:CreateCategoryInput.parentCategoryId
+}

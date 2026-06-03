@@ -1,0 +1,81 @@
+meta {
+  name: Create Order (sin billingData)
+  type: graphql
+  seq: 59
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateOrder($input: CreateOrderInput!) {
+    createOrder(input: $input) {
+      id
+      orderNumber
+      customerEmail
+      customerName
+      status
+      subtotal
+      taxAmount
+      shippingAmount
+      discountAmount
+      totalAmount
+      currency
+      billingDocumentType
+      billingDocumentNumber
+      billingLegalName
+      billingFirstName
+      billingLastName
+      billingAddressId
+      taxableAmount
+      exemptAmount
+      nonTaxableAmount
+      igvAmount
+      createdAt
+      items {
+        id
+        productId
+        quantity
+        price
+        taxAffectation
+        igvBase
+        igvAmount
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "customerName": "Ana Torres",
+      "customerPhone": "+51 9 876 5432",
+      "items": [
+        {
+          "productId": "{{PRODUCT_ID}}",
+          "quantity": 1,
+          "size": "3-6M",
+          "color": "rosa"
+        }
+      ],
+      "shippingAddress": {
+        "street": "Jr. de la Unión 300",
+        "city": "Lima",
+        "state": "Lima",
+        "zipCode": "15001",
+        "country": "PE"
+      }
+    }
+  }
+}
+
+docs {
+  Crea una orden sin datos de facturación (billingData omitido). Todos los campos billing* quedan null. El desglose IGV (taxableAmount, exemptAmount, nonTaxableAmount, igvAmount) y el snapshot fiscal por línea (taxAffectation, igvBase, igvAmount) se calculan igual desde el taxAffectation del producto — no se pasa taxAffectation en el input. Caso válido para persona natural sin requerir comprobante. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createOrder
+}

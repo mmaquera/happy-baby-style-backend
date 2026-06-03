@@ -1,0 +1,43 @@
+meta {
+  name: Update Review Wrong Owner (ForbiddenError - Error Canary)
+  type: graphql
+  seq: 21
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateReviewWrongOwner($id: ID!, $input: UpdateProductReviewInput!) {
+    updateProductReview(id: $id, input: $input) {
+      id
+      status
+      rating
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_REVIEW_ID_OWNED_BY_DIFFERENT_USER",
+    "input": {
+      "rating": 1,
+      "comment": "Intentando modificar la reseña de otro usuario"
+    }
+  }
+}
+
+docs {
+  Regression canary: updateProductReview where the review id belongs to a different user than the ACCESS_TOKEN owner.
+  ACCESS_TOKEN must belong to a regular customer (group: customer), not an admin.
+  Expected: GraphQL error — ForbiddenError (code: FORBIDDEN) or NotFoundError (code: NOT_FOUND) depending on resolver implementation. The update must be rejected in either case.
+  Guard under test: assertOwnerOrAdmin(context.currentUser, review.userId) in the updateProductReview resolver — apps/product-service/src/graphql/resolvers.ts.
+  Schema: apps/product-service/src/graphql/schema.ts:Mutation.updateProductReview
+}

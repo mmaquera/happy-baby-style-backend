@@ -1,0 +1,48 @@
+meta {
+  name: Create Category Invalid Parent (NotFound - Error Canary)
+  type: graphql
+  seq: 9
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateCategoryInvalidParent($input: CreateCategoryInput!) {
+    createCategory(input: $input) {
+      success
+      code
+      message
+      data {
+        id
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "Hijo Fantasma",
+      "slug": "hijo-fantasma",
+      "isActive": true,
+      "sortOrder": 99,
+      "parentCategoryId": "00000000-0000-0000-0000-000000000000"
+    }
+  }
+}
+
+docs {
+  Regression canary: createCategory with a parentCategoryId that does not exist in the database.
+  ACCESS_TOKEN must belong to the administrators group (mutation is admin-only).
+  Expected: GraphQL error — NotFoundError (code: NOT_FOUND or 404), category creation must be rejected.
+  Guard under test: use-case validates parent existence before insert — apps/category-service/src/application/use-cases/CreateCategoryUseCase.ts.
+  Schema: apps/category-service/src/graphql/schema.ts:CreateCategoryInput.parentCategoryId
+}

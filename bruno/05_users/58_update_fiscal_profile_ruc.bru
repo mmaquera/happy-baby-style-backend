@@ -1,0 +1,51 @@
+meta {
+  name: Update Fiscal Profile (RUC)
+  type: graphql
+  seq: 58
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateFiscalProfile($input: UpdateFiscalProfileInput!) {
+    updateFiscalProfile(input: $input) {
+      success
+      code
+      message
+      timestamp
+      data {
+        id
+        userId
+        documentType
+        documentNumber
+        legalName
+        verifiedAt
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "userId": "{{USER_ID}}",
+      "documentType": "ruc",
+      "documentNumber": "20100070970",
+      "legalName": "Empresa Comercial SAC"
+    }
+  }
+}
+
+docs {
+  Crea o actualiza el perfil fiscal con RUC válido (11 dígitos, dígito verificador correcto). Requiere permiso update:fiscal-profile o ser el propio usuario. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateFiscalProfile
+}

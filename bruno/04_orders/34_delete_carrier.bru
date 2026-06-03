@@ -1,0 +1,34 @@
+meta {
+  name: Delete Carrier [ADMIN]
+  type: graphql
+  seq: 34
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteCarrier($id: ID!) {
+    deleteCarrier(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_CARRIER_ID"
+  }
+}
+
+docs {
+  Delete a carrier by ID. Returns SuccessResponse — a non-existent ID returns { success: true } (anti-enumeration). Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.deleteCarrier
+}

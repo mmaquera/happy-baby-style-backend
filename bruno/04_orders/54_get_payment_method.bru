@@ -1,0 +1,41 @@
+meta {
+  name: Get Payment Method by ID [MGMT]
+  type: graphql
+  seq: 54
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetPaymentMethod($id: ID!) {
+    paymentMethod(id: $id) {
+      id
+      orderId
+      type
+      amount
+      status
+      transactionId
+      metadata
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_PAYMENT_METHOD_ID"
+  }
+}
+
+docs {
+  Fetch a single payment method by UUID. Requires owner (linked order belongs to JWT sub) or management access. Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.paymentMethod
+}

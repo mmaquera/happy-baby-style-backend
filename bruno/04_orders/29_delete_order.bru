@@ -1,0 +1,34 @@
+meta {
+  name: Delete Order [ADMIN]
+  type: graphql
+  seq: 29
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteOrder($id: ID!) {
+    deleteOrder(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "{{ORDER_ID}}"
+  }
+}
+
+docs {
+  Soft-delete or remove an order. Returns SuccessResponse — a non-existent ID returns { success: true } to prevent enumeration. Requires administrators group. Permission: orders:write. Schema: apps/order-service/src/graphql/schema.ts:Mutation.deleteOrder
+}

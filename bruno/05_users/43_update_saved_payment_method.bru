@@ -1,0 +1,48 @@
+meta {
+  name: Update Saved Payment Method
+  type: graphql
+  seq: 43
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateSavedPaymentMethod($id: ID!, $input: UpdateSavedPaymentMethodInput!) {
+    updateSavedPaymentMethod(id: $id, input: $input) {
+      id
+      userId
+      type
+      provider
+      lastFour
+      isDefault
+      isActive
+      metadata
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_PAYMENT_METHOD_ID",
+    "input": {
+      "isDefault": true,
+      "isActive": true,
+      "metadata": {}
+    }
+  }
+}
+
+docs {
+  Updates a saved payment method. Guard: owner-or-admin enforced inside use case (requestingUserId checked against method.userId).
+  Only isDefault, isActive, and metadata are mutable. Bearer token required.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateSavedPaymentMethod
+}

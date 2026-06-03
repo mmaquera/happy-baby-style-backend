@@ -1,0 +1,52 @@
+meta {
+  name: Update Coupon [ADMIN]
+  type: graphql
+  seq: 30
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateCoupon($id: ID!, $input: UpdateCouponInput!) {
+    updateCoupon(id: $id, input: $input) {
+      id
+      code
+      name
+      discountType
+      discountValue
+      minimumAmount
+      maximumDiscount
+      usageLimit
+      usedCount
+      validFrom
+      validUntil
+      isActive
+      isFirstTimeOnly
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_COUPON_ID",
+    "input": {
+      "name": "Bienvenida 15%",
+      "discountValue": 15,
+      "isActive": true,
+      "validUntil": "2026-12-31T23:59:59Z"
+    }
+  }
+}
+
+docs {
+  Update an existing coupon. Requires administrators or sales-manager group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateCoupon
+}

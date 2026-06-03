@@ -1,0 +1,38 @@
+meta {
+  name: Delete Coupon Nonexistent ID (Anti-Enumeration - Error Canary)
+  type: graphql
+  seq: 58
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteCouponNonexistentId($id: ID!) {
+    deleteCoupon(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "00000000-0000-0000-0000-000000000000"
+  }
+}
+
+docs {
+  Regression canary: deleteCoupon with a UUID that does not exist in the database.
+  ACCESS_TOKEN must belong to a user with manage:system permission (administrators or sales-manager) — use an admin token so the auth guard passes and only the not-found path is exercised.
+  Expected: HTTP 200 with { "data": { "deleteCoupon": { "success": true, "message": "Operation completed" } } } — NOT a NotFoundError.
+  Anti-enumeration design: delete* mutations always return success regardless of whether the record exists, to prevent callers from probing which IDs are valid.
+  Schema: apps/order-service/src/graphql/schema.ts:Mutation.deleteCoupon
+}

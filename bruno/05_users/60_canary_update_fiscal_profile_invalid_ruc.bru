@@ -1,0 +1,40 @@
+meta {
+  name: Canary - Update Fiscal Profile invalid RUC dv
+  type: graphql
+  seq: 60
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateFiscalProfile($input: UpdateFiscalProfileInput!) {
+    updateFiscalProfile(input: $input) {
+      success
+      code
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "userId": "{{USER_ID}}",
+      "documentType": "ruc",
+      "documentNumber": "20100070971",
+      "legalName": "Empresa Comercial SAC"
+    }
+  }
+}
+
+docs {
+  Caso negativo: RUC con dígito verificador inválido (último dígito cambiado de 0 a 1). Espera ValidationError (success: false). Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateFiscalProfile
+}

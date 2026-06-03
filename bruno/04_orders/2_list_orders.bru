@@ -6,10 +6,12 @@ meta {
 
 post {
   url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
 }
 
-headers {
-  Authorization: Bearer {{ACCESS_TOKEN}}
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
 }
 
 body:graphql {
@@ -36,4 +38,8 @@ body:graphql:vars {
     "filter": {},
     "pagination": { "limit": 20, "offset": 0 }
   }
+}
+
+docs {
+  Paginated order list for the admin dashboard. Requires management access (sales-manager, administrators). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.orders
 }

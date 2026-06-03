@@ -1,0 +1,39 @@
+meta {
+  name: Canary - Update Fiscal Profile RUC without legalName
+  type: graphql
+  seq: 61
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateFiscalProfile($input: UpdateFiscalProfileInput!) {
+    updateFiscalProfile(input: $input) {
+      success
+      code
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "userId": "{{USER_ID}}",
+      "documentType": "ruc",
+      "documentNumber": "20100070970"
+    }
+  }
+}
+
+docs {
+  Caso negativo: RUC válido pero sin legalName (razón social). Espera ValidationError — legalName es obligatorio cuando documentType es ruc. Schema: apps/user-service/src/graphql/schema.ts:Mutation.updateFiscalProfile
+}

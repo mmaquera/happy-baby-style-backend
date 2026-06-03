@@ -1,0 +1,44 @@
+meta {
+  name: Update Tax Rate [ADMIN]
+  type: graphql
+  seq: 45
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateTaxRate($id: ID!, $input: UpdateTaxRateInput!) {
+    updateTaxRate(id: $id, input: $input) {
+      id
+      name
+      rate
+      country
+      state
+      city
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_TAX_RATE_ID",
+    "input": {
+      "rate": 19,
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Update an existing tax rate. All fields in UpdateTaxRateInput are optional. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateTaxRate
+}

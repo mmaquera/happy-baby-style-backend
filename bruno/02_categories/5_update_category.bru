@@ -30,6 +30,12 @@ body:graphql {
           slug
           isActive
           sortOrder
+          parentCategoryId
+          parent {
+            id
+            name
+            slug
+          }
         }
       }
     }

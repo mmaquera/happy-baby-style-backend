@@ -1,0 +1,46 @@
+meta {
+  name: Get User Fiscal Profile
+  type: graphql
+  seq: 57
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserFiscalProfile($userId: ID!) {
+    userFiscalProfile(userId: $userId) {
+      success
+      code
+      message
+      timestamp
+      data {
+        id
+        userId
+        documentType
+        documentNumber
+        legalName
+        verifiedAt
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Obtiene el perfil fiscal SUNAT del usuario. Guard: assertOwnerOrAdmin (owner o administrators/customer-service). Schema: apps/user-service/src/graphql/schema.ts:Query.userFiscalProfile
+}

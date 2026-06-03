@@ -1,0 +1,44 @@
+meta {
+  name: User Orders (Federated via order-service)
+  type: graphql
+  seq: 49
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserOrders($userId: ID!, $limit: Int, $offset: Int) {
+    user(id: $userId) {
+      id
+      email
+      orders(limit: $limit, offset: $offset) {
+        id
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}",
+    "limit": 10,
+    "offset": 0
+  }
+}
+
+docs {
+  Federated query: user(id) is resolved by user-service; User.orders is resolved by order-service via @key(fields: "id").
+  Subgraphs hit: user-service (:3006) for the User entity, order-service (:3005) for User.orders __resolveReference.
+  Guard on user(id): owner or user-management roles — non-owner customer gets null.
+  Guard on User.orders: BOLA-enforced in order-service resolver (assertOwnerOrOrderManagement).
+  Replaces the deprecated Query.userOrderHistory. Use this request via the gateway.
+  Schema: apps/order-service/src/graphql/schema.ts:type.User.orders
+}

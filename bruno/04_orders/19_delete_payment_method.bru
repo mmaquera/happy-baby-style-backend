@@ -16,7 +16,10 @@ auth:bearer {
 
 body:graphql {
   mutation DeletePaymentMethod($id: ID!) {
-    deletePaymentMethod(id: $id)
+    deletePaymentMethod(id: $id) {
+      success
+      message
+    }
   }
 }
 

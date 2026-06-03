@@ -29,6 +29,16 @@ body:graphql {
       totalAmount
       currency
       notes
+      billingDocumentType
+      billingDocumentNumber
+      billingLegalName
+      billingFirstName
+      billingLastName
+      billingAddressId
+      taxableAmount
+      exemptAmount
+      nonTaxableAmount
+      igvAmount
       createdAt
       updatedAt
       deliveredAt
@@ -37,6 +47,9 @@ body:graphql {
         productId
         quantity
         price
+        taxAffectation
+        igvBase
+        igvAmount
       }
       shippingAddress {
         id
@@ -57,5 +70,5 @@ body:graphql:vars {
 }
 
 docs {
-  Fetch a single order. Requires owner (order.userId = JWT sub) or management access (sales-manager, customer-service). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.order
+  Fetch a single order including IGV breakdown (taxableAmount, exemptAmount, nonTaxableAmount, igvAmount) and per-line fiscal snapshot (taxAffectation, igvBase, igvAmount — immutable once written). Requires owner (order.userId = JWT sub) or management access (sales-manager, customer-service). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.order
 }

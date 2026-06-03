@@ -1,0 +1,42 @@
+meta {
+  name: Create Tax Rate Customer Token (ForbiddenError - Error Canary)
+  type: graphql
+  seq: 57
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateTaxRateCustomerCanary($input: CreateTaxRateInput!) {
+    createTaxRate(input: $input) {
+      id
+      name
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "Canary Tax",
+      "rate": 5,
+      "country": "CO",
+      "isActive": false
+    }
+  }
+}
+
+docs {
+  Regression canary: createTaxRate called with ACCESS_TOKEN belonging to a user in the customer group only (NOT administrators).
+  Expected: GraphQL error with code FORBIDDEN — tax rate creation requires administrators group.
+  Guard under test: requirePermission(ctx, 'manage:system') or requireGroup(ctx, 'administrators') in the createTaxRate resolver.
+  Schema: apps/order-service/src/graphql/schema.ts:Mutation.createTaxRate
+}

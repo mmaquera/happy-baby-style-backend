@@ -1,0 +1,57 @@
+meta {
+  name: Create Saved Payment Method
+  type: graphql
+  seq: 42
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateSavedPaymentMethod($input: CreateSavedPaymentMethodInput!) {
+    createSavedPaymentMethod(input: $input) {
+      id
+      userId
+      type
+      provider
+      lastFour
+      expiryMonth
+      expiryYear
+      cardholderName
+      isDefault
+      isActive
+      metadata
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "userId": "{{USER_ID}}",
+      "type": "credit_card",
+      "provider": "visa",
+      "lastFour": "4242",
+      "expiryMonth": 12,
+      "expiryYear": 2027,
+      "cardholderName": "Jane Doe",
+      "isDefault": true,
+      "metadata": {}
+    }
+  }
+}
+
+docs {
+  Saves a new payment method for a user. Guard: assertOwnerOrAdmin — userId in input must match token owner or caller must be admin.
+  PII financial data — Bearer token required. input.userId is the BOLA-checked field.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.createSavedPaymentMethod
+}

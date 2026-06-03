@@ -1,0 +1,49 @@
+meta {
+  name: Create Saved Payment Method (Wrong Owner - Error Canary)
+  type: graphql
+  seq: 50
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreatePaymentMethodWrongOwner($input: CreateSavedPaymentMethodInput!) {
+    createSavedPaymentMethod(input: $input) {
+      id
+      userId
+      type
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "userId": "00000000-0000-0000-0000-000000000001",
+      "type": "credit_card",
+      "provider": "visa",
+      "lastFour": "9999",
+      "expiryMonth": 1,
+      "expiryYear": 2026,
+      "cardholderName": "Not My Card",
+      "isDefault": false,
+      "metadata": {}
+    }
+  }
+}
+
+docs {
+  Regression canary: createSavedPaymentMethod with a userId that does NOT match the token owner.
+  ACCESS_TOKEN must belong to a regular customer (group: customer), not an admin.
+  Expected: GraphQL error with code FORBIDDEN or UNAUTHENTICATED — the operation must be rejected.
+  Guard under test: assertOwnerOrAdmin(context.currentUser, input.userId) in resolver.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.createSavedPaymentMethod
+}

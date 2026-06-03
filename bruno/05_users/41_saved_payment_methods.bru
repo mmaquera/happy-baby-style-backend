@@ -1,0 +1,47 @@
+meta {
+  name: Get Saved Payment Methods
+  type: graphql
+  seq: 41
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetSavedPaymentMethods($userId: ID!) {
+    savedPaymentMethods(userId: $userId) {
+      id
+      userId
+      type
+      provider
+      lastFour
+      expiryMonth
+      expiryYear
+      cardholderName
+      isDefault
+      isActive
+      metadata
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Lists saved payment methods for a user. Guard: assertOwnerOrAdmin — owner or administrators/customer-service only.
+  PII financial data — always requires Bearer token with owner or management role.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.savedPaymentMethods
+}

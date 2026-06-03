@@ -1,0 +1,38 @@
+meta {
+  name: Reject Review [MODERATE]
+  type: graphql
+  seq: 19
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation RejectReview($id: ID!) {
+    rejectReview(id: $id) {
+      id
+      productId
+      userId
+      rating
+      status
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_REVIEW_ID"
+  }
+}
+
+docs {
+  Transition a review to rejected status (state machine: pending → rejected). Requires reviews:moderate permission. Use ACCESS_TOKEN minted for a user in the customer-service or administrators group. Schema: apps/product-service/src/graphql/schema.ts:Mutation.rejectReview
+}

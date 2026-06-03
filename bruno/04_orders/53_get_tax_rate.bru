@@ -1,0 +1,41 @@
+meta {
+  name: Get Tax Rate by ID [ADMIN]
+  type: graphql
+  seq: 53
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetTaxRate($id: ID!) {
+    taxRate(id: $id) {
+      id
+      name
+      rate
+      country
+      state
+      city
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_TAX_RATE_ID"
+  }
+}
+
+docs {
+  Fetch a single tax rate by UUID. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Query.taxRate
+}

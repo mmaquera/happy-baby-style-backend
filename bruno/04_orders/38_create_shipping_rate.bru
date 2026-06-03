@@ -1,0 +1,48 @@
+meta {
+  name: Create Shipping Rate [ADMIN]
+  type: graphql
+  seq: 38
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateShippingRate($input: CreateShippingRateInput!) {
+    createShippingRate(input: $input) {
+      id
+      zoneId
+      name
+      minWeight
+      maxWeight
+      price
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "zoneId": "REPLACE_ME_ZONE_ID",
+      "name": "Envío estándar (hasta 2kg)",
+      "minWeight": 0,
+      "maxWeight": 2,
+      "price": 8500,
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Create a shipping rate for a given zone. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createShippingRate
+}

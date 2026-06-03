@@ -28,12 +28,25 @@ body:graphql {
       discountAmount
       totalAmount
       currency
+      billingDocumentType
+      billingDocumentNumber
+      billingLegalName
+      billingFirstName
+      billingLastName
+      billingAddressId
+      taxableAmount
+      exemptAmount
+      nonTaxableAmount
+      igvAmount
       createdAt
       items {
         id
         productId
         quantity
         price
+        taxAffectation
+        igvBase
+        igvAmount
       }
       shippingAddress {
         id
@@ -50,8 +63,8 @@ body:graphql {
 body:graphql:vars {
   {
     "input": {
-      "customerName": "María García",
-      "customerPhone": "+57 300 123 4567",
+      "customerName": "Empresa Comercial SAC",
+      "customerPhone": "+51 1 234 5678",
       "items": [
         {
           "productId": "{{PRODUCT_ID}}",
@@ -61,11 +74,16 @@ body:graphql:vars {
         }
       ],
       "shippingAddress": {
-        "street": "Cra 15 # 93-47",
-        "city": "Bogotá",
-        "state": "Cundinamarca",
-        "zipCode": "110221",
-        "country": "CO"
+        "street": "Av. Javier Prado Este 4200",
+        "city": "Lima",
+        "state": "Lima",
+        "zipCode": "15023",
+        "country": "PE"
+      },
+      "billingData": {
+        "documentType": "ruc",
+        "documentNumber": "20100070970",
+        "legalName": "Empresa Comercial SAC"
       }
     }
   }
@@ -76,4 +94,8 @@ script:post-response {
   if (id) {
     bru.setEnvVar("ORDER_ID", id);
   }
+}
+
+docs {
+  Creates an order with RUC billing data. IGV breakdown (taxableAmount, exemptAmount, nonTaxableAmount, igvAmount) is calculated server-side from each product's taxAffectation — do NOT pass taxAffectation in CreateOrderItemInput (anti-manipulation). Price is IGV-inclusive for gravado lines; igvRate sourced from StoreSettings. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createOrder
 }

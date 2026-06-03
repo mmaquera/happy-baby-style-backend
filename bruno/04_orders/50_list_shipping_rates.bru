@@ -1,0 +1,41 @@
+meta {
+  name: List Shipping Rates by Zone
+  type: graphql
+  seq: 50
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ListShippingRates($zoneId: ID!) {
+    shippingRates(zoneId: $zoneId) {
+      id
+      zoneId
+      name
+      minWeight
+      maxWeight
+      price
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "zoneId": "REPLACE_ME_ZONE_ID"
+  }
+}
+
+docs {
+  List all shipping rates for a given zone. Requires management access (administrators, sales-manager). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.shippingRates
+}

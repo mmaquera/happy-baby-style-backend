@@ -1,0 +1,39 @@
+meta {
+  name: Get Signed Image URL
+  type: graphql
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}
+}
+
+body:graphql {
+  query SignedImageUrl($id: ID!, $ttl: Int) {
+    signedImageUrl(id: $id, ttl: $ttl) {
+      success
+      message
+      code
+      data {
+        signedUrl
+        ttl
+        imageId
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_IMAGE_ID",
+    "ttl": 300
+  }
+}
+
+docs {
+  Returns a presigned (or public) URL for downloading an image by its id.
+  ttl is clamped server-side to [60, 3600] seconds regardless of the value passed; default is 300 s.
+  Valid ttl range to pass: 60–3600 (values outside this range are silently clamped, not rejected).
+  Currently public — no auth required (bucket is public). A JWT guard will be added when the bucket turns private (Fase 4b per media-service roadmap).
+  Schema: apps/media-service/src/graphql/schema.ts:Query.signedImageUrl, type SignedUrlResponse
+}

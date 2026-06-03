@@ -1,0 +1,48 @@
+meta {
+  name: Create Shipping Zone [ADMIN]
+  type: graphql
+  seq: 35
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateShippingZone($input: CreateShippingZoneInput!) {
+    createShippingZone(input: $input) {
+      id
+      name
+      countries
+      states
+      cities
+      postalCodes
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "name": "Colombia - Bogotá Metropolitana",
+      "countries": ["CO"],
+      "states": ["Cundinamarca"],
+      "cities": ["Bogotá", "Soacha", "Chía"],
+      "postalCodes": [],
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Create a new shipping zone. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createShippingZone
+}

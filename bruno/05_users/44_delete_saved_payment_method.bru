@@ -1,0 +1,36 @@
+meta {
+  name: Delete Saved Payment Method
+  type: graphql
+  seq: 44
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteSavedPaymentMethod($id: ID!) {
+    deleteSavedPaymentMethod(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_PAYMENT_METHOD_ID"
+  }
+}
+
+docs {
+  Deletes a saved payment method. Guard: owner-or-admin enforced inside use case (CWE-203: non-owned records return success=false/not-found, same as absent records).
+  Bearer token required — unauthenticated calls return success=false immediately.
+  Schema: apps/user-service/src/graphql/schema.ts:Mutation.deleteSavedPaymentMethod
+}

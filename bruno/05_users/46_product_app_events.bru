@@ -1,0 +1,45 @@
+meta {
+  name: Get Product App Events
+  type: graphql
+  seq: 46
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetProductAppEvents($productId: ID!) {
+    productAppEvents(productId: $productId) {
+      id
+      userId
+      sessionId
+      eventType
+      eventData
+      productId
+      categoryId
+      deviceInfo
+      userAgent
+      ipAddress
+      createdAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "productId": "{{PRODUCT_ID}}"
+  }
+}
+
+docs {
+  Returns app events for a specific product (page views, add-to-cart, etc.). No auth guard on resolver (public analytics).
+  Requires Bearer token because all gateway requests are authenticated; productId must be a known product UUID.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.productAppEvents
+}

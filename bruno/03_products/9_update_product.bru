@@ -31,6 +31,7 @@ body:graphql {
           salePrice
           stockQuantity
           isActive
+          taxAffectation
         }
       }
     }
@@ -42,7 +43,12 @@ body:graphql:vars {
     "id": "{{PRODUCT_ID}}",
     "input": {
       "salePrice": 38000,
-      "stockQuantity": 45
+      "stockQuantity": 45,
+      "taxAffectation": "exonerado"
     }
   }
+}
+
+docs {
+  Updates a product — demonstrates changing taxAffectation from gravado to exonerado. Requires products:write permission (inventory-user, administrators). Schema: apps/product-service/src/graphql/schema.ts:Mutation.updateProduct
 }

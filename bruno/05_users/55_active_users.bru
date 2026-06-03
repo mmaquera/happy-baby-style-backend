@@ -1,0 +1,40 @@
+meta {
+  name: Active Users [ADMIN]
+  type: graphql
+  seq: 55
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query ActiveUsers {
+    activeUsers {
+      id
+      email
+      isActive
+      emailVerified
+      lastLoginAt
+      createdAt
+      profile {
+        firstName
+        lastName
+        fullName
+      }
+    }
+  }
+}
+
+docs {
+  Returns all currently active users. Guard: requireUserManagementAccess — administrators or customer-service group required.
+  Added auth guard in Ola 3. Note: no pagination on this resolver — returns all active users as a list.
+  ACCESS_TOKEN must belong to administrators or customer-service group.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.activeUsers
+}

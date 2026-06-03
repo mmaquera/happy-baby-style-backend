@@ -1,0 +1,50 @@
+meta {
+  name: Get Coupon by ID [ADMIN]
+  type: graphql
+  seq: 47
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetCoupon($id: ID!) {
+    coupon(id: $id) {
+      id
+      code
+      name
+      description
+      discountType
+      discountValue
+      minimumAmount
+      maximumDiscount
+      usageLimit
+      usedCount
+      validFrom
+      validUntil
+      isActive
+      isFirstTimeOnly
+      applicableCategories
+      applicableProducts
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_COUPON_ID"
+  }
+}
+
+docs {
+  Fetch a single coupon by UUID. Requires management access (sales-manager, administrators). Permission: orders:read. Schema: apps/order-service/src/graphql/schema.ts:Query.coupon
+}

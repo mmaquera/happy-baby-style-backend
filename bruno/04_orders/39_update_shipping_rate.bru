@@ -1,0 +1,44 @@
+meta {
+  name: Update Shipping Rate [ADMIN]
+  type: graphql
+  seq: 39
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation UpdateShippingRate($id: ID!, $input: UpdateShippingRateInput!) {
+    updateShippingRate(id: $id, input: $input) {
+      id
+      zoneId
+      name
+      minWeight
+      maxWeight
+      price
+      isActive
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_RATE_ID",
+    "input": {
+      "price": 9000,
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Update an existing shipping rate. All fields in UpdateShippingRateInput are optional. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.updateShippingRate
+}

@@ -1,0 +1,56 @@
+meta {
+  name: Get User Profile
+  type: graphql
+  seq: 56
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  query GetUserProfile($userId: ID!) {
+    userProfile(userId: $userId) {
+      id
+      email
+      firstName
+      lastName
+      phone
+      dateOfBirth
+      avatar
+      emailVerified
+      isActive
+      fullName
+      lastLoginAt
+      createdAt
+      updatedAt
+      addresses {
+        id
+        type
+        address1
+        city
+        state
+        country
+        isDefault
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "userId": "{{USER_ID}}"
+  }
+}
+
+docs {
+  Returns the UserProfile for a given userId. Guard: owner or user-management roles (administrators, customer-service) only.
+  Non-owner callers receive null to prevent user enumeration (CWE-203). Added auth guard in Ola 3.
+  Schema: apps/user-service/src/graphql/schema.ts:Query.userProfile
+}

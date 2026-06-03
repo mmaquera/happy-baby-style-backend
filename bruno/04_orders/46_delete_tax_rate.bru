@@ -1,0 +1,34 @@
+meta {
+  name: Delete Tax Rate [ADMIN]
+  type: graphql
+  seq: 46
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation DeleteTaxRate($id: ID!) {
+    deleteTaxRate(id: $id) {
+      success
+      message
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "REPLACE_ME_TAX_RATE_ID"
+  }
+}
+
+docs {
+  Delete a tax rate by ID. Returns SuccessResponse — a non-existent ID returns { success: true } (anti-enumeration). Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.deleteTaxRate
+}

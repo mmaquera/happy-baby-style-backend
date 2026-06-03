@@ -23,6 +23,18 @@ body:graphql {
           image
           isActive
           sortOrder
+          parentCategoryId
+          parent {
+            id
+            name
+            slug
+          }
+          children {
+            id
+            name
+            slug
+            isActive
+          }
           createdAt
           updatedAt
         }

@@ -1,0 +1,46 @@
+meta {
+  name: Create Delivery Slot [ADMIN]
+  type: graphql
+  seq: 41
+}
+
+post {
+  url: {{BASE_URL}}
+  body: graphql
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+body:graphql {
+  mutation CreateDeliverySlot($input: CreateDeliverySlotInput!) {
+    createDeliverySlot(input: $input) {
+      id
+      dayOfWeek
+      startTime
+      endTime
+      maxOrders
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "input": {
+      "dayOfWeek": 1,
+      "startTime": "09:00",
+      "endTime": "12:00",
+      "maxOrders": 30,
+      "isActive": true
+    }
+  }
+}
+
+docs {
+  Create a delivery time slot. dayOfWeek: 0=Sunday, 1=Monday ... 6=Saturday. Requires administrators group. Permission: manage:system. Schema: apps/order-service/src/graphql/schema.ts:Mutation.createDeliverySlot
+}
